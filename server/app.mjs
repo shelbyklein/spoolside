@@ -17,6 +17,8 @@ export function createApp({
   origin = "https://spoolside.shelbyklein.com",
   secure = true,
   proxyAddress,
+  workspace,
+  printers,
 } = {}) {
   if (
     !username ||
@@ -31,6 +33,7 @@ export function createApp({
   const app = express();
   app.disable("x-powered-by");
   app.use(express.urlencoded({ extended: false, limit: "4kb" }));
+  app.use(express.json({ limit: "2mb" }));
   const attempts = new Map();
   const cookieName = secure ? "__Host-spoolside" : "spoolside";
   app.use((req, res, next) => {
@@ -150,12 +153,45 @@ export function createApp({
   });
   app.get("/api/status", (_req, res) =>
     res.json({
-      mode: "demo",
+      mode: workspace ? "live" : "demo",
       host: "beelink",
-      orders: { source: "https://playcase.gg", connected: false },
-      printers: { connected: false },
+      orders: {
+        source: "https://playcase.gg",
+        connected: !!workspace?.state.lastSync,
+        lastSync: workspace?.state.lastSync || null,
+        error: workspace?.state.syncError || null,
+      },
+      printers: {
+        connected: printers?.snapshot().filter((p) => p.connected).length || 0,
+        total: printers?.configs.length || 0,
+      },
     }),
   );
+  app.get("/api/workspace", (_req, res) =>
+    workspace
+      ? res.json({
+          ...workspace.snapshot(),
+          machines: printers?.snapshot() || [],
+        })
+      : res.status(503).json({ error: "Live connections unavailable" }),
+  );
+  app.put("/api/workspace", (req, res) => {
+    if (!workspace)
+      return res.status(503).json({ error: "Live connections unavailable" });
+    try {
+      res.json({
+        ...workspace.update(req.body),
+        machines: printers?.snapshot() || [],
+      });
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message });
+    }
+  });
+  app.post("/api/sync", async (_req, res) => {
+    if (!workspace) return res.sendStatus(503);
+    await workspace.sync();
+    res.json({ ...workspace.snapshot(), machines: printers?.snapshot() || [] });
+  });
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "Endpoint not found" }),
   );

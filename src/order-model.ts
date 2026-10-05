@@ -28,7 +28,9 @@ export type Order = {
   id: string;
   number: string;
   placed: string;
-  commercial: "Processing" | "Cancelled";
+  commercial: string;
+  refundReview?: boolean;
+  sourceReview?: boolean;
   items: OrderItem[];
   assembled: boolean;
   packed: boolean;
@@ -146,8 +148,19 @@ export function partsComplete(order: Order, jobs: Job[]) {
     )
   );
 }
+export function productionAllowed(order: Order) {
+  return (
+    ["Processing", "processing"].includes(order.commercial) &&
+    !order.refundReview && !order.sourceReview
+  );
+}
 export function orderStage(order: Order, jobs: Job[]) {
-  if (order.commercial === "Cancelled") return "Cancelled";
+  if (
+    ["Cancelled", "cancelled", "refunded", "failed"].includes(order.commercial)
+  )
+    return "Cancelled";
+  if (["completed", "delivered"].includes(order.commercial)) return "Fulfilled in store";
+  if (!productionAllowed(order)) return "On hold";
   if (order.items.some((i) => !i.recipe.length)) return "Needs mapping";
   if (order.shipped && partsComplete(order, jobs)) return "Shipped";
   if (partsComplete(order, jobs))
@@ -167,10 +180,7 @@ export function buildMissingJobs(
   jobs: Job[],
   printer: string,
 ): Job[] {
-  if (
-    order.commercial === "Cancelled" ||
-    order.items.some((i) => !i.recipe.length)
-  )
+  if (!productionAllowed(order) || order.items.some((i) => !i.recipe.length))
     return [];
   return componentsFor(order).flatMap((p) => {
     const covered = jobs

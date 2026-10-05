@@ -10,3 +10,6 @@ playwright-report/
 deploy/tunnel/*.json
 handoff/*credentials*
 *.sqlite*
+deploy/woocommerce.json
+deploy/printers.json
+backups/

@@ -1,6 +1,6 @@
 # Spoolside
 
-An installable online dashboard for a Bambu Lab A1 mini fleet, intended for **spoolside.shelbyklein.com**. The first version is a working **demo**: all printer telemetry and pause/resume controls are simulated. Queue, printer state, and filament inventory persist in this browser's local storage.
+An installable dashboard at **https://spoolside.shelbyklein.com**, hosted on Beelink. The hosted workspace reads PlayCase WooCommerce orders and live LAN telemetry from three A1 mini printers. Production notes, component recipes, jobs and fulfillment checks persist in server-side SQLite. Local preview remains a clearly labeled demo.
 
 ## Run
 
@@ -40,24 +40,20 @@ Spoolside is deployed at https://spoolside.shelbyklein.com from `/srv/projects/s
 The server requires a password login, hashes passwords with scrypt, stores hashed session tokens in SQLite, uses secure HttpOnly SameSite cookies, checks POST origins, and rate-limits failed logins per visitor. It accepts Cloudflare client IP only from the configured Docker gateway; set `SPOOLSIDE_PROXY_ADDRESS` from the actual project network. Logout awaits service-worker/cache cleanup before navigation. Bootstrap credentials remain outside Git in restricted files. `deploy/.env.example` describes required environment values; live `.env` and tunnel credentials must never be committed.
 
 ```sh
-node --test server/server.test.mjs
+node --test server/*.test.mjs
 # On Beelink, from /srv/projects/spoolside/deploy:
 docker compose -f compose.yaml -f tunnel-compose.yaml up -d --build
 ```
 
-Server state uses the `spoolside_spoolside-data` volume. Existing Beelink backups exclude Docker volumes; arrange a SQLite-aware backup before storing real production/order records here. Current database stores login sessions only. Demo order/printer changes remain browser-local and aren't shared between Mac and iPhone. Cached offline demo UI isn't private customer data; real customer API responses must never be added to the service-worker cache.
+Server state uses the `spoolside_spoolside-data` volume. Consistent SQLite backups are written hourly and on graceful shutdown to `/srv/projects/spoolside/backups`, retaining 48 hourly copies under the existing Beelink backup root. API responses are never service-worker cached and hosted records are not saved to localStorage.
 
-No printer credentials or WooCommerce customer records are collected yet.
+## Live connections
 
-## PlayCase orders
+The dedicated WooCommerce key is read-only. Orders sync every minute with pagination; the import contains order numbers, dates, commercial status, items, variants, quantities and refund indicators, without billing, shipping-address or payment fields. A failed sync retains the last successful snapshot. Active orders are the mobile default; completed and delivered orders appear as fulfilled in store. Refunds and non-processing statuses hold production work.
 
-Spoolside will also manage PlayCase orders. The demo now links sample orders to print jobs and tracks production, fulfillment, and local shipping references. Orders will originate in WooCommerce at https://playcase.gg. Connection credentials and customer-data handling need to be defined before implementation; the dashboard does not yet import live WooCommerce orders.
+Private `deploy/woocommerce.json` and `deploy/printers.json` are mounted read-only under `/run/spoolside`. They are excluded from Git. Each printer connection uses MQTT TLS with a pinned certificate and fingerprint; snapshot requests read status only. The UI refreshes every ten seconds, with printer reports considered stale after 90 seconds. New printer certificates require deliberate configuration updates.
 
-## Live printer phase
-
-A hosted browser cannot directly reach printers on a private LAN. The next phase needs an authenticated bridge on an always-on computer on that LAN, plus an online service for authorization and status delivery. Verify current A1 mini firmware/LAN protocol and remote-control support before implementing. Keep printer access codes on the bridge, authenticate every workspace, separate commands from telemetry, and show stale/disconnected status. Remote commands require explicit UI actions and server-side authorization. Never expose printers directly to the public internet.
-
-This version does not provide slicing, upload-to-printer, cloud synchronization, multi-user accounts, cameras, or live commands. Do not mistake the demo's manually entered queue for the printer's own queue.
+Production records belong to Spoolside: assembly, packing and tracking edits do not change WooCommerce. Queue records do not start printer jobs or mirror a printer's physical queue. Printer controls, camera, slicing/upload, multiple users and phone notifications remain pending. See `instructions/live-connections.md` for validation and rollback.
 
 ## Artwork
 

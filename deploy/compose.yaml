@@ -9,6 +9,9 @@ services:
       - "127.0.0.1:3110:3000"
     volumes:
       - spoolside-data:/data
+      - ./woocommerce.json:/run/spoolside/woocommerce.json:ro
+      - ./printers.json:/run/spoolside/printers.json:ro
+      - ../backups:/backups
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]

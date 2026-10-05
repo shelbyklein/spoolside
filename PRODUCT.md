@@ -17,16 +17,16 @@ A single online workshop dashboard for monitoring printers and managing PlayCase
 Primary access is an iPhone 12 Pro Max, used for a quick look at PlayCase orders. Design the order overview and actionable states for that device first. Phone notifications are confirmed scope; notification events and preferences remain to be finalized. iOS Web Push requires a supported iOS version, an installed Home Screen PWA, and explicit notification permission.
 
 ## Operating Context
-Hosting: Beelink home server. Intended online home: https://spoolside.shelbyklein.com. Repository: https://github.com/shelbyklein/spoolside. The first version uses clearly labeled demo data. Real local-network printer access requires a separate bridge; its implementation and credentials are not part of this version.
+Hosting: Beelink home server at https://spoolside.shelbyklein.com. Repository: https://github.com/shelbyklein/spoolside. Local preview uses demo data; hosted access uses real orders and printer telemetry.
 
 ## Capabilities and Constraints
-Responsive fleet overview; printer details; simulated pause/resume; editable job queue; filament inventory; locally persisted demo changes; installable and offline-capable app shell. No actual printer commands are sent. Demo PlayCase order management is implemented: searchable/filterable sample orders, quantity-aware component mapping, linked print jobs, accepted/failed print records, replacement jobs, assembly and packing checks, local tracking references and production notes. Cancelled orders cannot queue or ship; finished/failed/cancelled jobs leave the active queue but retain order history. Live order import remains pending. Confirmed order source: WooCommerce at https://playcase.gg. Product variants, customer data fields, and shipping integration are open decisions. Password-protected single-user hosting is deployed on Beelink. Cloud synchronization, multi-user accounts, the live printer bridge, and phone notification delivery remain subsequent work.
+Password-protected single-user PWA. Read-only PlayCase WooCommerce orders sync every minute. Three LAN A1 mini printers report pinned-TLS MQTT telemetry with stale/error states. Hosted production recipes, jobs, notes, assembly/packing checks and tracking references persist in SQLite and are shared across devices. No billing/address/payment fields are imported. No Woo writes or physical printer commands are sent. Active orders open by default on phone. Filament inventory starts empty; manual queue jobs accept material and color text until inventory setup is added. Consistent database backups retain 48 hourly copies. Camera, slicing/upload, multi-user accounts and phone notification delivery remain pending.
 
 ## Brand Commitments
 Spoolside name and user-supplied spool floating in water image, preserved at public/spoolside.png. The image supplies turquoise, orange, and navy identity.
 
 ## Evidence on Hand
-Implemented demo PWA with verified local browser flows. User-supplied artwork. No live printer credentials, verified telemetry, or authenticated WooCommerce order import yet.
+Implemented demo PWA with verified local browser flows. User-supplied artwork. Authenticated WooCommerce import and three live printers verified on Beelink; public mobile screenshots in handoff/.
 
 ## Product Principles
 Make active work easy to scan. Keep simulated and live data unmistakable. Surface actionable printer states. Keep routine operations usable on phone and desktop.

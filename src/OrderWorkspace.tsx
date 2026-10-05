@@ -19,10 +19,12 @@ import {
   componentsFor,
   acceptedUnits,
   partsComplete,
+  productionAllowed,
   buildMissingJobs,
 } from "./order-model";
 export { initialOrders };
 type Props = {
+  live?: boolean;
   openOrderId: string | null;
   orders: Order[];
   setOrders: (orders: Order[]) => void;
@@ -33,6 +35,7 @@ type Props = {
   showQueue: () => void;
 };
 export function Orders({
+  live = false,
   openOrderId,
   orders,
   setOrders,
@@ -43,7 +46,7 @@ export function Orders({
   showQueue,
 }: Props) {
   const [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("All orders"),
+    [filter, setFilter] = useState(live ? "Active orders" : "All orders"),
     [expanded, setExpanded] = useState<string | null>(
       openOrderId ||
         (window.matchMedia("(max-width: 760px)").matches ? null : "demo-1042"),
@@ -55,13 +58,16 @@ export function Orders({
     setJobs([...jobs, ...newJobs]);
     notify(
       newJobs.length
-        ? `${newJobs.length} component jobs added to the demo queue.`
+        ? `${newJobs.length} component jobs added to the production queue.`
         : "All required components already have a job.",
     );
   };
   const visible = orders.filter(
     (o) =>
-      (filter === "All orders" || orderStage(o, jobs) === filter) &&
+      (filter === "All orders" ||
+        (filter === "Active orders"
+          ? productionAllowed(o)
+          : orderStage(o, jobs) === filter)) &&
       `${o.number} ${o.items.map((i) => `${i.name} ${i.variant}`).join(" ")}`
         .toLowerCase()
         .includes(search.toLowerCase()),
@@ -72,9 +78,15 @@ export function Orders({
         <ShoppingBag size={21} />
         <div>
           <strong>PlayCase / WooCommerce</strong>
-          <p>playcase.gg · connection pending</p>
+          <p>
+            {live
+              ? "playcase.gg · read-only import"
+              : "playcase.gg · connection pending"}
+          </p>
         </div>
-        <span className="sample-label">Sample orders</span>
+        <span className="sample-label">
+          {live ? "Live orders" : "Sample orders"}
+        </span>
         <a
           href="https://playcase.gg/wp-admin/edit.php?post_type=shop_order"
           target="_blank"
@@ -84,9 +96,9 @@ export function Orders({
         </a>
       </div>
       <p className="sample-disclaimer">
-        These are illustrative orders and component recipes, not your store’s
-        catalog or customer records. Changes stay in this browser and never
-        update WooCommerce.
+        {live
+          ? "Production changes save to the Beelink and do not update WooCommerce. Store order status remains the source of truth."
+          : "These are illustrative orders and component recipes, not your store’s catalog or customer records. Changes stay in this browser and never update WooCommerce."}
       </p>
       <div className="orders-toolbar">
         <label className="search-field">
@@ -105,6 +117,7 @@ export function Orders({
         >
           {[
             "All orders",
+            ...(live ? ["Active orders", "On hold", "Fulfilled in store"] : []),
             "Needs mapping",
             "To queue",
             "Queued",
@@ -143,7 +156,7 @@ export function Orders({
           const stage = orderStage(order, jobs),
             open = expanded === order.id,
             complete = partsComplete(order, jobs),
-            cancelled = order.commercial === "Cancelled",
+            cancelled = !productionAllowed(order),
             linked = jobs.filter((j) => j.orderId === order.id),
             parts = componentsFor(order);
           return (
@@ -159,10 +172,13 @@ export function Orders({
                   <small>{order.placed}</small>
                 </span>
                 <span className="order-product">
-                  {order.items[0].name}
+                  {order.items[0]?.name || "No line items"}
                   <small>
                     {order.items.reduce((n, i) => n + i.quantity, 0)} units ·{" "}
-                    {order.items[0].variant.replace("Sample variant · ", "")}
+                    {(order.items[0]?.variant || "").replace(
+                      "Sample variant · ",
+                      "",
+                    )}
                   </small>
                 </span>
                 <span
@@ -180,12 +196,20 @@ export function Orders({
                     </span>
                     <span>Production status is tracked separately.</span>
                   </div>
+                  {order.sourceReview && (
+                    <div className="order-warning">
+                      <AlertCircle size={17} />
+                      <span>Store items changed. Review quantities, variants and existing print records before continuing.</span>
+                      <button className="text-button" onClick={() => { if (window.confirm("Have you reviewed changed store items and existing print records?")) update(order.id, {sourceReview: false}); }}>Confirm review</button>
+                    </div>
+                  )}
                   {cancelled && (
                     <div className="order-warning">
                       <AlertCircle size={17} />
                       <span>
-                        This sample order is cancelled. New jobs and fulfillment
-                        are disabled. Any started parts need review.
+                        {live
+                          ? "Production is on hold. Review payment, cancellation or refund status in WooCommerce before continuing. Existing prints need review."
+                          : "This sample order is cancelled. New jobs and fulfillment are disabled. Any started parts need review."}
                       </span>
                     </div>
                   )}
@@ -206,7 +230,9 @@ export function Orders({
                                   <span>
                                     {r.component}
                                     <small>
-                                      {r.material} · sample estimate {r.time}
+                                      {r.material} ·{" "}
+                                      {live ? "estimate" : "sample estimate"}{" "}
+                                      {r.time}
                                     </small>
                                   </span>
                                   <span>
@@ -236,7 +262,7 @@ export function Orders({
                                   ),
                                 });
                                 notify(
-                                  "Component mapping saved for this sample order.",
+                                  "Component mapping saved for this order.",
                                 );
                               }}
                             />
@@ -314,7 +340,7 @@ export function Orders({
                                         shipped: false,
                                       });
                                     notify(
-                                      "Demo print job updated. No printer command was sent.",
+                                      "Production print record updated. No printer command was sent.",
                                     );
                                   }}
                                 >
@@ -372,7 +398,11 @@ export function Orders({
                       <label className="tracking-field">
                         Tracking reference
                         <input
-                          placeholder="Optional demo tracking reference"
+                          placeholder={
+                            live
+                              ? "Optional tracking reference"
+                              : "Optional demo tracking reference"
+                          }
                           value={order.tracking}
                           disabled={cancelled || order.shipped}
                           onChange={(e) =>
@@ -392,7 +422,7 @@ export function Orders({
                         onClick={() => {
                           update(order.id, { shipped: true });
                           notify(
-                            "Sample order marked shipped locally. WooCommerce was not changed.",
+                            "Production shipment recorded. WooCommerce was not changed.",
                           );
                         }}
                       >
@@ -402,15 +432,19 @@ export function Orders({
                           <PackageCheck size={17} />
                         )}{" "}
                         {order.shipped
-                          ? "Shipped in demo"
-                          : "Mark demo order shipped"}
+                          ? live
+                            ? "Shipment recorded"
+                            : "Shipped in demo"
+                          : live
+                            ? "Record shipment"
+                            : "Mark demo order shipped"}
                       </button>
                       {order.shipped && (
                         <button
                           className="text-button"
                           onClick={() => update(order.id, { shipped: false })}
                         >
-                          Undo demo shipment
+                          {live ? "Undo shipment record" : "Undo demo shipment"}
                         </button>
                       )}
                       <p className="fulfillment-note">
@@ -427,7 +461,7 @@ export function Orders({
                           }
                         />
                       </label>
-                      {!cancelled && !order.shipped && (
+                      {!live && !cancelled && !order.shipped && (
                         <button
                           className="text-button danger-text"
                           onClick={() => {

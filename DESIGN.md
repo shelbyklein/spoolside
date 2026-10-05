@@ -26,3 +26,6 @@ Orders reuse the same reading surface and navy navigation. Search and stage filt
 
 ## Phone and hosted entry
 Primary target is iPhone12 Pro Max, 428×926 CSS pixels. Mobile opens the compact Orders list with details collapsed; desktop keeps the fuller default view. Home Screen layouts reserve top/bottom safe areas; mobile order filter/search controls have at least 44px height. Hosted login uses supplied artwork, navy background, pale reading surface and self-hosted Manrope heading. Server sessions protect hosted access; sample-data labeling remains visible.
+
+## Live workspace
+Hosted views use real order and printer data with explicit sync/save/error states. Phone defaults to Active orders. Technical form metadata yields to friendly fulfillment fields. Printer illustrations and simulated controls are omitted from live views; last report time and stale status identify telemetry freshness. Local preview retains demo behavior.

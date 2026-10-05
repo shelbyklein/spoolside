@@ -32,18 +32,9 @@ import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
 import { Orders, initialOrders } from "./OrderWorkspace";
-import { type Job, type Order } from "./order-model";
+import { type Job, type Order, productionAllowed } from "./order-model";
+import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
 
-type Spool = { id: string; name: string; color: string; remaining: number };
-type Machine = {
-  id: string;
-  name: string;
-  state: "Printing" | "Paused" | "Ready" | "Offline";
-  job: string;
-  progress: number;
-  remaining: string;
-  material: string;
-};
 const initialMachines: Machine[] = [
   {
     id: "1",
@@ -111,9 +102,10 @@ const initialSpools: Spool[] = [
   { id: "c", name: "Cloud white", color: "#d9dedc", remaining: 820 },
   { id: "d", name: "Midnight", color: "#233e56", remaining: 120 },
 ];
-function useSaved<T>(key: string, initial: T) {
+function useSaved<T>(key: string, initial: T, enabled = true) {
   const [value, setValue] = useState<T>(() => {
     try {
+      if (!enabled) return initial;
       const saved = localStorage.getItem(key);
       return saved ? JSON.parse(saved) : initial;
     } catch {
@@ -121,8 +113,8 @@ function useSaved<T>(key: string, initial: T) {
     }
   });
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value]);
+    if (enabled) localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value, enabled]);
   return [value, setValue] as const;
 }
 const tabs = [
@@ -134,20 +126,42 @@ const tabs = [
   { name: "Settings", icon: Settings },
 ];
 function App() {
+  const remote = window.location.hostname === "spoolside.shelbyklein.com";
+  const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
   const [tab, setTab] = useState(
       window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview",
     ),
-    [machines, setMachines] = useSaved(
+    [demoMachines, setMachines] = useSaved(
       "spoolside-machines-v1",
       initialMachines,
+      !remote,
     ),
-    [jobs, setJobs] = useSaved("spoolside-jobs-v1", initialJobs),
-    [orders, setOrders] = useSaved<Order[]>(
+    [demoJobs, setDemoJobs] = useSaved(
+      "spoolside-jobs-v1",
+      initialJobs,
+      !remote,
+    ),
+    [demoOrders, setDemoOrders] = useSaved<Order[]>(
       "spoolside-orders-v1",
       initialOrders,
+      !remote,
     ),
-    [spools, setSpools] = useSaved("spoolside-spools-v1", initialSpools);
+    [demoSpools, setDemoSpools] = useSaved(
+      "spoolside-spools-v1",
+      initialSpools,
+      !remote,
+    );
+  const machines = remote ? live.data.machines : demoMachines,
+    jobs = remote ? live.data.jobs : demoJobs,
+    orders = remote ? live.data.orders : demoOrders,
+    spools = remote ? live.data.spools : demoSpools;
+  const setJobs = (value: Job[]) =>
+    remote ? live.update("jobs", value) : setDemoJobs(value);
+  const setOrders = (value: Order[]) =>
+    remote ? live.update("orders", value) : setDemoOrders(value);
+  const setSpools = (value: Spool[]) =>
+    remote ? live.update("spools", value) : setDemoSpools(value);
   const [focusedOrder, setFocusedOrder] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null),
     [adding, setAdding] = useState(false),
@@ -195,6 +209,10 @@ function App() {
       machines[0],
     current = machines.find((m) => m.id === selected);
   const toggle = (id: string) => {
+    if (remote) {
+      setNotice("Live printer controls are not enabled yet.");
+      return;
+    }
     setMachines(
       machines.map((m) =>
         m.id === id
@@ -212,12 +230,16 @@ function App() {
       return;
     }
     setJobs(jobs.filter((j) => j.id !== id));
-    setNotice("Job removed from your demo queue.");
+    setNotice(
+      remote
+        ? "Job removed from the production queue."
+        : "Job removed from your demo queue.",
+    );
   };
   const queueJobs = jobs.filter(
     (j) =>
       !j.orderId ||
-      (orders.find((o) => o.id === j.orderId)?.commercial !== "Cancelled" &&
+      (orders.some((o) => o.id === j.orderId && productionAllowed(o)) &&
         (j.state === "Queued" || j.state === "Printing")),
   );
   const queue = (
@@ -258,7 +280,11 @@ function App() {
               },
             ]);
             setAdding(false);
-            setNotice("Added to your demo queue.");
+            setNotice(
+              remote
+                ? "Added to the production queue."
+                : "Added to your demo queue.",
+            );
           }}
         >
           <label>
@@ -272,11 +298,7 @@ function App() {
           </label>
           <label>
             Filament
-            <select name="material">
-              {spools.map((s) => (
-                <option key={s.id}>{s.name} PLA</option>
-              ))}
-            </select>
+            {spools.length ? <select name="material">{spools.map(s => <option key={s.id}>{s.name}</option>)}</select> : <input name="material" required placeholder="Material and color, e.g. Black PLA" maxLength={100} />}
           </label>
           <label>
             Printer
@@ -406,6 +428,7 @@ function App() {
           <ArrowUpRight size={19} />
         </button>
       </div>
+      {spools.length === 0 && <div className="empty"><p>No filament inventory recorded. Enter material and color when adding a job.</p></div>}
       {spools.map((s) => (
         <div className="spool-row" key={s.id}>
           <div
@@ -520,7 +543,9 @@ function App() {
             <ChevronRight size={14} /> {tab}
           </span>
           <div className="top-actions">
-            <span className="demo-pill">Demo workspace</span>
+            <span className="demo-pill">
+              {remote ? "Live workshop" : "Demo workspace"}
+            </span>
             {online ? <Wifi size={17} /> : <WifiOff size={17} />}
           </div>
         </header>
@@ -569,16 +594,35 @@ function App() {
           <div className="demo-banner">
             <Box size={16} />
             <span>
-              You’re exploring a demo. Printer readings and controls are
-              simulated. PlayCase orders are sample data.
+              {remote
+                ? `WooCommerce orders + LAN printer status. ${live.saving ? "Saving production changes…" : live.data.lastSync ? "Store checked " + new Date(live.data.lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Waiting for first store sync."}`
+                : "You’re exploring a demo. Printer readings and controls are simulated. PlayCase orders are sample data."}
             </span>
-            <button onClick={() => setTab("Settings")}>
-              Connect your printers <ArrowUpRight size={14} />
+            <button onClick={() => (remote ? live.sync() : setTab("Settings"))}>
+              {remote ? "Refresh orders" : "Connect your printers"}
+              <ArrowUpRight size={14} />
             </button>
           </div>
+          {remote && live.error && (
+            <div className="live-error" role="alert">
+              <span>{live.error}</span>
+              <button onClick={live.retry}>Retry</button>
+              <button onClick={live.reload}>Reload server state</button>
+            </div>
+          )}
+          {remote && live.data.syncError && (
+            <div className="live-error" role="status">
+              {live.data.syncError}. Last successful orders are retained.
+            </div>
+          )}
+          {remote && live.loading && (
+            <div className="empty">Loading your workshop…</div>
+          )}
           {!online && (
             <div className="offline-note">
-              You’re offline. Your saved demo workspace is still available.
+              {remote
+                ? "You’re offline. Live data cannot refresh and production changes cannot be saved until connection returns."
+                : "You’re offline. Your saved demo workspace is still available."}
             </div>
           )}
           {(tab === "Overview" || tab === "Printers") && (
@@ -606,7 +650,7 @@ function App() {
                     : "fleet-layout filtered"
                 }
               >
-                {filter === "All printers" && (
+                {filter === "All printers" && active && (
                   <section className="featured">
                     <div className="feature-top">
                       <span className={`status ${active.state.toLowerCase()}`}>
@@ -626,10 +670,10 @@ function App() {
                         <span className="model">Bambu Lab A1 mini</span>
                         <h4>{active.job}</h4>
                         <p>
-                          {active.material} <span>·</span> 0.20 mm layers
+                          {remote ? "Live LAN telemetry" : <>{active.material} <span>·</span> 0.20 mm layers</>}
                         </p>
                       </div>
-                      <div className="print-object" aria-hidden="true">
+                      {!remote && <div className="print-object" aria-hidden="true">
                         <div className="object-top" />
                         <div className="object-body">
                           <span />
@@ -637,7 +681,7 @@ function App() {
                           <span />
                         </div>
                         <div className="object-base" />
-                      </div>
+                      </div>}
                     </div>
                     <div className="progress-heading">
                       <strong>
@@ -654,15 +698,40 @@ function App() {
                     <div className="feature-bottom">
                       <span>
                         <Thermometer size={16} />
-                        <b>220°</b> nozzle <i /> <b>60°</b> bed
+                        <b>
+                          {remote
+                            ? active.nozzle == null
+                              ? "—"
+                              : Math.round(active.nozzle) + "°"
+                            : "220°"}
+                        </b>{" "}
+                        nozzle <i />{" "}
+                        <b>
+                          {remote
+                            ? active.bed == null
+                              ? "—"
+                              : Math.round(active.bed) + "°"
+                            : "60°"}
+                        </b>{" "}
+                        bed
                       </span>
-                      <button onClick={() => toggle(active.id)}>
+                      <button
+                        disabled={
+                          remote ||
+                          !["Printing", "Paused"].includes(active.state)
+                        }
+                        onClick={() => toggle(active.id)}
+                      >
                         {active.state === "Paused" ? (
                           <Play size={16} />
                         ) : (
                           <Pause size={16} />
                         )}{" "}
-                        {active.state === "Paused" ? "Resume" : "Pause"}
+                        {remote
+                          ? "Read-only"
+                          : active.state === "Paused"
+                            ? "Resume"
+                            : "Pause"}
                       </button>
                     </div>
                   </section>
@@ -726,6 +795,7 @@ function App() {
           {tab === "Orders" && (
             <Orders
               openOrderId={focusedOrder}
+              live={remote}
               orders={orders}
               setOrders={setOrders}
               jobs={jobs}
@@ -739,42 +809,47 @@ function App() {
           )}
           {tab === "Settings" && (
             <section className="settings panel">
-              <h2>Bring your printers online</h2>
+              <h2>
+                {remote ? "Live connections" : "Bring your printers online"}
+              </h2>
               <p>
-                This version is a demo PWA. To monitor real A1 minis from the
-                online dashboard, a small bridge on your home network will
-                securely forward their status to Spoolside.
+                {remote
+                  ? "The Beelink reads printer status over LAN and imports WooCommerce orders. Access codes and store credentials stay on the server. Live printer controls remain disabled."
+                  : "This version is a demo PWA. To monitor real A1 minis from the online dashboard, a small bridge on your home network will securely forward their status to Spoolside."}
               </p>
-              <ol>
-                <li>
-                  Run the bridge on an always-on Mac, PC, or Raspberry Pi on the
-                  printer network.
-                </li>
-                <li>
-                  Pair each printer with its LAN IP, serial number, and access
-                  code.
-                </li>
-                <li>Link the bridge to your private online workspace.</li>
-              </ol>
-              <div className="connection-note">
-                <WifiOff size={20} />
-                <div>
-                  <strong>Live connection is coming next</strong>
-                  <p>
-                    No printers are paired. Don’t enter printer credentials in
-                    this demo.
-                  </p>
-                </div>
-              </div>
+              {!remote && (
+                <>
+                  <ol>
+                    <li>
+                      Run the bridge on an always-on Mac, PC, or Raspberry Pi on
+                      the printer network.
+                    </li>
+                    <li>
+                      Pair each printer with its LAN IP, serial number, and
+                      access code.
+                    </li>
+                    <li>Link the bridge to your private online workspace.</li>
+                  </ol>
+                  <div className="connection-note">
+                    <WifiOff size={20} />
+                    <div>
+                      <strong>Live connection is coming next</strong>
+                      <p>
+                        No printers are paired. Don’t enter printer credentials
+                        in this demo.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
               <h2>PlayCase orders</h2>
               <p>
-                WooCommerce at playcase.gg is the confirmed order source. The
-                Orders screen uses sample orders until a private backend and
-                store connection are configured. No customer data or WooCommerce
-                keys are stored in this PWA.
+                {remote
+                  ? "Read-only WooCommerce import from playcase.gg. Production notes, mapping and jobs are saved to the Beelink. Billing, payment and customer address fields are not imported. Changes do not modify WooCommerce."
+                  : "WooCommerce at playcase.gg is the confirmed order source. Sample orders are used in local preview."}
               </p>
               <button className="secondary" onClick={() => setTab("Orders")}>
-                <ShoppingBag size={16} /> Explore sample orders
+                <ShoppingBag size={16} /> View orders
               </button>
               <h2>Install Spoolside</h2>
               <p>
@@ -827,29 +902,33 @@ function App() {
                   </form>
                 </>
               )}
-              <h2>Demo workspace</h2>
-              <p>
-                Queue, filament, and simulated printer changes are saved only in
-                this browser.
-              </p>
-              <button
-                className="secondary"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Reset demo printers, orders, queue, and filament to their starting values?",
-                    )
-                  ) {
-                    setMachines(initialMachines);
-                    setJobs(initialJobs);
-                    setSpools(initialSpools);
-                    setOrders(initialOrders);
-                    setNotice("Demo workspace reset.");
-                  }
-                }}
-              >
-                <RotateCcw size={16} /> Reset demo data
-              </button>
+              {!remote && (
+                <>
+                  <h2>Demo workspace</h2>
+                  <p>
+                    Queue, filament, and simulated printer changes are saved
+                    only in this browser.
+                  </p>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Reset demo printers, orders, queue, and filament to their starting values?",
+                        )
+                      ) {
+                        setMachines(initialMachines);
+                        setJobs(initialJobs);
+                        setSpools(initialSpools);
+                        setOrders(initialOrders);
+                        setNotice("Demo workspace reset.");
+                      }
+                    }}
+                  >
+                    <RotateCcw size={16} /> Reset demo data
+                  </button>
+                </>
+              )}
             </section>
           )}
           <footer>
@@ -919,30 +998,38 @@ function App() {
                 <dt>Nozzle / bed</dt>
                 <dd>
                   {current.state === "Printing" || current.state === "Paused"
-                    ? "220°C / 60°C"
+                    ? remote
+                      ? `${current.nozzle ?? "—"}°C / ${current.bed ?? "—"}°C`
+                      : "220°C / 60°C"
                     : "—"}
                 </dd>
               </div>
               <div>
                 <dt>Connection</dt>
-                <dd>Demo · simulated</dd>
+                <dd>
+                  {remote
+                    ? current.stale || !current.connected
+                      ? "Stale / disconnected"
+                      : "Live LAN"
+                    : "Demo · simulated"}
+                </dd>
               </div>
             </dl>
-            {(current.state === "Printing" || current.state === "Paused") && (
-              <button className="primary" onClick={() => toggle(current.id)}>
-                {current.state === "Printing" ? (
-                  <Pause size={17} />
-                ) : (
-                  <Play size={17} />
-                )}{" "}
-                {current.state === "Printing"
-                  ? "Pause demo print"
-                  : "Resume demo print"}
-              </button>
-            )}
+            {!remote &&
+              (current.state === "Printing" || current.state === "Paused") && (
+                <button className="primary" onClick={() => toggle(current.id)}>
+                  {current.state === "Printing" ? (
+                    <Pause size={17} />
+                  ) : (
+                    <Play size={17} />
+                  )}{" "}
+                  {current.state === "Printing"
+                    ? "Pause demo print"
+                    : "Resume demo print"}
+                </button>
+              )}
             <p className="detail-note">
-              These readings are examples. Live printer controls will be
-              available after a bridge is connected.
+              {remote ? `Live LAN status only. Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}
             </p>
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace

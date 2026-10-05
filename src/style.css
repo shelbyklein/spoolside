@@ -1882,3 +1882,24 @@ footer .tiny-dot {
     margin: 12px 0 18px;
   }
 }
+.live-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fcf0dd;
+  color: #7d4812;
+  font-size: 12px;
+  padding: 14px;
+  border-radius: 7px;
+  margin-bottom: 18px;
+}
+.live-error span {
+  flex: 1;
+}
+.live-error button {
+  border: 1px solid #d9b98f;
+  border-radius: 5px;
+  padding: 6px 9px;
+  font-size: 11px;
+}
