@@ -17,10 +17,14 @@ npx playwright install chromium
 npm test
 ```
 
-The tests run the production preview on port 4173 and exercise simulated pause/resume, job addition/removal/reordering, inventory persistence, offline reload, and responsive layouts. Fonts are self-hosted. The generated service worker precaches the app shell, fonts, and identity assets.
+The tests run the production preview on port 4173 and exercise simulated pause/resume, job addition/removal/reordering, inventory persistence, offline reload, order quantities and reprints, fulfillment/cancellation guards, linked-order navigation, and responsive layouts. Fonts are self-hosted. The generated service worker precaches the app shell, fonts, and identity assets.
 
 ## Features
 
+- PlayCase sample orders with search, production filters, inline details, and component mapping
+- Quantity-aware order jobs, failed-print replacements, and production history
+- Assembly/packing gates, local demo shipment tracking and notes
+- Cancelled-order guard and active queue separated from finished/failed job records
 - Fleet overview and printer status filters
 - Printer detail drawer with simulated temperatures and progress
 - Local queue with add, reorder, and remove
@@ -35,7 +39,7 @@ Host `dist/` on an HTTPS static host and assign `spoolside.shelbyklein.com` thro
 
 ## PlayCase orders
 
-Spoolside will also manage PlayCase orders. The next product scope includes linking orders to print jobs and tracking production, fulfillment, and shipping details. Orders will originate in WooCommerce at https://playcase.gg. Connection credentials and customer-data handling need to be defined before implementation; this first dashboard does not yet contain order management.
+Spoolside will also manage PlayCase orders. The demo now links sample orders to print jobs and tracks production, fulfillment, and local shipping references. Orders will originate in WooCommerce at https://playcase.gg. Connection credentials and customer-data handling need to be defined before implementation; the dashboard does not yet import live WooCommerce orders.
 
 ## Live printer phase
 

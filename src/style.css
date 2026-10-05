@@ -1327,3 +1327,530 @@ footer .tiny-dot {
 .fleet-layout.filtered {
   grid-template-columns: 1fr;
 }
+
+/* PlayCase production workspace */
+.order-source {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 22px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.order-source > svg {
+  color: var(--teal);
+}
+.order-source strong {
+  font-size: 14px;
+}
+.order-source p {
+  font-size: 11px;
+  margin-top: 3px;
+}
+.order-source a {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--teal);
+}
+.sample-label {
+  font-size: 10px;
+  background: #e8f0ee;
+  padding: 5px 8px;
+  border-radius: 5px;
+  color: #46645d;
+}
+.sample-disclaimer {
+  font-size: 11px;
+  margin: 16px 0 25px;
+  max-width: 80ch;
+}
+.orders-toolbar {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #d4dfe0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  flex: 1;
+  max-width: 360px;
+  color: #61727b;
+}
+.search-field input {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  outline: none;
+}
+.search-field:focus-within {
+  outline: 3px solid #d67122;
+  outline-offset: 3px;
+}
+.orders-toolbar > span {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.orders-toolbar > select {
+  font-size: 12px;
+  padding: 10px;
+}
+.orders-list {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.order-entry + .order-entry {
+  border-top: 1px solid var(--line);
+}
+.order-summary {
+  display: flex;
+  justify-content: flex-start;
+  gap: 24px;
+  width: 100%;
+  text-align: left;
+  padding: 22px 24px;
+}
+.order-summary:hover {
+  background: #f1f7f5;
+}
+.order-id {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.order-id strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.order-id small,
+.order-product small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.order-product {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  font-size: 13px;
+}
+.production-stage {
+  font-size: 11px;
+  color: #17655d;
+  background: #e6f2ee;
+  padding: 6px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.production-stage.attention {
+  color: #8a500b;
+  background: #fcf0dd;
+}
+.order-summary > svg {
+  color: #6d827e;
+}
+.order-detail {
+  padding: 0 24px 27px;
+  background: #fbfdfc;
+}
+.order-commercial {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px 0 22px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+.order-commercial strong {
+  font-weight: 500;
+  color: #193347;
+}
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 40px;
+}
+.order-detail h3 {
+  font-family: Manrope, sans-serif;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  margin-bottom: 17px;
+}
+.order-item {
+  margin-bottom: 20px;
+}
+.line-item-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.line-item-title strong {
+  font-weight: 500;
+}
+.order-item > p {
+  font-size: 11px;
+  margin-top: 6px;
+}
+.recipe-list {
+  margin-top: 13px;
+  border-top: 1px solid var(--line);
+}
+.recipe-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+}
+.recipe-list small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 10px;
+}
+.recipe-list > div > span:last-child {
+  color: var(--teal);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.assign-print {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
+  margin-top: 21px;
+}
+.assign-print label,
+.tracking-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+}
+.assign-print select {
+  min-width: 145px;
+  padding: 9px;
+  font-size: 12px;
+}
+.linked-jobs {
+  margin-top: 30px;
+}
+.linked-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.linked-heading h3 {
+  margin: 0;
+}
+.linked-jobs > p {
+  font-size: 11px;
+  padding: 15px 0;
+  color: var(--muted);
+}
+.linked-job {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.linked-job strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.linked-job div > span {
+  font-size: 10px;
+  color: var(--muted);
+  display: block;
+  margin-top: 5px;
+}
+.linked-job label {
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  gap: 4px;
+  color: var(--muted);
+}
+.linked-job select {
+  font-size: 11px;
+}
+.fulfillment {
+  padding-left: 27px;
+  border-left: 1px solid var(--line);
+}
+.fulfillment > p {
+  font-size: 11px;
+  margin-bottom: 20px;
+}
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.check-row input {
+  margin: 2px 0 0;
+  accent-color: var(--teal);
+  width: 15px;
+  height: 15px;
+}
+.check-row:has(input:disabled) {
+  color: #61727b;
+}
+.tracking-field {
+  margin: 20px 0;
+}
+.tracking-field input,
+.tracking-field textarea {
+  background: #fff;
+  border: 1px solid #d4dfe0;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  width: 100%;
+  min-width: 0;
+  color: var(--navy);
+}
+.tracking-field textarea {
+  resize: vertical;
+  min-height: 85px;
+  font: inherit;
+}
+.tracking-field input::placeholder,
+.tracking-field textarea::placeholder,
+.search-field input::placeholder {
+  color: #61727b;
+  opacity: 1;
+}
+.fulfillment > .primary {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.5;
+}
+.fulfillment .fulfillment-note {
+  font-size: 10px;
+  margin-top: 10px;
+}
+.danger-text {
+  color: #8a5019;
+  white-space: normal;
+}
+.recipe-form {
+  background: #edf5f1;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+.recipe-form h4 {
+  font-size: 12px;
+  margin-bottom: 15px;
+}
+.recipe-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr 1fr 0.6fr;
+  gap: 9px;
+  margin-bottom: 13px;
+}
+.recipe-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10px;
+}
+.recipe-fields input,
+.recipe-fields select {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #cadbd5;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 11px;
+}
+.recipe-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.form-error {
+  color: #97391b;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+.order-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  background: #fff1de;
+  color: #805015;
+  padding: 13px;
+  font-size: 11px;
+  line-height: 1.6;
+  border-radius: 6px;
+  margin-bottom: 23px;
+}
+.order-warning svg {
+  flex-shrink: 0;
+}
+.mapping-note {
+  color: #875314;
+}
+.job-copy > span {
+  white-space: normal;
+  line-height: 1.5;
+}
+@media (max-width: 1150px) {
+  .order-id {
+    width: 185px;
+  }
+  .order-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .fulfillment {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 25px 0 0;
+  }
+  .fulfillment > .primary {
+    width: auto;
+  }
+  .order-commercial {
+    flex-wrap: wrap;
+  }
+  .fulfillment {
+    max-width: 100%;
+  }
+  .recipe-fields {
+    grid-template-columns: 1.4fr 0.6fr 1fr 0.6fr;
+  }
+}
+@media (max-width: 760px) {
+  .order-source {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .order-source a {
+    margin-left: auto;
+    font-size: 10px;
+  }
+  .sample-label {
+    margin-left: auto;
+  }
+  .order-source > div {
+    flex: 1;
+  }
+  .order-source a {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .orders-toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .search-field {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .orders-toolbar > span {
+    font-size: 10px;
+  }
+  .order-summary {
+    gap: 12px;
+    padding: 20px 16px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .order-id {
+    width: auto;
+    flex-basis: 60%;
+  }
+  .order-id small {
+    font-size: 10px;
+  }
+  .order-product {
+    flex-basis: 100%;
+    order: 3;
+    font-size: 12px;
+    gap: 4px;
+  }
+  .production-stage {
+    margin-left: auto;
+    font-size: 10px;
+    max-width: 110px;
+  }
+  .order-summary > svg {
+    display: none;
+  }
+  .order-detail {
+    padding: 0 16px 23px;
+  }
+  .order-commercial {
+    gap: 8px;
+    font-size: 10px;
+  }
+  .order-detail-grid {
+    gap: 20px;
+  }
+  .recipe-fields {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .assign-print {
+    flex-wrap: wrap;
+  }
+  .assign-print label {
+    flex: 1;
+  }
+  .assign-print select {
+    width: 100%;
+  }
+  .fulfillment > .primary {
+    width: 100%;
+  }
+  .recipe-list > div {
+    font-size: 10px;
+  }
+  .recipe-list small {
+    font-size: 9px;
+  }
+  .linked-heading {
+    gap: 8px;
+  }
+  .linked-heading h3 {
+    font-size: 15px;
+  }
+  .orders-workspace {
+    margin-top: 5px;
+  }
+  .nav-item {
+    font-size: 8px;
+  }
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}

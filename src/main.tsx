@@ -23,6 +23,7 @@ import {
   RotateCcw,
   ArrowUp,
   Trash2,
+  ShoppingBag,
 } from "lucide-react";
 import "@fontsource/dm-sans/latin-400.css";
 import "@fontsource/dm-sans/latin-500.css";
@@ -30,14 +31,9 @@ import "@fontsource/dm-sans/latin-600.css";
 import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
+import { Orders, initialOrders } from "./OrderWorkspace";
+import { type Job, type Order } from "./order-model";
 
-type Job = {
-  id: string;
-  name: string;
-  material: string;
-  time: string;
-  printer: string;
-};
 type Spool = { id: string; name: string; color: string; remaining: number };
 type Machine = {
   id: string;
@@ -132,6 +128,7 @@ function useSaved<T>(key: string, initial: T) {
 const tabs = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Printers", icon: Printer },
+  { name: "Orders", icon: ShoppingBag },
   { name: "Queue", icon: Layers3 },
   { name: "Filament", icon: Disc3 },
   { name: "Settings", icon: Settings },
@@ -144,7 +141,12 @@ function App() {
       initialMachines,
     ),
     [jobs, setJobs] = useSaved("spoolside-jobs-v1", initialJobs),
+    [orders, setOrders] = useSaved<Order[]>(
+      "spoolside-orders-v1",
+      initialOrders,
+    ),
     [spools, setSpools] = useSaved("spoolside-spools-v1", initialSpools);
+  const [focusedOrder, setFocusedOrder] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null),
     [adding, setAdding] = useState(false),
     [notice, setNotice] = useState(""),
@@ -194,9 +196,21 @@ function App() {
     setNotice("Demo printer state updated. No command sent to a printer.");
   };
   const removeJob = (id: string) => {
+    if (jobs.find((j) => j.id === id)?.orderId) {
+      setNotice(
+        "Linked order jobs stay in the production record. Mark a failed print in Orders instead.",
+      );
+      return;
+    }
     setJobs(jobs.filter((j) => j.id !== id));
     setNotice("Job removed from your demo queue.");
   };
+  const queueJobs = jobs.filter(
+    (j) =>
+      !j.orderId ||
+      (orders.find((o) => o.id === j.orderId)?.commercial !== "Cancelled" &&
+        (j.state === "Queued" || j.state === "Printing")),
+  );
   const queue = (
     <section className="panel queue">
       <div className="section-top">
@@ -281,7 +295,7 @@ function App() {
           </div>
         </form>
       )}
-      {jobs.length === 0 ? (
+      {queueJobs.length === 0 ? (
         <div className="empty">
           <Layers3 />
           <h3>A clear runway</h3>
@@ -289,19 +303,36 @@ function App() {
         </div>
       ) : (
         <div className="job-list">
-          {jobs.map((j, i) => (
+          {queueJobs.map((j, i) => (
             <div className="job-row" key={j.id}>
               <span className="job-number">{i + 1}</span>
               <div className="job-copy">
                 <strong>{j.name}</strong>
                 <span>
                   {j.material} <b>·</b> {j.printer}
+                  {j.orderId && (
+                    <>
+                      {" "}
+                      <b>·</b> {j.units} units · {j.state}
+                    </>
+                  )}
                 </span>
               </div>
               <span className="job-time">
                 <Clock3 size={14} />
                 {j.time}
               </span>
+              {j.orderId && tab === "Queue" && (
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setFocusedOrder(j.orderId || null);
+                    setTab("Orders");
+                  }}
+                >
+                  View order
+                </button>
+              )}
               {tab === "Queue" && (
                 <>
                   <button
@@ -310,7 +341,16 @@ function App() {
                     disabled={i === 0}
                     onClick={() => {
                       const next = [...jobs];
-                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                      const currentIndex = next.findIndex(
+                        (job) => job.id === j.id,
+                      );
+                      const previousIndex = next.findIndex(
+                        (job) => job.id === queueJobs[i - 1].id,
+                      );
+                      [next[previousIndex], next[currentIndex]] = [
+                        next[currentIndex],
+                        next[previousIndex],
+                      ];
                       setJobs(next);
                     }}
                   >
@@ -318,6 +358,12 @@ function App() {
                   </button>
                   <button
                     className="icon-button"
+                    disabled={!!j.orderId}
+                    title={
+                      j.orderId
+                        ? "Manage linked print jobs in Orders"
+                        : undefined
+                    }
                     aria-label={`Remove ${j.name}`}
                     onClick={() => removeJob(j.id)}
                   >
@@ -431,7 +477,7 @@ function App() {
             >
               <t.icon size={20} />
               <span>{t.name}</span>
-              {t.name === "Queue" && <small>{jobs.length}</small>}
+              {t.name === "Queue" && <small>{queueJobs.length}</small>}
             </button>
           ))}
         </nav>
@@ -477,22 +523,26 @@ function App() {
                   ? "A good day to make something."
                   : tab === "Printers"
                     ? "Meet your little makers."
-                    : tab === "Queue"
-                      ? "Keep the ideas coming."
-                      : tab === "Filament"
-                        ? "A color for every idea."
-                        : "Make yourself at home."}
+                    : tab === "Orders"
+                      ? "From order to something real."
+                      : tab === "Queue"
+                        ? "Keep the ideas coming."
+                        : tab === "Filament"
+                          ? "A color for every idea."
+                          : "Make yourself at home."}
               </h1>
               <p>
                 {tab === "Overview"
                   ? `${printing} printers making progress. Your next idea is in good company.`
                   : tab === "Printers"
                     ? "Your A1 mini fleet, all in one place."
-                    : tab === "Queue"
-                      ? "Plan your prints and put the next one in line."
-                      : tab === "Filament"
-                        ? "Keep an eye on what’s left, before the next print."
-                        : "Your workspace, connections, and app preferences."}
+                    : tab === "Orders"
+                      ? "Your PlayCase production desk. Every order, every part, every step."
+                      : tab === "Queue"
+                        ? "Plan your prints and put the next one in line."
+                        : tab === "Filament"
+                          ? "Keep an eye on what’s left, before the next print."
+                          : "Your workspace, connections, and app preferences."}
               </p>
             </div>
             {tab !== "Settings" && (
@@ -511,7 +561,7 @@ function App() {
             <Box size={16} />
             <span>
               You’re exploring a demo. Printer readings and controls are
-              simulated.
+              simulated. PlayCase orders are sample data.
             </span>
             <button onClick={() => setTab("Settings")}>
               Connect your printers <ArrowUpRight size={14} />
@@ -664,6 +714,20 @@ function App() {
               {tab !== "Queue" && filament}
             </div>
           )}
+          {tab === "Orders" && (
+            <Orders
+              openOrderId={focusedOrder}
+              orders={orders}
+              setOrders={setOrders}
+              jobs={jobs}
+              setJobs={setJobs}
+              printers={machines
+                .filter((m) => m.state !== "Offline")
+                .map((m) => m.name)}
+              notify={setNotice}
+              showQueue={() => setTab("Queue")}
+            />
+          )}
           {tab === "Settings" && (
             <section className="settings panel">
               <h2>Bring your printers online</h2>
@@ -693,6 +757,16 @@ function App() {
                   </p>
                 </div>
               </div>
+              <h2>PlayCase orders</h2>
+              <p>
+                WooCommerce at playcase.gg is the confirmed order source. The
+                Orders screen uses sample orders until a private backend and
+                store connection are configured. No customer data or WooCommerce
+                keys are stored in this PWA.
+              </p>
+              <button className="secondary" onClick={() => setTab("Orders")}>
+                <ShoppingBag size={16} /> Explore sample orders
+              </button>
               <h2>Install Spoolside</h2>
               <p>
                 Add the dashboard to your home screen for an app-like workspace.
@@ -720,12 +794,13 @@ function App() {
                 onClick={() => {
                   if (
                     window.confirm(
-                      "Reset demo printers, queue, and filament to their starting values?",
+                      "Reset demo printers, orders, queue, and filament to their starting values?",
                     )
                   ) {
                     setMachines(initialMachines);
                     setJobs(initialJobs);
                     setSpools(initialSpools);
+                    setOrders(initialOrders);
                     setNotice("Demo workspace reset.");
                   }
                 }}

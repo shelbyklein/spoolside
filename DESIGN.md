@@ -20,3 +20,6 @@ Desktop uses persistent navy navigation, one featured print paired with a compac
 
 ## Direction reasoning
 The source image's orange spool, navy figure, and water underpin a quiet workshop reading surface. Alternatives considered: dense tool dashboard, material swatch book, maker publication, shared studio noticeboard, poolside lounge, print journal, daylight workshop (selected). The reference challengers' useful disciplines were state consistency, hierarchy, focus, grid, section wayfinding, and data precision. Literal maps, poster walls, manuals and barcode graphics would weaken printer scanning; their decorative grammar is omitted.
+
+## Orders extension
+Orders reuse the same reading surface and navy navigation. Search and stage filters lead into order rows with inline expanded production detail; no new visual identity is introduced. Wide layouts place component/job records beside fulfillment; smaller layouts stack them. Commercial order state and production stage are separately labeled. Sample-data provenance stays visible. Orange denotes mapping attention, teal denotes production; cancelled orders retain a text label.
