@@ -20,7 +20,7 @@ Primary access is an iPhone 12 Pro Max, used for a quick look at PlayCase orders
 Hosting: Beelink home server at https://spoolside.shelbyklein.com. Repository: https://github.com/shelbyklein/spoolside. Local preview uses demo data; hosted access uses real orders and printer telemetry.
 
 ## Capabilities and Constraints
-Six-digit PIN-protected single-user PWA. Read-only PlayCase WooCommerce orders sync every minute. Three LAN A1 mini printers report pinned-TLS MQTT telemetry with stale/error states. Hosted production recipes, jobs, notes, assembly/packing checks and tracking references persist in SQLite and are shared across devices. No billing/address/payment fields are imported. No Woo writes or physical printer commands are sent. Active orders open by default on phone. Filament inventory starts empty; manual queue jobs accept material and color text until inventory setup is added. Consistent database backups retain 48 hourly copies. Camera, slicing/upload, multi-user accounts and actual iPhone notification receipt remains pending.
+Six-digit PIN-protected single-user PWA. Read-only PlayCase WooCommerce orders sync every minute. Three LAN A1 mini printers report pinned-TLS MQTT telemetry with stale/error states. Hosted fulfillment jobs, notes, assembly/packing checks and tracking references persist in SQLite and are shared across devices. No billing/address/payment fields are imported. No Woo writes or physical printer commands are sent. Active orders open by default on phone. Filament inventory starts empty; manual queue jobs accept material and color text until inventory setup is added. Consistent database backups retain 48 hourly copies. Camera, slicing/upload, multi-user accounts and actual iPhone notification receipt remains pending.
 
 ## Brand Commitments
 Spoolside name and user-supplied spool floating in water image, preserved at public/spoolside.png. The image supplies turquoise, orange, and navy identity.
@@ -30,3 +30,5 @@ Implemented demo PWA with verified local browser flows. User-supplied artwork. A
 
 ## Product Principles
 Make active work easy to scan. Keep simulated and live data unmistakable. Surface actionable printer states. Keep routine operations usable on phone and desktop.
+
+Order workflow is fulfillment, with no separate mapping status or setup action. Unconfigured orders can go directly through quality/assembly, packing and shipment recording. Existing component/print records remain preserved.

@@ -38,3 +38,6 @@ Hosted login preserves artwork and palette, with one masked six-digit field usin
 
 ## Overview orders
 Overview starts with up to five open store orders before printers, using compact quantity/date/stage rows. Held work stays visible, each row opens its matching details, and View orders opens the existing order workspace. Phone default remains Orders.
+
+## Direct fulfillment
+Order rows show Fulfillment instead of a component setup status. Details lead from store line items to quality/assembly and packing checks; no setup form. Existing component and print histories remain available.

@@ -78,7 +78,7 @@ test("server rejects stale revisions, premature shipping, duplicate jobs and can
     ws.state.orders = [normalizeOrder(raw)];
     let next = ws.snapshot();
     next.orders[0].shipped = true;
-    assert.throws(() => ws.update(next), /fulfillment/);
+    assert.throws(() => ws.update(next), /fulfillment|Assembly and packing/);
     next = ws.snapshot();
     next.orders[0].items[0].recipe = [
       { component: "Body", units: 1, material: "PLA", time: "1h" },
@@ -181,4 +181,11 @@ test("printer preparation, unknown and disconnected states never claim readiness
   }
   const offline=printerView(config,{data:{gcode_state:"FINISH"},connected:false,seen:1000},1001);
   assert.equal(offline.connected,false); assert.equal(offline.state,"Offline");
+});
+test('fulfillment works without component setup while packing sequence remains enforced',()=>{
+ const ws=new Workspace(':memory:');try{
+ ws.state.orders=[normalizeOrder(raw)];let next=ws.snapshot();next.orders[0].packed=true;assert.throws(()=>ws.update(next),/Assembly and packing/);
+ next=ws.snapshot();next.orders[0].assembled=true;next.orders[0].packed=true;next.orders[0].shipped=true;ws.update(next);
+ assert.equal(ws.state.orders[0].shipped,true);assert.deepEqual(ws.state.orders[0].items[0].recipe,[]);
+ }finally{ws.close();}
 });

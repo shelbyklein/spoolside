@@ -13,7 +13,6 @@ import {
 import {
   type Job,
   type Order,
-  type Recipe,
   initialOrders,
   orderStage,
   componentsFor,
@@ -118,7 +117,7 @@ export function Orders({
           {[
             "All orders",
             ...(live ? ["Active orders", "On hold", "Fulfilled in store"] : []),
-            "Needs mapping",
+            "Fulfillment",
             "To queue",
             "Queued",
             "Printing",
@@ -182,7 +181,7 @@ export function Orders({
                   </small>
                 </span>
                 <span
-                  className={`production-stage ${stage === "Blocked" || stage === "Needs mapping" ? "attention" : ""}`}
+                  className={`production-stage ${stage === "Blocked" ? "attention" : ""}`}
                 >
                   {stage}
                 </span>
@@ -247,26 +246,7 @@ export function Orders({
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <p className="mapping-note">
-                              Map the components before putting this item into
-                              production.
-                            </p>
-                          )}
-                          {!item.recipe.length && !cancelled && (
-                            <RecipeForm
-                              onSave={(recipe) => {
-                                update(order.id, {
-                                  items: order.items.map((i) =>
-                                    i.id === item.id ? { ...i, recipe } : i,
-                                  ),
-                                });
-                                notify(
-                                  "Component mapping saved for this order.",
-                                );
-                              }}
-                            />
-                          )}
+                          ) : null}
                         </div>
                       ))}
                       {parts.length > 0 && !cancelled && !complete && (
@@ -295,7 +275,7 @@ export function Orders({
                           </button>
                         </form>
                       )}
-                      <div className="linked-jobs">
+                      {(parts.length > 0 || linked.length > 0) && <div className="linked-jobs">
                         <div className="linked-heading">
                           <h3>Print jobs</h3>
                           <button className="text-button" onClick={showQueue}>
@@ -304,7 +284,7 @@ export function Orders({
                         </div>
                         {linked.length === 0 ? (
                           <p>
-                            No print jobs yet. Map the parts, then queue them.
+                            No print jobs yet. Queue existing components when needed.
                           </p>
                         ) : (
                           linked.map((job) => (
@@ -357,13 +337,12 @@ export function Orders({
                             </div>
                           ))
                         )}
-                      </div>
+                      </div>}
                     </section>
                     <section className="fulfillment">
-                      <h3>Finish the order</h3>
+                      <h3>Fulfillment</h3>
                       <p>
-                        Accept every printed component before assembly and
-                        packing.
+                        Confirm the items are ready, then complete the quality check and packing. Existing print records must be accepted when present.
                       </p>
                       <label className="check-row">
                         <input
@@ -487,136 +466,5 @@ export function Orders({
         })}
       </div>
     </section>
-  );
-}
-function RecipeForm({ onSave }: { onSave: (recipe: Recipe[]) => void }) {
-  const [rows, setRows] = useState([
-    { component: "", units: 1, material: "Tangerine PLA", time: "1h" },
-  ]);
-  const [error, setError] = useState("");
-  return (
-    <form
-      className="recipe-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const names = rows.map((r) => r.component.trim());
-        if (
-          names.some((n) => !n) ||
-          new Set(names.map((n) => n.toLowerCase())).size !== names.length
-        ) {
-          setError("Give each component a unique name.");
-          return;
-        }
-        onSave(rows.map((r) => ({ ...r, component: r.component.trim() })));
-      }}
-    >
-      <h4>Define the parts for each unit</h4>
-      {rows.map((r, index) => (
-        <div className="recipe-fields" key={index}>
-          <label>
-            Component
-            <input
-              aria-label={`Component ${index + 1} name`}
-              required
-              value={r.component}
-              maxLength={60}
-              placeholder="e.g. Case body"
-              onChange={(e) =>
-                setRows(
-                  rows.map((row, i) =>
-                    i === index ? { ...row, component: e.target.value } : row,
-                  ),
-                )
-              }
-            />
-          </label>
-          <label>
-            Per unit
-            <input
-              aria-label={`Component ${index + 1} quantity`}
-              type="number"
-              min={1}
-              max={20}
-              required
-              value={r.units}
-              onChange={(e) =>
-                setRows(
-                  rows.map((row, i) =>
-                    i === index
-                      ? { ...row, units: Number(e.target.value) }
-                      : row,
-                  ),
-                )
-              }
-            />
-          </label>
-          <label>
-            Filament
-            <select
-              value={r.material}
-              onChange={(e) =>
-                setRows(
-                  rows.map((row, i) =>
-                    i === index ? { ...row, material: e.target.value } : row,
-                  ),
-                )
-              }
-            >
-              {[
-                "Tangerine PLA",
-                "Seafoam PLA",
-                "Cloud white PLA",
-                "Midnight PLA",
-              ].map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Estimate
-            <input
-              required
-              maxLength={30}
-              value={r.time}
-              onChange={(e) =>
-                setRows(
-                  rows.map((row, i) =>
-                    i === index ? { ...row, time: e.target.value } : row,
-                  ),
-                )
-              }
-            />
-          </label>
-        </div>
-      ))}
-      {error && (
-        <p role="alert" className="form-error">
-          {error}
-        </p>
-      )}
-      <div className="recipe-actions">
-        <button
-          type="button"
-          className="text-button"
-          disabled={rows.length >= 8}
-          onClick={() =>
-            setRows([
-              ...rows,
-              {
-                component: "",
-                units: 1,
-                material: "Cloud white PLA",
-                time: "30 min",
-              },
-            ])
-          }
-        >
-          Add component
-        </button>
-        <button className="secondary" type="submit">
-          Save component mapping
-        </button>
-      </div>
-    </form>
   );
 }

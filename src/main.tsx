@@ -639,7 +639,7 @@ function App() {
                   return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
                     <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
                     <span className="order-product">{order.items[0]?.name || "No line items"}<small>{order.items.reduce((n,i)=>n+i.quantity,0)} {order.items.reduce((n,i)=>n+i.quantity,0) === 1 ? "unit" : "units"}{order.items.length > 1 ? ` · ${order.items.length} items` : ""}</small></span>
-                    <span className={`production-stage ${["Needs mapping","Blocked","On hold"].includes(stage) ? "attention" : ""}`}>{stage}</span><ChevronRight size={17}/>
+                    <span className={`production-stage ${["Blocked","On hold"].includes(stage) ? "attention" : ""}`}>{stage}</span><ChevronRight size={17}/>
                   </button>;
                 })}
               </div>
@@ -866,7 +866,7 @@ function App() {
               <h2>PlayCase orders</h2>
               <p>
                 {remote
-                  ? "Read-only WooCommerce import from playcase.gg. Production notes, mapping and jobs are saved to the Beelink. Billing, payment and customer address fields are not imported. Changes do not modify WooCommerce."
+                  ? "Read-only WooCommerce import from playcase.gg. Fulfillment notes and jobs are saved to the Beelink. Billing, payment and customer address fields are not imported. Changes do not modify WooCommerce."
                   : "WooCommerce at playcase.gg is the confirmed order source. Sample orders are used in local preview."}
               </p>
               <button className="secondary" onClick={() => setTab("Orders")}>

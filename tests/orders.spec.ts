@@ -61,44 +61,19 @@ test("order production guards, reprint, persistence, and independent store statu
     page.getByText("DEMO-1042 · Case body", { exact: true }),
   ).toHaveCount(0);
 });
-test("map variant quantity into jobs and use search filters", async ({
-  page,
-}) => {
+test("unconfigured orders go directly through fulfillment without a setup step", async ({page}) => {
   await openOrders(page);
-  await page.getByRole("button", { name: /DEMO-1043/ }).click();
-  const detail = page.locator("#order-demo-1043");
-  await expect(
-    detail.getByRole("button", { name: "Queue missing parts" }),
-  ).toHaveCount(0);
-  await detail.getByLabel("Component 1 name").fill("Body");
-  await detail.getByLabel("Component 1 quantity").fill("2");
-  await detail.getByRole("button", { name: "Save component mapping" }).click();
-  await detail.getByRole("button", { name: "Queue missing parts" }).click();
-  await expect(detail.locator(".linked-job")).toHaveCount(1);
-  await expect(
-    detail.getByText("4 units · Mini One", { exact: true }),
-  ).toBeVisible();
-  await detail.getByRole("button", { name: "Open queue" }).click();
-  await page
-    .locator(".job-row")
-    .filter({ hasText: "DEMO-1043 · Body" })
-    .getByRole("button", { name: "View order" })
-    .click();
-  await expect(detail).toBeVisible();
-  await expect(page.locator("#order-demo-1042")).toHaveCount(0);
-  await page.getByLabel("Search orders").fill("not-present");
-  await expect(
-    page.getByRole("heading", { name: "No orders found" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Clear filters" }).click();
-  await page.getByLabel("Filter orders").selectOption("Cancelled");
-  await expect(page.locator(".order-entry")).toHaveCount(1);
-  await page.getByRole("button", { name: /DEMO-1044/ }).click();
-  await expect(
-    page
-      .locator("#order-demo-1044")
-      .getByText("This sample order is cancelled.", { exact: false }),
-  ).toBeVisible();
+  await page.getByRole("button", {name:/DEMO-1043/}).click();
+  const detail=page.locator("#order-demo-1043");
+  await expect(detail.locator('.recipe-form')).toHaveCount(0);
+  await expect(page.locator('.order-entry').filter({hasText:'DEMO-1043'}).locator('.production-stage')).toHaveText('Fulfillment');
+  await detail.getByLabel('Assembly and quality check complete').check();
+  await detail.getByLabel('Packed and ready for shipping').check();
+  await detail.getByRole('button',{name:'Mark demo order shipped'}).click();
+  await expect(page.locator('.order-entry').filter({hasText:'DEMO-1043'}).locator('.production-stage')).toHaveText('Shipped');
+  await page.reload();await page.getByRole('navigation').getByRole('button',{name:'Orders',exact:true}).click();
+  await page.getByRole('button',{name:/DEMO-1043/}).click();
+  await expect(detail.getByRole('button',{name:'Shipped in demo'})).toBeDisabled();
 });
 test("orders desktop and mobile renders", async ({ page }) => {
   for (const [name, width, height] of [

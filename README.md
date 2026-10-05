@@ -21,7 +21,7 @@ The tests run the production preview on port 4173 and exercise simulated pause/r
 
 ## Features
 
-- PlayCase sample orders with search, production filters, inline details, and component mapping
+- PlayCase sample orders with search, production filters, inline details, and fulfillment checks
 - Quantity-aware order jobs, failed-print replacements, and production history
 - Assembly/packing gates, local demo shipment tracking and notes
 - Cancelled-order guard and active queue separated from finished/failed job records
@@ -71,3 +71,5 @@ Subscriptions and delivery queues live in SQLite and are included in workspace b
 Delivery uses standard Apple/Google/Mozilla/Windows push services. This is at-least-once delivery: a crash immediately after service acceptance can retry the same tag. No guaranteed receipt, sound or exact timing is claimed. Notification clicks open authenticated Orders. Existing printer/production notifications remain pending.
 
 PIN login uses `SPOOLSIDE_PIN_HASH` (salt:scrypt hash); no username is required. The private current PIN is held outside Git. Existing sessions and push subscriptions survive this login change. Authentication/API routes are excluded from offline app-shell navigation fallback.
+
+Orders now use direct fulfillment: assembly/quality check, packing and shipment records. No component setup step is required. Existing component/job history and acceptance checks are preserved.

@@ -139,14 +139,7 @@ export function acceptedUnits(
     .reduce((n, j) => n + (j.units || 1), 0);
 }
 export function partsComplete(order: Order, jobs: Job[]) {
-  const parts = componentsFor(order);
-  return (
-    parts.length > 0 &&
-    order.items.every((i) => i.recipe.length > 0) &&
-    parts.every(
-      (p) => acceptedUnits(order, jobs, p.itemId, p.component) >= p.required,
-    )
-  );
+  return order.items.length > 0 && order.items.every(item => item.recipe.every(r => acceptedUnits(order,jobs,item.id,r.component) >= r.units * item.quantity));
 }
 export function productionAllowed(order: Order) {
   return (
@@ -161,7 +154,7 @@ export function orderStage(order: Order, jobs: Job[]) {
     return "Cancelled";
   if (["completed", "delivered"].includes(order.commercial)) return "Fulfilled in store";
   if (!productionAllowed(order)) return "On hold";
-  if (order.items.some((i) => !i.recipe.length)) return "Needs mapping";
+  if (componentsFor(order).length === 0) return order.shipped ? "Shipped" : order.assembled && order.packed ? "Ready to ship" : "Fulfillment";
   if (order.shipped && partsComplete(order, jobs)) return "Shipped";
   if (partsComplete(order, jobs))
     return order.assembled && order.packed ? "Ready to ship" : "Assembly";

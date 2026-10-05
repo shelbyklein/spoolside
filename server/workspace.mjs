@@ -197,7 +197,7 @@ export class Workspace {
           !Array.isArray(candidate.recipe) ||
           candidate.recipe.length > 8
         )
-          throw Error("Invalid component mapping");
+          throw Error("Invalid fulfillment components");
         const recipe = candidate.recipe.map((r) => {
           if (
             typeof r.component !== "string" ||
@@ -332,7 +332,6 @@ export class Workspace {
         order.items.length > 0 &&
         order.items.every(
           (i) =>
-            i.recipe.length &&
             i.recipe.every(
               (r) =>
                 jobs
