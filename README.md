@@ -35,7 +35,7 @@ Host `dist/` on an HTTPS static host and assign `spoolside.shelbyklein.com` thro
 
 ## PlayCase orders
 
-Spoolside will also manage PlayCase orders. The next product scope includes linking orders to print jobs and tracking production, fulfillment, and shipping details. Order-source integration and customer-data handling need to be defined before implementation; this first dashboard does not yet contain order management.
+Spoolside will also manage PlayCase orders. The next product scope includes linking orders to print jobs and tracking production, fulfillment, and shipping details. Orders will originate in WooCommerce at https://playcase.gg. Connection credentials and customer-data handling need to be defined before implementation; this first dashboard does not yet contain order management.
 
 ## Live printer phase
 
