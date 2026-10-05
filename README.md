@@ -33,6 +33,10 @@ The tests run the production preview on port 4173 and exercise simulated pause/r
 
 Host `dist/` on an HTTPS static host and assign `spoolside.shelbyklein.com` through that provider's domain setup. No domain, DNS, hosting, or production site has been changed by this build. No printer credentials are collected.
 
+## PlayCase orders
+
+Spoolside will also manage PlayCase orders. The next product scope includes linking orders to print jobs and tracking production, fulfillment, and shipping details. Order-source integration and customer-data handling need to be defined before implementation; this first dashboard does not yet contain order management.
+
 ## Live printer phase
 
 A hosted browser cannot directly reach printers on a private LAN. The next phase needs an authenticated bridge on an always-on computer on that LAN, plus an online service for authorization and status delivery. Verify current A1 mini firmware/LAN protocol and remote-control support before implementing. Keep printer access codes on the bridge, authenticate every workspace, separate commands from telemetry, and show stale/disconnected status. Remote commands require explicit UI actions and server-side authorization. Never expose printers directly to the public internet.
