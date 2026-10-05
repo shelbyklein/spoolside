@@ -12,8 +12,7 @@ import { isIP } from "node:net";
 export function createApp({
   dist = path.resolve("dist"),
   database = ":memory:",
-  username,
-  passwordHash,
+  pinHash,
   origin = "https://spoolside.shelbyklein.com",
   secure = true,
   proxyAddress,
@@ -22,20 +21,19 @@ export function createApp({
   printers,
 } = {}) {
   if (
-    !username ||
-    !passwordHash ||
-    !/^([a-f0-9]{32}):([a-f0-9]{128})$/.test(passwordHash)
+    !pinHash ||
+    !/^([a-f0-9]{32}):([a-f0-9]{128})$/.test(pinHash)
   )
-    throw new Error("Valid server-side login credentials are required.");
+    throw new Error("Valid server-side PIN credentials are required.");
   const db = new DatabaseSync(database);
   db.exec(
-    "CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, expires INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, expires INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL)",
   );
   const app = express();
   app.disable("x-powered-by");
   app.use(express.urlencoded({ extended: false, limit: "4kb" }));
   app.use(express.json({ limit: "2mb" }));
-  const attempts = new Map();
+
   const cookieName = secure ? "__Host-spoolside" : "spoolside";
   app.use((req, res, next) => {
     res.set({
@@ -68,7 +66,7 @@ export function createApp({
     res.sendFile(path.join(dist, "icon-192.png")),
   );
   const loginPage = (error = false) =>
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Your workshop awaits.</h1><p>Sign in to Spoolside.</p>${error ? '<p role="alert" class="error">Sign-in failed. Check your details, or wait a few minutes before trying again.</p>' : ""}<form action="/login" method="post"><label>Username<input name="username" autocomplete="username" required maxlength="80"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label><button type="submit">Sign in</button></form><footer>Spoolside · Shelby’s workshop</footer></main></body></html>`;
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Your workshop awaits.</h1><p>Enter your six-digit PIN to open Spoolside.</p>${error ? '<p role="alert" class="error">Sign-in failed. Check your PIN, or wait a few minutes before trying again.</p>' : ""}<form action="/login" method="post"><label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required aria-describedby="pin-help"></label><p id="pin-help">Your six-digit workshop PIN.</p><button type="submit">Sign in</button></form><footer>Spoolside · Shelby’s workshop</footer></main></body></html>`;
   app.get("/login", (_req, res) => res.type("html").send(loginPage()));
   app.use((req, res, next) => {
     if (
@@ -86,26 +84,25 @@ export function createApp({
         proxyAddress && peer === proxyAddress && isIP(forwarded || "")
           ? forwarded
           : peer || "local";
-    const prior = attempts.get(ip);
-    if (prior && prior.until > now && prior.count >= 8)
+    db.prepare("DELETE FROM login_attempts WHERE until<=?").run(now);
+    const prior = db.prepare("SELECT count,until FROM login_attempts WHERE ip=?").get(ip);
+    const failures = db.prepare("SELECT COALESCE(SUM(count),0) count FROM login_attempts").get().count;
+    if (failures >= 100 || (prior && prior.until > now && prior.count >= 8))
       return res.status(429).type("html").send(loginPage(true));
-    const [salt, expected] = passwordHash.split(":");
+    const [salt, expected] = pinHash.split(":");
     const candidate = scryptSync(
-      String(req.body.password || "").slice(0, 256),
+      String(req.body.pin || "").slice(0, 256),
       salt,
       64,
     );
     const valid =
       timingSafeEqual(candidate, Buffer.from(expected, "hex")) &&
-      req.body.username === username;
+      /^[0-9]{6}$/.test(String(req.body.pin || ""));
     if (!valid) {
-      attempts.set(ip, {
-        count: prior && prior.until > now ? prior.count + 1 : 1,
-        until: now + 10 * 60 * 1000,
-      });
+      db.prepare("INSERT INTO login_attempts VALUES(?,?,?) ON CONFLICT(ip) DO UPDATE SET count=excluded.count,until=excluded.until").run(ip, prior && prior.until > now ? prior.count + 1 : 1, now + 15 * 60 * 1000);
       return res.status(401).type("html").send(loginPage(true));
     }
-    attempts.delete(ip);
+    db.prepare("DELETE FROM login_attempts WHERE ip=?").run(ip);
     db.prepare("DELETE FROM sessions WHERE expires < ?").run(now);
     const token = randomBytes(32).toString("hex");
     db.prepare("INSERT INTO sessions VALUES (?,?)").run(

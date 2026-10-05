@@ -32,3 +32,6 @@ Hosted views use real order and printer data with explicit sync/save/error state
 
 ## Order notifications
 Settings offers device-scoped new-order/change switches, explicit permission opt-in, a test and disable action. iPhone browser visits explain installation requirements. Success copy distinguishes push-service acceptance from phone receipt; errors preserve retry paths. Checkbox rows and buttons retain 44px touch targets.
+
+## PIN entry
+Hosted login preserves artwork and palette, with one masked six-digit field using the phone numeric keypad. Failure messages include retry guidance; no PIN appears in UI captures.

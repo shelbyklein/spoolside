@@ -46,11 +46,11 @@ test('outbox failure rolls back imported snapshot as well as deliveries', async(
 test('notification APIs require login/origin and support register, test, preferences and disable', async()=>{
  const {createApp}=await import('./app.mjs');const {scryptSync}=await import('node:crypto');
  const db=new DatabaseSync(':memory:');let sent=0;const service=new Notifications(db,{vapid,send:async()=>{sent++;}});
- const salt='b'.repeat(32);const {app,close}=createApp({username:'test',passwordHash:salt+':'+scryptSync('test-password',salt,64).toString('hex'),origin:'http://localhost',secure:false,notifications:service});
+ const salt='b'.repeat(32);const {app,close}=createApp({pinHash:salt+':'+scryptSync('123456',salt,64).toString('hex'),origin:'http://localhost',secure:false,notifications:service});
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base=`http://127.0.0.1:${server.address().port}`;
  try {
   assert.equal((await fetch(base+'/api/notifications')).status,401);
-  const login=await fetch(base+'/login',{method:'POST',redirect:'manual',headers:{Origin:'http://localhost'},body:new URLSearchParams({username:'test',password:'test-password'})});
+  const login=await fetch(base+'/login',{method:'POST',redirect:'manual',headers:{Origin:'http://localhost'},body:new URLSearchParams({pin:'123456'})});
   const cookie=login.headers.get('set-cookie').split(';')[0];
   const call=(path,method='GET',value,origin='http://localhost')=>fetch(base+path,{method,headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json'},body:value?JSON.stringify(value):undefined});
   assert.equal((await call('/api/notifications','POST',{subscription:sub,preferences:{newOrders:true,changes:true}},'https://evil.test')).status,403);

@@ -107,3 +107,10 @@ footer {
 h1 {
   font-family: Manrope, system-ui, sans-serif;
 }
+input[name="pin"] {
+  text-align: center;
+  font-size: 26px;
+  letter-spacing: 0.3em;
+  min-height: 54px;
+}
+#pin-help { margin-top: 8px; font-size: 12px; }
