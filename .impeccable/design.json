@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "world": "daylight workshop / poolside palette",
+  "mode": "operate",
+  "colors": {
+    "navy": "#102d44",
+    "text": "#193347",
+    "muted": "#61727b",
+    "background": "#f6f8f8",
+    "panel": "#ffffff",
+    "teal": "#087b78",
+    "activeSurface": "#e4f2ef",
+    "line": "#e1e8e8",
+    "orange": "#ef862e"
+  },
+  "typography": { "display": "Manrope", "body": "DM Sans" },
+  "radii": { "panel": 14, "button": 7 },
+  "breakpoints": [760, 1150, 1550]
+}
