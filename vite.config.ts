@@ -22,6 +22,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ["/push-handlers.js"],
         globPatterns: ["**/*.{js,css,html,png,woff2}"],
         maximumFileSizeToCacheInBytes: 5000000,
       },

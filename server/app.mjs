@@ -18,6 +18,7 @@ export function createApp({
   secure = true,
   proxyAddress,
   workspace,
+  notifications,
   printers,
 } = {}) {
   if (
@@ -191,6 +192,20 @@ export function createApp({
     if (!workspace) return res.sendStatus(503);
     await workspace.sync();
     res.json({ ...workspace.snapshot(), machines: printers?.snapshot() || [] });
+  });
+  app.get("/api/notifications", (req,res) => res.json({enabled:!!notifications?.enabled, publicKey:notifications?.vapid?.publicKey || null, device: notifications?.device(String(req.query.device || "")) || null}));
+  app.post("/api/notifications", (req,res) => {
+    try {if(!notifications?.enabled) return res.status(503).json({error:"Notifications unavailable"}); res.json(notifications.register(req.body.subscription, req.body.preferences));}
+    catch {res.status(400).json({error:"Invalid notification subscription or preferences"});}
+  });
+  app.delete("/api/notifications/:id", (req,res) => {notifications?.remove(req.params.id);res.json({ok:true});});
+  const testTimes = new Map();
+  app.post("/api/notifications/:id/test", async (req,res) => {
+    if(!notifications?.enabled) return res.status(503).json({error:"Notifications unavailable"});
+    if(Date.now()-(testTimes.get(req.params.id)||0)<30000) return res.status(429).json({error:"Wait 30 seconds before another test"});
+    testTimes.set(req.params.id,Date.now());
+    try {await notifications.test(req.params.id);res.json({ok:true});}
+    catch(e){res.status(400).json({error:e.message});}
   });
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "Endpoint not found" }),

@@ -11,6 +11,7 @@ services:
       - spoolside-data:/data
       - ./woocommerce.json:/run/spoolside/woocommerce.json:ro
       - ./printers.json:/run/spoolside/printers.json:ro
+      - ./vapid.json:/run/spoolside/vapid.json:ro
       - ../backups:/backups
     security_opt:
       - no-new-privileges:true

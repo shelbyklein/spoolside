@@ -1,3 +1,4 @@
+import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -130,7 +131,7 @@ function App() {
   const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
   const [tab, setTab] = useState(
-      window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview",
+      new URLSearchParams(window.location.search).get("view") === "orders" || window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview",
     ),
     [demoMachines, setMachines] = useSaved(
       "spoolside-machines-v1",
@@ -851,6 +852,7 @@ function App() {
               <button className="secondary" onClick={() => setTab("Orders")}>
                 <ShoppingBag size={16} /> View orders
               </button>
+              {remote && <NotificationSettings />}
               <h2>Install Spoolside</h2>
               <p>
                 Add the dashboard to your home screen for an app-like workspace.

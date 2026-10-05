@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { Notifications } from "./notifications.mjs";
 import { Workspace } from "./workspace.mjs";
 import { Printers } from "./printers.mjs";
 import { createApp } from "./app.mjs";
@@ -14,6 +15,9 @@ const printers = new Printers(
     ? JSON.parse(fs.readFileSync(configDir + "/printers.json"))
     : [],
 );
+const notifications = workspace ? new Notifications(workspace.db, {vapid: fs.existsSync(configDir + "/vapid.json") ? JSON.parse(fs.readFileSync(configDir + "/vapid.json")) : null}) : null;
+if (workspace) workspace.onSync = (previous, next, baseline) => notifications.enqueue(previous, next, baseline);
+const pushTimer = setInterval(() => notifications?.drain(), 15000);
 printers.start();
 workspace?.sync();
 const syncTimer = setInterval(() => workspace?.sync(), 60000);
@@ -37,6 +41,7 @@ const backup = () => {
 const backupTimer = setInterval(backup, 3600000);
 const { app, close } = createApp({
   workspace,
+  notifications,
   printers,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   username: process.env.SPOOLSIDE_USERNAME,
@@ -52,6 +57,7 @@ for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () =>
     server.close(() => {
       clearInterval(syncTimer);
+      clearInterval(pushTimer);
       clearInterval(backupTimer);
       backup();
       printers.close();

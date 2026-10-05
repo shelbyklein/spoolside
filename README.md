@@ -53,7 +53,7 @@ The dedicated WooCommerce key is read-only. Orders sync every minute with pagina
 
 Private `deploy/woocommerce.json` and `deploy/printers.json` are mounted read-only under `/run/spoolside`. They are excluded from Git. Each printer connection uses MQTT TLS with a pinned certificate and fingerprint; snapshot requests read status only. The UI refreshes every ten seconds, with printer reports considered stale after 90 seconds. New printer certificates require deliberate configuration updates.
 
-Production records belong to Spoolside: assembly, packing and tracking edits do not change WooCommerce. Queue records do not start printer jobs or mirror a printer's physical queue. Printer controls, camera, slicing/upload, multiple users and phone notifications remain pending. See `instructions/live-connections.md` for validation and rollback.
+Production records belong to Spoolside: assembly, packing and tracking edits do not change WooCommerce. Queue records do not start printer jobs or mirror a printer's physical queue. Printer controls, camera, slicing/upload, multiple users remain pending. See `instructions/live-connections.md` for validation and rollback.
 
 ## Artwork
 
@@ -63,4 +63,8 @@ Production records belong to Spoolside: assembly, packing and tracking edits do 
 
 Primary target is iPhone 12 Pro Max (428 × 926 CSS pixels). On mobile, Spoolside opens Orders with compact collapsed rows; printer overview remains one tap away. Layout includes Home Screen safe-area insets.
 
-Phone notifications are confirmed scope but not enabled in this version. iOS Web Push needs iOS 16.4+, an installed Home Screen PWA, and explicit permission. Planned backend work includes persistent subscriptions, VAPID keys outside Git, preference-controlled order/production events, retry/deduplication and invalid-subscription cleanup. Do not infer delivery from successful subscription: verify on the actual iPhone.
+Phone notifications are implemented using Web Push. In Safari on iOS 16.4+, add Spoolside to Home Screen, open the installed app, then Settings → Order notifications → Enable notifications. Choose new orders and/or existing order changes (status, items, refunds). Tap Send test notification and verify receipt on the phone. Browser permission and actual device delivery are required; server acceptance alone does not prove receipt.
+
+Subscriptions and delivery queues live in SQLite and are included in workspace backups. A persistent private `deploy/vapid.json` (subject/publicKey/privateKey) is mounted read-only; never commit or rotate it routinely. The first successful import establishes a silent baseline. The import transaction also queues per-device events, with retries (up to eight attempts / 48 hours), expired subscription removal and notification tags for duplicate replacement. Order reads run every minute; pending delivery attempts run every 15 seconds. Alerts omit customer, payment and address data. Disable on this device removes its subscription and pending sends; other devices remain enabled. Lock-screen visibility follows phone settings.
+
+Delivery uses standard Apple/Google/Mozilla/Windows push services. This is at-least-once delivery: a crash immediately after service acceptance can retry the same tag. No guaranteed receipt, sound or exact timing is claimed. Notification clicks open authenticated Orders. Existing printer/production notifications remain pending.

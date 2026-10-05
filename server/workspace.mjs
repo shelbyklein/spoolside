@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 export function variantDetails(metadata = []) {
   const values = new Map();
@@ -31,6 +32,7 @@ export function normalizeOrder(raw, prior) {
       : "Date unavailable",
     commercial: raw.status,
     refundReview: (raw.refunds || []).length > 0,
+    refundVersion: createHash("sha256").update(JSON.stringify((raw.refunds || []).map(r => [r.id, r.total]).sort((a,b) => Number(a[0])-Number(b[0])))).digest("hex"),
     items: (raw.line_items || []).map((i) => ({
       id: String(i.id),
       name: String(i.name || "Unnamed item"),
@@ -126,6 +128,7 @@ export class Workspace {
         page++;
       } while (page <= totalPages);
       const previous = new Map(this.state.orders.map((o) => [o.id, o]));
+      const before = this.state;
       this.state = {
         ...this.state,
         revision: this.state.revision + 1,
@@ -135,7 +138,16 @@ export class Workspace {
         lastSync: new Date().toISOString(),
         syncError: null,
       };
-      this.persist();
+      try {
+        this.db.exec("BEGIN IMMEDIATE");
+        this.persist();
+        this.onSync?.(before.orders, this.state, !before.lastSync);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        this.state = before;
+        throw error;
+      }
     } catch (e) {
       this.state.syncError =
         e.message.startsWith("WooCommerce") ||

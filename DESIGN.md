@@ -29,3 +29,6 @@ Primary target is iPhone12 Pro Max, 428×926 CSS pixels. Mobile opens the compac
 
 ## Live workspace
 Hosted views use real order and printer data with explicit sync/save/error states. Phone defaults to Active orders. Technical form metadata yields to friendly fulfillment fields. Printer illustrations and simulated controls are omitted from live views; last report time and stale status identify telemetry freshness. Local preview retains demo behavior.
+
+## Order notifications
+Settings offers device-scoped new-order/change switches, explicit permission opt-in, a test and disable action. iPhone browser visits explain installation requirements. Success copy distinguishes push-service acceptance from phone receipt; errors preserve retry paths. Checkbox rows and buttons retain 44px touch targets.

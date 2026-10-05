@@ -13,3 +13,5 @@ handoff/*credentials*
 deploy/woocommerce.json
 deploy/printers.json
 backups/
+
+deploy/vapid.json
