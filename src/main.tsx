@@ -135,7 +135,9 @@ const tabs = [
 ];
 function App() {
   const opener = useRef<HTMLElement | null>(null);
-  const [tab, setTab] = useState("Overview"),
+  const [tab, setTab] = useState(
+      window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview",
+    ),
     [machines, setMachines] = useSaved(
       "spoolside-machines-v1",
       initialMachines,
@@ -152,7 +154,14 @@ function App() {
     [notice, setNotice] = useState(""),
     [filter, setFilter] = useState("All printers"),
     [online, setOnline] = useState(navigator.onLine),
+    [hosted, setHosted] = useState(false),
     [install, setInstall] = useState<any>(null);
+  useEffect(() => {
+    fetch("/api/status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setHosted(data?.host === "beelink"))
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     const on = () => setOnline(navigator.onLine);
     const prompt = (e: Event) => {
@@ -524,7 +533,7 @@ function App() {
                   : tab === "Printers"
                     ? "Meet your little makers."
                     : tab === "Orders"
-                      ? "From order to something real."
+                      ? "Your PlayCase orders."
                       : tab === "Queue"
                         ? "Keep the ideas coming."
                         : tab === "Filament"
@@ -545,7 +554,7 @@ function App() {
                           : "Your workspace, connections, and app preferences."}
               </p>
             </div>
-            {tab !== "Settings" && (
+            {tab !== "Settings" && tab !== "Orders" && (
               <button
                 className="secondary"
                 onClick={() => {
@@ -783,6 +792,40 @@ function App() {
                 >
                   <Download size={16} /> Install app
                 </button>
+              )}
+              {hosted && (
+                <>
+                  <h2>Account</h2>
+                  <p>Hosted privately on your Beelink.</p>
+                  <form
+                    method="post"
+                    action="/logout"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const response = await fetch("/logout", {
+                        method: "POST",
+                        credentials: "same-origin",
+                      }).catch(() => null);
+                      if (!response?.ok) {
+                        setNotice("Sign-out failed. Please try again.");
+                        return;
+                      }
+                      await Promise.all(
+                        (await navigator.serviceWorker.getRegistrations()).map(
+                          (r) => r.unregister(),
+                        ),
+                      );
+                      await Promise.all(
+                        (await caches.keys()).map((k) => caches.delete(k)),
+                      );
+                      window.location.replace("/login");
+                    }}
+                  >
+                    <button className="secondary" type="submit">
+                      Sign out
+                    </button>
+                  </form>
+                </>
               )}
               <h2>Demo workspace</h2>
               <p>

@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.impeccable
+handoff
+test-results
+playwright-report
+.env*
+deploy/tunnel/*.json
+*.tsbuildinfo

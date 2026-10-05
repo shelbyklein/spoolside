@@ -103,7 +103,7 @@ test("map variant quantity into jobs and use search filters", async ({
 test("orders desktop and mobile renders", async ({ page }) => {
   for (const [name, width, height] of [
     ["orders-desktop", 1440, 1050],
-    ["orders-mobile", 390, 844],
+    ["orders-mobile", 428, 926],
   ] as const) {
     await page.setViewportSize({ width, height });
     await openOrders(page);

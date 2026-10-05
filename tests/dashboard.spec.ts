@@ -75,6 +75,10 @@ test("desktop and mobile rendered layouts", async ({ page }) => {
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: "Overview", exact: true })
+      .click();
     await page.evaluate(() => document.fonts.ready);
     await expect(
       page.getByRole("heading", { name: "Your printers" }),

@@ -45,7 +45,8 @@ export function Orders({
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("All orders"),
     [expanded, setExpanded] = useState<string | null>(
-      openOrderId || "demo-1042",
+      openOrderId ||
+        (window.matchMedia("(max-width: 760px)").matches ? null : "demo-1042"),
     );
   const update = (id: string, patch: Partial<Order>) =>
     setOrders(orders.map((o) => (o.id === id ? { ...o, ...patch } : o)));

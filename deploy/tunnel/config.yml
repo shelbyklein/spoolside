@@ -1,0 +1,6 @@
+tunnel: 4e2611e4-adac-4eec-9608-7fb81988bb68
+credentials-file: /etc/cloudflared/credentials.json
+ingress:
+  - hostname: spoolside.shelbyklein.com
+    service: http://127.0.0.1:3110
+  - service: http_status:404

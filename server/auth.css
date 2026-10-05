@@ -1,0 +1,109 @@
+@font-face {
+  font-family: Manrope;
+  src: url(/auth-display.woff2) format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+:root {
+  font-family: system-ui, sans-serif;
+  color: #193347;
+  background: #102d44;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 25px;
+}
+main {
+  background: #f6f8f8;
+  width: 100%;
+  max-width: 430px;
+  padding: 40px;
+  border-radius: 16px;
+}
+img {
+  width: 70px;
+  height: 70px;
+  border-radius: 15px;
+  margin-bottom: 24px;
+}
+h1 {
+  font-size: 27px;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  margin: 0;
+}
+p {
+  color: #61727b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 22px;
+}
+input {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid #bbcbc8;
+  border-radius: 7px;
+  background: white;
+  width: 100%;
+  color: #193347;
+}
+button {
+  font: inherit;
+  font-weight: 600;
+  background: #087b78;
+  color: white;
+  border: 0;
+  border-radius: 7px;
+  padding: 13px;
+  width: 100%;
+  margin-top: 26px;
+  cursor: pointer;
+}
+button:hover {
+  background: #056360;
+}
+input:focus-visible,
+button:focus-visible {
+  outline: 3px solid #d67122;
+  outline-offset: 3px;
+}
+footer {
+  font-size: 11px;
+  color: #61727b;
+  margin-top: 28px;
+}
+.error {
+  font-size: 12px;
+  color: #853b1b;
+  background: #faeadc;
+  padding: 12px;
+  border-radius: 6px;
+}
+::selection {
+  background: #b4e9e3;
+  color: #102d44;
+}
+@media (max-width: 480px) {
+  main {
+    padding: 30px 25px;
+  }
+  h1 {
+    font-size: 25px;
+  }
+}
+
+h1 {
+  font-family: Manrope, system-ui, sans-serif;
+}

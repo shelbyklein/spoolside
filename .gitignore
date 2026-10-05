@@ -5,3 +5,8 @@ test-results/
 playwright-report/
 .impeccable/review/
 *.tsbuildinfo
+.env*
+!deploy/.env.example
+deploy/tunnel/*.json
+handoff/*credentials*
+*.sqlite*
