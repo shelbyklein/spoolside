@@ -3,7 +3,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   const context = await browser.newContext({ viewport: { width: 428, height: 926 }, serviceWorkers: 'block' });
   const page = await context.newPage();
   const makeOrder = (id: string, commercial: string) => ({id,number:'#'+id,placed:'Oct 5, 2026',commercial,refundReview:false,items:[{id:'i'+id,name:'PlayCase',variant:'Phone model: iPhone 16 Pro',quantity:1,recipe:[]}],assembled:false,packed:false,shipped:false,tracking:'',note:''});
-  let state = {revision:1,orders:[makeOrder('1','processing'),makeOrder('2','delivered')],jobs:[],spools:[],machines:[{id:'p1',name:'AMS 2',state:'Ready',job:'Last print',progress:100,remaining:'0 min',material:'Filament not mapped',nozzle:26,bed:25,seen:new Date().toISOString(),stale:false}],lastSync:new Date().toISOString(),syncError:null};
+  let state = {revision:1,orders:[makeOrder('1','processing'),makeOrder('2','delivered'),makeOrder('3','on-hold')],jobs:[],spools:[],machines:[{id:'p1',name:'AMS 2',state:'Ready',job:'Last print',progress:100,remaining:'0 min',material:'Filament not mapped',nozzle:26,bed:25,seen:new Date().toISOString(),stale:false}],lastSync:new Date().toISOString(),syncError:null};
   let saves = 0;
   let releaseSync: (()=>void) | undefined;
   await page.route('https://spoolside.shelbyklein.com/**', async route => {
@@ -19,7 +19,17 @@ test('hosted mobile uses active source orders and server saves without browser s
   });
   await page.goto('https://spoolside.shelbyklein.com/');
   await expect(page.getByLabel('Filter orders')).toHaveValue('Active orders');
-  await expect(page.getByText('1 of 2 orders')).toBeVisible();
+  await expect(page.getByText('1 of 3 orders')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
+  const overview=page.getByRole('region',{name:'PlayCase orders overview'});
+  await expect(overview.getByRole('button',{name:'Open order #1',exact:true})).toBeVisible();
+  await expect(overview.getByRole('button',{name:'Open order #3',exact:true})).toContainText('On hold');
+  await expect(overview.getByRole('button',{name:'Open order #2',exact:true})).toHaveCount(0);
+  await overview.getByRole('button',{name:'Open order #3',exact:true}).click();
+  await expect(page.getByText('WooCommerce status:')).toContainText('on-hold');
+  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
+  await overview.getByRole('button',{name:'View orders'}).click();
+
   await page.getByLabel('Filter orders').selectOption('Fulfilled in store');
   await expect(page.getByText('#2',{exact:true})).toBeVisible();
   await page.getByLabel('Filter orders').selectOption('Active orders');

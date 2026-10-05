@@ -46,7 +46,7 @@ export function Orders({
   showQueue,
 }: Props) {
   const [search, setSearch] = useState(""),
-    [filter, setFilter] = useState(live ? "Active orders" : "All orders"),
+    [filter, setFilter] = useState(live && !openOrderId ? "Active orders" : "All orders"),
     [expanded, setExpanded] = useState<string | null>(
       openOrderId ||
         (window.matchMedia("(max-width: 760px)").matches ? null : "demo-1042"),

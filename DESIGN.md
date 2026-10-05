@@ -35,3 +35,6 @@ Settings offers device-scoped new-order/change switches, explicit permission opt
 
 ## PIN entry
 Hosted login preserves artwork and palette, with one masked six-digit field using the phone numeric keypad. Failure messages include retry guidance; no PIN appears in UI captures.
+
+## Overview orders
+Overview starts with up to five open store orders before printers, using compact quantity/date/stage rows. Held work stays visible, each row opens its matching details, and View orders opens the existing order workspace. Phone default remains Orders.

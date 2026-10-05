@@ -25,6 +25,7 @@ The tests run the production preview on port 4173 and exercise simulated pause/r
 - Quantity-aware order jobs, failed-print replacements, and production history
 - Assembly/packing gates, local demo shipment tracking and notes
 - Cancelled-order guard and active queue separated from finished/failed job records
+- Overview open-order summary with direct production-detail navigation
 - Fleet overview and printer status filters
 - Printer detail drawer with simulated temperatures and progress
 - Local queue with add, reorder, and remove

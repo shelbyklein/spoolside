@@ -33,7 +33,7 @@ import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
 import { Orders, initialOrders } from "./OrderWorkspace";
-import { type Job, type Order, productionAllowed } from "./order-model";
+import { type Job, type Order, productionAllowed, orderStage } from "./order-model";
 import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
 
 const initialMachines: Machine[] = [
@@ -237,6 +237,7 @@ function App() {
         : "Job removed from your demo queue.",
     );
   };
+  const overviewOrders = orders.filter(o => ["processing", "pending", "on-hold"].includes(o.commercial.toLowerCase()) && !o.shipped);
   const queueJobs = jobs.filter(
     (j) =>
       !j.orderId ||
@@ -568,7 +569,7 @@ function App() {
               </h1>
               <p>
                 {tab === "Overview"
-                  ? `${printing} printers making progress. Your next idea is in good company.`
+                  ? `${printing} ${printing === 1 ? "printer" : "printers"} making progress. Your next idea is in good company.`
                   : tab === "Printers"
                     ? "Your A1 mini fleet, all in one place."
                     : tab === "Orders"
@@ -625,6 +626,25 @@ function App() {
                 ? "You’re offline. Live data cannot refresh and production changes cannot be saved until connection returns."
                 : "You’re offline. Your saved demo workspace is still available."}
             </div>
+          )}
+          {tab === "Overview" && (
+            <section className="overview-orders" aria-label="PlayCase orders overview">
+              <div className="section-top">
+                <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2><p>{remote ? "Open store orders, including work on hold." : "Open sample orders."}</p></div>
+                <button className="text-button" onClick={() => {setFocusedOrder(null);setTab("Orders");}}>View orders <ArrowUpRight size={16} /></button>
+              </div>
+              <div className="orders-list">
+                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store orders. Connection status appears above." : "No open orders. View orders for history."}</p></div> : overviewOrders.slice(0,5).map(order => {
+                  const stage=orderStage(order,jobs);
+                  return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
+                    <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
+                    <span className="order-product">{order.items[0]?.name || "No line items"}<small>{order.items.reduce((n,i)=>n+i.quantity,0)} {order.items.reduce((n,i)=>n+i.quantity,0) === 1 ? "unit" : "units"}{order.items.length > 1 ? ` · ${order.items.length} items` : ""}</small></span>
+                    <span className={`production-stage ${["Needs mapping","Blocked","On hold"].includes(stage) ? "attention" : ""}`}>{stage}</span><ChevronRight size={17}/>
+                  </button>;
+                })}
+              </div>
+              {overviewOrders.length > 5 && <p className="overview-order-more">Showing 5 of {overviewOrders.length} open orders.</p>}
+            </section>
           )}
           {(tab === "Overview" || tab === "Printers") && (
             <>
