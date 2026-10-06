@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
-import {AssemblyPreview} from './AssemblyPreview';
+import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import type {Asset} from './AssetLibrary';
 type Part={assetId:string;quantity:number;color?:string;positions?:number[][]};
 type Assembly={id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
@@ -20,7 +20,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const selected=items.find(a=>a.id===selectedId);
  return <section aria-label="Assemblies">
  {selectedId && <button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button>}
- {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><AssemblyPreview parts={(liveColors?.id===selected.id?liveColors.components:selected.components).flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];})}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} onPreview={setLiveColors} notify={notify}/></div></section>}
+ {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><PositionTool assembly={liveColors?.id===selected.id?liveColors:selected} assets={assets} onPreview={setLiveColors} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} notify={notify}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} onPreview={setLiveColors} notify={notify}/></div></section>}
  {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found.</p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
@@ -96,5 +96,47 @@ function PositionsEditor({part,busy,onSave}:{part:Part;busy:boolean;onSave:(p:nu
    <button type="button" className="text-button" disabled={rows.length>=20} onClick={()=>setRows([...rows,['0','0','0']])}>+ Add position</button>
    <button type="button" className="secondary" disabled={busy||!valid} onClick={()=>onSave(parsed)}>Save positions</button>
   </div>
+ </div>;
+}
+
+// Preview plus hands-on positioning: click a part, drag its arrows, or nudge it in mm.
+function PositionTool({assembly,assets,onPreview,onSaved,notify}:{assembly:Assembly;assets:Asset[];onPreview:(a:Assembly|null)=>void;onSaved:(a:Assembly)=>void;notify:(m:string)=>void}){
+ const [editing,setEditing]=useState(false),[pick,setPick]=useState<PartPick|null>(null),[step,setStep]=useState(0.5);
+ const timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+ const parts=assembly.components.flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
+ const comp=pick?assembly.components.find(c=>c.assetId===pick.assetId):undefined;
+ const spots=comp?(comp.positions?.length?comp.positions:[[0,0,0]]):[];
+ const current=pick?spots[pick.instance]:undefined;
+ // Show the move instantly; save once you pause.
+ const move=(p:PartPick,position:number[])=>{
+  const next={...assembly,components:assembly.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);list[p.instance]=position.map(n=>Math.round(n*100)/100);return {...c,positions:list};})};
+  onPreview(next);
+  clearTimeout(timer.current);
+  timer.current=setTimeout(async()=>{
+   const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
+   const body=await r.json().catch(()=>({}));
+   if(!r.ok){notify(body.error||'Could not save position');return;}
+   onSaved(body);onPreview(null);
+  },700);
+ };
+ const nudge=(axis:number,dir:number)=>{if(!pick||!current)return;move(pick,current.map((n,i)=>i===axis?n+dir*step:n));};
+ const name=pick?assets.find(a=>a.id===pick.assetId)?.name:'';
+ return <div className="position-tool">
+  <AssemblyPreview parts={parts} editing={editing?{selected:pick,onSelect:setPick,onMove:move}:undefined}/>
+  <div className="position-bar">
+   <button className={editing?'primary':'secondary'} onClick={()=>{setEditing(!editing);setPick(null);}}>{editing?'Done positioning':'Position parts'}</button>
+   {editing&&!pick&&<span className="plate-meta">Click a part in the preview to select it.</span>}
+  </div>
+  {editing&&pick&&current&&<div className="nudge-panel" aria-label={`Position of ${name}`}>
+   <strong>{name}{spots.length>1?` · copy ${pick.instance+1} of ${spots.length}`:''}</strong>
+   <p className="plate-meta">Drag the arrows in the preview, or nudge below. Offsets are mm from where the STL sits.</p>
+   {['X','Y','Z'].map((axis,i)=><div className="nudge-row" key={axis}>
+    <span>{axis}</span>
+    <button className="secondary" aria-label={`Move ${axis} down ${step} mm`} onClick={()=>nudge(i,-1)}>−</button>
+    <output>{current[i].toFixed(2)}</output>
+    <button className="secondary" aria-label={`Move ${axis} up ${step} mm`} onClick={()=>nudge(i,1)}>+</button>
+   </div>)}
+   <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label>
+  </div>}
  </div>;
 }
