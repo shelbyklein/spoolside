@@ -110,32 +110,32 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
         </button>
       )}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}
-      {groups.map(([key, list]) => (
-        <div className="asset-group" key={key}>
-          <h3>{key.split("|")[1]}</h3>
-          {view === "cards" ? (
-            <div className="asset-cards">
-              {list.map((a) => (
-                <AssetCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />
-              ))}
-            </div>
-          ) : (
-          <ul>
-            {list.map((a) => (
-              <li key={a.id}>
-                <button className="asset-row" onClick={() => setOpenId(a.id)}>
-                  <span className="asset-name">
-                    <strong>{a.name}</strong>
-                    <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.dims.join(" × ") + " mm", a.note].filter(Boolean).join(" · ")}</small>
-                  </span>
-                  <span className={`asset-status ${slug(a.status)}`}>{a.status}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          )}
+      {view === "cards" ? (
+        <div className="group-cards">
+          {groups.map(([key, list]) => (
+            <GroupCard key={key} title={key.split("|")[1]} assets={list} onOpen={setOpenId} />
+          ))}
         </div>
-      ))}
+      ) : (
+        groups.map(([key, list]) => (
+          <div className="asset-group" key={key}>
+            <h3>{key.split("|")[1]}</h3>
+            <ul>
+              {list.map((a) => (
+                <li key={a.id}>
+                  <button className="asset-row" onClick={() => setOpenId(a.id)}>
+                    <span className="asset-name">
+                      <strong>{a.name}</strong>
+                      <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.dims.join(" × ") + " mm", a.note].filter(Boolean).join(" · ")}</small>
+                    </span>
+                    <span className={`asset-status ${slug(a.status)}`}>{a.status}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
       {open && (
         <div className="detail-overlay" onClick={() => setOpenId(null)}>
           <section role="dialog" aria-modal="true" aria-label={open.name} className="detail-panel asset-detail" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && setOpenId(null)}>
@@ -177,11 +177,19 @@ function cardLabel(a: Asset) {
   return a.name;
 }
 
-function AssetCard({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
+// One card per phone generation / faceplate style, with a full-width pill per STL.
+function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; onOpen: (id: string) => void }) {
   return (
-    <button className="asset-card" onClick={onOpen} aria-label={`${asset.name}, ${asset.status}`}>
-      <strong>{cardLabel(asset)}</strong>
-      <span className={`asset-status ${slug(asset.status)}`}>{asset.status}</span>
-    </button>
+    <section className="group-card" aria-label={title}>
+      <h3>{title}</h3>
+      <div className="asset-pills">
+        {assets.map((a) => (
+          <button key={a.id} className={`asset-pill ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}`} onClick={() => onOpen(a.id)}>
+            <span>{cardLabel(a)}</span>
+            <small>{a.status}</small>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

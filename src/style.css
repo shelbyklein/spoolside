@@ -2040,13 +2040,20 @@ footer .tiny-dot {
   .segmented button { flex: 1; padding: 0 6px; }
 }
 .view-toggle button { display: inline-grid; place-items: center; width: 40px; padding: 0; }
-.asset-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.asset-card { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 84px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-align: left; transition: border-color 0.15s, box-shadow 0.15s; }
-.asset-card:hover { border-color: #b9d3cf; box-shadow: 0 4px 14px #10284012; }
-.asset-card strong { font-size: 15px; font-weight: 600; line-height: 1.25; }
+.group-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.group-card { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.group-card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+.asset-pills { display: flex; flex-direction: column; gap: 6px; }
+.asset-pill { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 38px; padding: 0 14px; border-radius: 999px; background: #e4f2ef; color: #0b6b63; font-size: 13px; font-weight: 600; text-align: left; }
+.asset-pill small { font-size: 11px; font-weight: 500; opacity: 0.8; white-space: nowrap; }
+.asset-pill:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.asset-pill.needs-update { background: #e6eef8; color: #2f5a8a; }
+.asset-pill.needs-check { background: #fdf1e3; color: #8a4d08; }
+.asset-pill.experimental { background: #ece9fb; color: #4b3c9e; }
+.asset-pill.retired { background: #eceeef; color: #69777d; }
+@media (max-width: 1150px) { .group-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
-  .asset-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .asset-card { min-height: 76px; padding: 12px; }
-  .asset-card strong { font-size: 14px; }
+  .group-cards { grid-template-columns: 1fr; gap: 10px; }
+  .asset-pill { min-height: 44px; }
   .view-toggle { width: auto; }
 }
