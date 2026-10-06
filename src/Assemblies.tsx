@@ -26,7 +26,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  {!selectedId && <>
   <div className="asset-toolbar"><label className="search-field"><input aria-label="Search assemblies" placeholder="Search assembly or SKU" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="secondary" onClick={()=>{setDraft(empty());setAssetSearch('');}}>Add assembly</button></div>
 
-  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<div className="group-cards assembly-cards">{items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase())).map(a=><section key={a.id} className="group-card"><h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();navigate(a.id);}}>{a.name}</a></h3><p>{a.type}{a.sku?` · ${a.sku}`:''}</p><AssemblyPreview parts={a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];})}/><div className="asset-pills">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className={`asset-pill ${asset?.status.toLowerCase().replace(/\s+/g,'-') || ''}`} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name || 'Missing asset'} × {c.quantity}</span><small>{asset?.status}{!asset?.designFile ? " · Missing design" : ""}</small></button>;})}</div><button className="text-button" onClick={()=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></section>)}</div>}
+  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<div className="group-cards assembly-cards">{items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase())).map(a=><section key={a.id} className="group-card"><h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();navigate(a.id);}}>{a.name}</a></h3><p>{a.type}{a.sku?` · ${a.sku}`:''}</p><AssemblyPreview parts={a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];})}/><div className="part-chips-list">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpen(c.assetId)}>{asset?.name || 'Missing asset'}{c.quantity>1?` × ${c.quantity}`:''}</button>;})}</div><button className="text-button" onClick={()=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></section>)}</div>}
   </>}
   {draft && <form className="panel assembly-editor" onSubmit={e=>{e.preventDefault();save();}}>
    <h3>{draft.id?'Edit assembly':'New assembly'}</h3>
@@ -66,11 +66,11 @@ function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly
   <h3>Parts</h3>
   <div className="asset-pills">
    {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
-    <button className={pill(c.assetId)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span><small>{asset?.status}{asset&&!asset.designFile?' · Missing design':''}</small></button>
+    <button className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span></button>
     <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} key={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||'default'} defaultValue={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||DEFAULT_PART_COLOR} title={c.color?'Custom color for this assembly':'Category color'} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
-    {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>}
+    {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>||<span className="reset-color" aria-hidden="true"/>}
     <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
-    <button className="text-button positions-toggle" aria-expanded={editing===c.assetId} onClick={()=>setEditing(editing===c.assetId?null:c.assetId)}>{c.positions?.length?`${c.positions.length} positions`:'Position'}</button>
+    <button className="text-button positions-toggle" aria-expanded={editing===c.assetId} onClick={()=>setEditing(editing===c.assetId?null:c.assetId)}>{c.positions?.length?`${c.positions.length} position${c.positions.length===1?'':'s'}`:'Position'}</button>
     <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>
     {editing===c.assetId&&<PositionsEditor part={c} busy={busy} onSave={positions=>save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,positions}:x)},'Positions saved.')}/>}
    </div>;})}
@@ -140,4 +140,11 @@ function PositionTool({assembly,assets,onPreview,onSaved,notify}:{assembly:Assem
    <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label>
   </div>}
  </div>;
+}
+
+// Chip filled with the part's category color; text flips to white on dark colors.
+function chipStyle(color?:string){
+ if(!color)return undefined;
+ const [r,g,b]=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+ return {background:color,color:(0.299*r+0.587*g+0.114*b)>150?'#102d44':'#fff'};
 }
