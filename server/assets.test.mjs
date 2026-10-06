@@ -39,7 +39,7 @@ test("re-importing a source keeps the reviewed status and note", () => {
 
 test("import rules follow the confirmed Gen 3 decisions", () => {
   assert.equal(classify("Cases/15/Handheld - Bottom - Chamfer.stl"), null);
-  assert.equal(classify("Cases/16/iPhone 16 Pro Case.stl").status, "Needs check");
+  assert.equal(classify("Cases/16/iPhone 16 Pro Case.stl").status, "Retired");
   assert.equal(classify("Cases/16/iPhone 16 Pro Phone Case.stl").fit.phone, "iPhone 16 Pro");
   assert.equal(classify("Faceplates/SNES/SNES - Top.stl").status, "Retired");
   assert.deepEqual(classify("Faceplates/SNES/Ridges/SNES - Top.stl").fit, { style: "Classic", size: "Standard", piece: "Top" });

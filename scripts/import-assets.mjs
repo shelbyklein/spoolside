@@ -28,7 +28,7 @@ export function classify(rel) {
     const phone = file.replace(/\s+(Phone\s+)?Case(\s+Rounded)?$/i, "").replace(/^s26$/i, "Samsung S26");
     const asset = { type: "Case", name: `${phone} Case${/rounded/i.test(file) ? " (Rounded)" : ""}`, fit: { phone }, status: "Current" };
     if (rel === "Cases/16/iPhone 16 Pro Case.stl")
-      Object.assign(asset, { name: "iPhone 16 Pro Case (older)", status: "Needs check", note: "Older duplicate (Feb 7) of iPhone 16 Pro Phone Case (Sep 14). Same outer size, different geometry. Compare and retire one." });
+      Object.assign(asset, { name: "iPhone 16 Pro Case (older)", status: "Retired", note: "Replaced by iPhone 16 Pro Phone Case, which the current-orders project uses." });
     if (/rounded/i.test(file)) Object.assign(asset, { status: "Needs check", note: "Rounded variant. Which S26 case ships?" });
     return asset;
   }
