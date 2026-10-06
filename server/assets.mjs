@@ -4,7 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 export const TYPES = ["Case", "Faceplate", "Part"];
-export const STATUSES = ["Current", "Needs check", "Experimental", "Retired"];
+export const STATUSES = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
 const text = (v, max) => String(v ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
 
 // Binary or ASCII STL check plus bounding box, so bad uploads are rejected early.

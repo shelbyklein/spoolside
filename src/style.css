@@ -2022,6 +2022,7 @@ footer .tiny-dot {
 .asset-name small { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-status { flex-shrink: 0; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #e4f2ef; color: #0b6b63; }
 .asset-status.needs-check { background: #fdf1e3; color: #8a4d08; }
+.asset-status.needs-update { background: #e6eef8; color: #2f5a8a; }
 .asset-status.experimental { background: #ece9fb; color: #4b3c9e; }
 .asset-status.retired { background: #eceeef; color: #69777d; }
 .asset-detail { text-align: left; }

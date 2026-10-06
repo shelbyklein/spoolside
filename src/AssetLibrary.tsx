@@ -17,8 +17,8 @@ export type Asset = {
   bytes: number;
   updated: string;
 };
-type Status = "Current" | "Needs check" | "Experimental" | "Retired";
-const STATUSES: Status[] = ["Current", "Needs check", "Experimental", "Retired"];
+type Status = "Current" | "Needs update" | "Needs check" | "Experimental" | "Retired";
+const STATUSES: Status[] = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
 const TYPES = ["All", "Case", "Faceplate", "Part"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 
