@@ -14,9 +14,9 @@ import {
   X,
   ChevronRight,
   WifiOff,
+  RefreshCw,
   Clock3,
   Thermometer,
-  Box,
   Check,
   Download,
   CircleHelp,
@@ -163,6 +163,7 @@ function App() {
   const setSpools = (value: Spool[]) =>
     remote ? live.update("spools", value) : setDemoSpools(value);
   const [focusedOrder, setFocusedOrder] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null),
     [adding, setAdding] = useState(false),
     [notice, setNotice] = useState(""),
@@ -527,29 +528,33 @@ function App() {
             <div>
               <h1>{tab}</h1>
             </div>
-            {tab !== "Settings" && tab !== "Orders" && (
-              <button
-                className="secondary"
-                onClick={() => {
-                  setTab("Queue");
-                  setAdding(true);
-                }}
-              >
-                <Plus size={17} /> Add to queue
-              </button>
-            )}
-          </div>
-          <div className="demo-banner">
-            <Box size={16} />
-            <span>
-              {remote
-                ? `WooCommerce orders + LAN printer status. ${live.saving ? "Saving production changes…" : live.data.lastSync ? "Store checked " + new Date(live.data.lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Waiting for first store sync."}`
-                : "You’re exploring a demo. Printer readings and controls are simulated. PlayCase orders are sample data."}
-            </span>
-            <button onClick={() => (remote ? live.sync() : setTab("Settings"))}>
-              {remote ? "Refresh orders" : "Connect your printers"}
-              <ArrowUpRight size={14} />
-            </button>
+            <div className="page-actions">
+              {remote && (
+                <button
+                  className={`secondary icon-only${refreshing ? " spinning" : ""}`}
+                  aria-label="Refresh orders"
+                  title={live.data.lastSync ? "Store checked " + new Date(live.data.lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Refresh orders"}
+                  disabled={refreshing}
+                  onClick={async () => {
+                    setRefreshing(true);
+                    try { await live.sync(); } finally { setRefreshing(false); }
+                  }}
+                >
+                  <RefreshCw size={17} />
+                </button>
+              )}
+              {tab !== "Settings" && tab !== "Orders" && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setTab("Queue");
+                    setAdding(true);
+                  }}
+                >
+                  <Plus size={17} /> Add to queue
+                </button>
+              )}
+            </div>
           </div>
           {remote && live.error && (
             <div className="live-error" role="alert">
@@ -573,6 +578,7 @@ function App() {
                 : "You’re offline. Your saved demo workspace is still available."}
             </div>
           )}
+          <div className={tab === "Overview" ? "overview-split" : undefined}>
           {tab === "Overview" && (
             <section className="overview-orders" aria-label="PlayCase orders overview">
               <div className="section-top">
@@ -588,7 +594,7 @@ function App() {
             </section>
           )}
           {(tab === "Overview" || tab === "Printers") && (
-            <>
+            <div className="fleet-column">
               <div className="fleet-heading">
                 <h2>
                   Your printers <span>{machines.length}</span>
@@ -744,8 +750,9 @@ function App() {
                   )}
                 </section>
               </div>
-            </>
+            </div>
           )}
+          </div>
           {(tab === "Overview" || tab === "Queue" || tab === "Filament") && (
             <div
               className={tab === "Overview" ? "bottom-grid" : "single-section"}
