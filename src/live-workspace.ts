@@ -14,6 +14,9 @@ export type Machine = {
   stale?: boolean;
   connected?: boolean;
   error?: string | null;
+  rawState?: string | null;
+  trays?: { slot: number; type: string; color: string }[];
+  external?: { type: string; color: string } | null;
 };
 export type Spool = {
   id: string;

@@ -19,6 +19,7 @@ export function createApp({
   workspace,
   notifications,
   printers,
+  library,
 } = {}) {
   if (
     !pinHash ||
@@ -206,6 +207,59 @@ export function createApp({
     testTimes.set(req.params.id,Date.now());
     try {await notifications.test(req.params.id);res.json({ok:true});}
     catch(e){res.status(400).json({error:e.message});}
+  });
+  const fail = (res, e) => res.status(e.status || 400).json({ error: e.message });
+  app.get("/api/library", (_req, res) => res.json(library?.list() || []));
+  app.post(
+    "/api/library",
+    express.raw({ type: "application/octet-stream", limit: "95mb" }),
+    (req, res) => {
+      if (!library) return res.status(503).json({ error: "Print library unavailable" });
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) throw Error("Choose a sliced .3mf file");
+        res.json(library.add(decodeURIComponent(String(req.get("x-file-name") || "")), req.body));
+      } catch (e) {
+        fail(res, e);
+      }
+    },
+  );
+  app.patch("/api/library/:id", (req, res) => {
+    try { res.json(library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
+  });
+  app.delete("/api/library/:id", (req, res) => {
+    try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
+  });
+  app.post("/api/printers/:id/print", async (req, res) => {
+    try {
+      const { fileId, plate, amsMapping, useAms, bedLevelling, bedClear } = req.body || {};
+      if (bedClear !== true) throw Error("Confirm the build plate is clear");
+      const file = library?.get(String(fileId));
+      if (!file) throw Error("Choose a file from the library");
+      const plateInfo = file.plates.find((p) => p.index === plate);
+      if (!plateInfo) throw Error("Choose a sliced plate");
+      const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
+      if (useAms && (!Array.isArray(amsMapping) || amsMapping.length !== slots || !amsMapping.every((m) => Number.isInteger(m) && m >= -1 && m <= 3)))
+        throw Error("Choose an AMS slot for each filament");
+      await printers.startPrint(req.params.id, {
+        localFile: library.file(file.id),
+        name: file.name,
+        plate,
+        amsMapping,
+        useAms: !!useAms,
+        bedLevelling: bedLevelling !== false,
+      });
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/printers/:id/:action", async (req, res) => {
+    try {
+      await printers.control(req.params.id, req.params.action);
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
   });
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "Endpoint not found" }),

@@ -1979,3 +1979,27 @@ footer .tiny-dot {
 }
 .overview-orders .section-top { padding: 0; margin-bottom: 17px; align-items: center; }
 @media (min-width: 1151px) { .overview-split .fleet-heading, .overview-split .overview-orders .section-top { min-height: 36px; } }
+/* Printing: controls, start form and library */
+.print-controls { display: flex; gap: 10px; margin: 18px 0 8px; }
+.print-controls button { display: inline-flex; align-items: center; gap: 6px; }
+.secondary.danger { color: #a3341f; border-color: #e8c3b9; }
+.start-print { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 8px; padding-top: 18px; border-top: 1px solid var(--line); text-align: left; }
+.start-print h3 { margin: 0; font-size: 15px; }
+.start-print > label:not(.check-row) { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.start-print select { min-height: 40px; font-size: 13px; }
+.start-print .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.start-print .check-row input { width: 18px; height: 18px; }
+.start-print .primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+.start-print .primary:disabled { opacity: 0.45; }
+.plate-meta { margin: 0; font-size: 12px; color: var(--muted); }
+.start-print > label.slot-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; color: var(--navy); }
+.start-print .slot-row select { flex-shrink: 0; }
+.slot-row > span:first-child { display: flex; align-items: center; gap: 6px; }
+.print-library { margin-top: 27px; }
+.upload-button { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.library-list { margin: 0; padding: 0 24px 16px; list-style: none; }
+.library-list li { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); color: var(--muted); }
+.library-name { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.library-name strong { color: var(--navy); font-size: 13px; }
+.library-name small { font-size: 11px; }
+.library-swatches { display: flex; gap: 4px; }

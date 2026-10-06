@@ -3,6 +3,7 @@ import { Notifications } from "./notifications.mjs";
 import { Workspace } from "./workspace.mjs";
 import { Printers } from "./printers.mjs";
 import { createApp } from "./app.mjs";
+import { Library } from "./library.mjs";
 const configDir = process.env.SPOOLSIDE_CONFIG_DIR || "/run/spoolside";
 const woo = fs.existsSync(configDir + "/woocommerce.json")
   ? JSON.parse(fs.readFileSync(configDir + "/woocommerce.json"))
@@ -39,7 +40,12 @@ const backup = () => {
   }
 };
 const backupTimer = setInterval(backup, 3600000);
+const library = new Library(
+  process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
+  process.env.SPOOLSIDE_LIBRARY_DIR || "/data/library",
+);
 const { app, close } = createApp({
+  library,
   workspace,
   notifications,
   printers,
@@ -60,6 +66,7 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(backupTimer);
       backup();
       printers.close();
+      library.close();
       workspace?.close();
       close();
       process.exit(0);

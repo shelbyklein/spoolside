@@ -1,3 +1,4 @@
+import { PrintControls, PrintLibrary } from "./PrintControls";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -685,18 +686,18 @@ function App() {
                       </span>
                       <button
                         disabled={
-                          remote ||
+                          !remote &&
                           !["Printing", "Paused"].includes(active.state)
                         }
-                        onClick={() => toggle(active.id)}
+                        onClick={() => (remote ? openDetail(active.id) : toggle(active.id))}
                       >
-                        {active.state === "Paused" ? (
+                        {active.state === "Paused" || (remote && active.state === "Ready") ? (
                           <Play size={16} />
                         ) : (
                           <Pause size={16} />
                         )}{" "}
                         {remote
-                          ? "Read-only"
+                          ? ["Printing", "Paused", "Preparing"].includes(active.state) ? "Controls" : "Start print"
                           : active.state === "Paused"
                             ? "Resume"
                             : "Pause"}
@@ -753,6 +754,7 @@ function App() {
             </div>
           )}
           </div>
+          {tab === "Printers" && remote && <PrintLibrary notify={setNotice} />}
           {(tab === "Overview" || tab === "Queue" || tab === "Filament") && (
             <div
               className={tab === "Overview" ? "bottom-grid" : "single-section"}
@@ -975,8 +977,9 @@ function App() {
                     : "Resume demo print"}
                 </button>
               )}
+            {remote && <PrintControls machine={current} notify={setNotice} />}
             <p className="detail-note">
-              {remote ? `Live LAN status only. Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}
+              {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}
             </p>
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace
