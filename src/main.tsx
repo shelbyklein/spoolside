@@ -129,13 +129,28 @@ const tabs = [
   { name: "Filament", icon: Disc3 },
   { name: "Settings", icon: Settings },
 ];
+function tabFromPath() {
+  const segment = window.location.pathname.split("/")[1] || "";
+  const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
+  if (match) return match.name;
+  return new URLSearchParams(window.location.search).get("view") === "orders" || window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview";
+}
 function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
-  const [tab, setTab] = useState(
-      new URLSearchParams(window.location.search).get("view") === "orders" || window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview",
-    ),
+  // Each tab has its own address (/orders, /library, …) so pages can be bookmarked and the back button works.
+  const setTab = (name: string) => {
+    const path = "/" + name.toLowerCase();
+    if (window.location.pathname !== path) window.history.pushState(null, "", path);
+    setTabState(name);
+  };
+  useEffect(() => {
+    const onPop = () => setTabState(tabFromPath());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const [tab, setTabState] = useState(tabFromPath),
     [demoMachines, setMachines] = useSaved(
       "spoolside-machines-v1",
       initialMachines,

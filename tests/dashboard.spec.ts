@@ -58,9 +58,8 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
   await page.reload();
   await context.setOffline(true);
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Overview" }),
-  ).toBeVisible();
+  // The page address survives an offline reload.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
   await expect(
     page.getByText(
       "You’re offline. Your saved demo workspace is still available.",
@@ -93,4 +92,17 @@ test("desktop and mobile rendered layouts", async ({ page }) => {
       fullPage: true,
     });
   }
+});
+test("each page has its own URL and back navigation works", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  const nav = page.getByRole("navigation");
+  await nav.getByRole("button", { name: "Printers", exact: true }).click();
+  await expect(page).toHaveURL(/\/printers$/);
+  await nav.getByRole("button", { name: "Orders", exact: true }).click();
+  await expect(page).toHaveURL(/\/orders$/);
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Printers");
+  await page.goto("/filament");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
 });

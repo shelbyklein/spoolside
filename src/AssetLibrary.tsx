@@ -33,13 +33,26 @@ const groupOf = (a: Asset) =>
       ? a.fit.style
       : "Parts";
 
+const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
+
 export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("Active"),
     [search, setSearch] = useState(""),
-    [openId, setOpenId] = useState<string | null>(null);
+    [openId, setOpenState] = useState<string | null>(assetFromPath);
+  // An open model has its own address: /library/<asset id>.
+  const setOpenId = (id: string | null) => {
+    const path = id ? `/library/${id}` : "/library";
+    if (window.location.pathname !== path) window.history.pushState(null, "", path);
+    setOpenState(id);
+  };
+  useEffect(() => {
+    const onPop = () => setOpenState(assetFromPath());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const load = () => fetch("/api/assets").then((r) => r.json()).then(setAssets).catch(() => setAssets([]));
   useEffect(() => {
     load();

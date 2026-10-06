@@ -141,3 +141,30 @@ test('Home Screen icons and manifest are available before login without exposing
   assert.equal((await fetch(base+'/api/workspace')).status,401);
  }finally{await new Promise(r=>server.close(r));close();}
 });
+
+test("app pages have their own URLs and survive sign-in", async () => {
+  const salt = "c".repeat(32);
+  const dist = (await import("node:fs")).mkdtempSync((await import("node:os")).tmpdir() + "/spoolside-dist-");
+  (await import("node:fs")).writeFileSync(dist + "/index.html", "<!doctype html><title>app</title>");
+  const { app, close } = createApp({ dist, pinHash: salt + ":" + scryptSync("123456", salt, 64).toString("hex"), origin: "http://localhost", secure: false });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const gate = await fetch(base + "/library/0b9b7c3e-1111-4222-8333-944455556666", { redirect: "manual" });
+    assert.equal(gate.headers.get("location"), "/login?next=%2Flibrary%2F0b9b7c3e-1111-4222-8333-944455556666");
+    assert.match(await (await fetch(base + "/login?next=/orders")).text(), /name="next" value="\/orders"/);
+    assert.doesNotMatch(await (await fetch(base + "/login?next=https://evil.example")).text(), /name="next"/);
+    const login = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "123456", next: "/orders" }), redirect: "manual" });
+    assert.equal(login.headers.get("location"), "/orders");
+    const evil = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "123456", next: "//evil.example" }), redirect: "manual" });
+    assert.equal(evil.headers.get("location"), "/");
+    const page = await fetch(base + "/printers", { headers: { Cookie: login.headers.get("set-cookie").split(";")[0] } });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>app<\/title>/);
+  } finally {
+    server.close();
+    close();
+  }
+});
+

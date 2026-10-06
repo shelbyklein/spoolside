@@ -70,9 +70,12 @@ export function createApp({
   for (const file of ["icon-192.png", "icon-512.png", "apple-touch-icon.png", "manifest.webmanifest"]) {
     app.get("/" + file, (_req,res) => res.sendFile(path.join(dist,file)));
   }
-  const loginPage = (error = false) =>
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Spoolside</h1>${error ? '<p role="alert" class="error">Incorrect PIN, or too many attempts.</p>' : ""}<form action="/login" method="post"><label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></main></body></html>`;
-  app.get("/login", (_req, res) => res.type("html").send(loginPage()));
+  // Only app pages are allowed as post-login destinations (no open redirects).
+  const APP_PAGE = /^\/(overview|printers|orders|library|queue|filament|settings)(\/[0-9a-f-]{36})?\/?$/;
+  const safeNext = (value) => (typeof value === "string" && APP_PAGE.test(value) ? value : "");
+  const loginPage = (error = false, next = "") =>
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Spoolside</h1>${error ? '<p role="alert" class="error">Incorrect PIN, or too many attempts.</p>' : ""}<form action="/login" method="post">${next ? `<input type="hidden" name="next" value="${next}">` : ""}<label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></main></body></html>`;
+  app.get("/login", (req, res) => res.type("html").send(loginPage(false, safeNext(req.query.next))));
   app.use((req, res, next) => {
     if (
       ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
@@ -93,7 +96,7 @@ export function createApp({
     const prior = db.prepare("SELECT count,until FROM login_attempts WHERE ip=?").get(ip);
     const failures = db.prepare("SELECT COALESCE(SUM(count),0) count FROM login_attempts").get().count;
     if (failures >= 100 || (prior && prior.until > now && prior.count >= 8))
-      return res.status(429).type("html").send(loginPage(true));
+      return res.status(429).type("html").send(loginPage(true, safeNext(req.body?.next)));
     const [salt, expected] = pinHash.split(":");
     const candidate = scryptSync(
       String(req.body.pin || "").slice(0, 256),
@@ -105,7 +108,7 @@ export function createApp({
       /^[0-9]{6}$/.test(String(req.body.pin || ""));
     if (!valid) {
       db.prepare("INSERT INTO login_attempts VALUES(?,?,?) ON CONFLICT(ip) DO UPDATE SET count=excluded.count,until=excluded.until").run(ip, prior && prior.until > now ? prior.count + 1 : 1, now + 15 * 60 * 1000);
-      return res.status(401).type("html").send(loginPage(true));
+      return res.status(401).type("html").send(loginPage(true, safeNext(req.body?.next)));
     }
     db.prepare("DELETE FROM login_attempts WHERE ip=?").run(ip);
     db.prepare("DELETE FROM sessions WHERE expires < ?").run(now);
@@ -121,7 +124,7 @@ export function createApp({
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    res.redirect(303, "/");
+    res.redirect(303, safeNext(req.body?.next) || "/");
   });
   app.use((req, res, next) => {
     const raw = (req.headers.cookie || "")
@@ -137,7 +140,7 @@ export function createApp({
     if (!session || session.expires < Date.now()) {
       if (req.path.startsWith("/api/") || req.method !== "GET")
         return res.status(401).json({ error: "Sign in required" });
-      return res.redirect(303, "/login");
+      return res.redirect(303, APP_PAGE.test(req.path) ? `/login?next=${encodeURIComponent(req.path)}` : "/login");
     }
     req.sessionToken = raw;
     next();
@@ -308,6 +311,10 @@ export function createApp({
       dotfiles: "deny",
       setHeaders: (res) => res.setHeader("Cache-Control", "no-store"),
     }),
+  );
+  // App pages (/orders, /library/<id>, …) all load the single-page app.
+  app.get(APP_PAGE, (_req, res) =>
+    res.set("Cache-Control", "no-store").sendFile(path.join(dist, "index.html")),
   );
   app.use((_req, res) => res.status(404).send("Not found"));
   return { app, close: () => db.close() };
