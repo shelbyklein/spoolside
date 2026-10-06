@@ -13,7 +13,6 @@ import {
   Play,
   X,
   ChevronRight,
-  Wifi,
   WifiOff,
   Clock3,
   Thermometer,
@@ -489,12 +488,6 @@ function App() {
             spoolside<span className="brand-dot">.</span>
           </span>
         </a>
-        <div className="workspace">
-          <span className="avatar">SK</span>
-          <div>
-            <strong>Shelby’s workshop</strong>
-          </div>
-        </div>
         <nav aria-label="Main navigation">
           {tabs.map((t) => (
             <button
@@ -532,14 +525,9 @@ function App() {
         <header className="topbar">
           <span>
             <img className="mobile-mark" src="/icon-192.png" alt="Spoolside" />
-            <span className="tiny-dot" /> Shelby’s workshop{" "}
-            <ChevronRight size={14} /> {tab}
           </span>
           <div className="top-actions">
-            <span className="demo-pill">
-              {remote ? "Live workshop" : "Demo workspace"}
-            </span>
-            {online ? <Wifi size={17} /> : <WifiOff size={17} />}
+            {!remote && <span className="demo-pill">Demo workspace</span>}
           </div>
         </header>
         <div className="main-content">
@@ -584,7 +572,7 @@ function App() {
             </div>
           )}
           {remote && live.loading && (
-            <div className="empty">Loading your workshop…</div>
+            <div className="empty">Loading…</div>
           )}
           {!online && (
             <div className="offline-note">
