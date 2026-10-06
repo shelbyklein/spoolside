@@ -58,7 +58,7 @@ Orders are read-only in Spoolside: each shows the case photo, phone model, color
 
 ## Artwork
 
-`public/spoolside.png` is the exact image supplied by Shelby in chat; the PWA icons are resized copies. No separate logo was generated.
+The current blue-filament artwork uses the transparent spool in `public/spoolside.png` and the square pool version for the PWA icons (192/512 px), sign-in icon and Apple Home Screen icon (180 px). Source artwork is preserved in `handoff/branding/`.
 
 ## iPhone workflow and notifications
 
