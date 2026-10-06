@@ -7,7 +7,7 @@ const StlViewer = lazy(() => import("./StlViewer"));
 export type Asset = {
   id: string;
   name: string;
-  type: "Case" | "Faceplate" | "Sleeve" | "Part";
+  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone Base";
   generation: number;
   status: Status;
   note: string;
@@ -19,10 +19,11 @@ export type Asset = {
   updated: string;
   designFile?: {id:string;name:string;source:string}|null;
   complete?: boolean;
+  hasStl?: boolean;
 };
 type Status = "Current" | "Needs update" | "Needs check" | "Experimental" | "Retired";
 const STATUSES: Status[] = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
-const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part"] as const;
+const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone Base"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 
 // Groups cases by phone generation and faceplates by style.
@@ -31,7 +32,7 @@ const groupOf = (a: Asset) =>
     ? a.fit.phone.match(/^iPhone (\d+)/)?.[1] ? `iPhone ${a.fit.phone.match(/^iPhone (\d+)/)![1]}` : a.fit.phone.split(" ")[0]
     : (a.type === "Faceplate" || a.type === "Sleeve")
       ? a.fit.style + (a.type === "Sleeve" ? " sleeves" : "")
-      : "Parts";
+      : a.type === "Phone Base" ? "Phone Bases" : "Parts";
 
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
@@ -141,7 +142,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                   <button className="asset-row" onClick={() => setOpenId(a.id)}>
                     <span className="asset-name">
                       <strong>{a.name}</strong>
-                      <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.dims.join(" × ") + " mm", a.note].filter(Boolean).join(" · ")}</small>
+                      <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
                     </span>
                     <span className={`asset-status ${slug(a.status)}`}>{a.status}{!a.designFile ? " · Missing design" : ""}</span>
                   </button>
@@ -158,9 +159,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             <button autoFocus className="close icon-button" aria-label="Close" onClick={() => setOpenId(null)}><X /></button>
             <h2>{open.name}</h2>
             <p>{open.type} · Gen {open.generation}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
-            <Suspense fallback={<div className="stl-viewer" />}>
+            {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
               <StlViewer url={`/api/assets/${open.id}/stl`} />
-            </Suspense>
+            </Suspense>}
             <label className="design-picker">Design file
               <select aria-label="Design file" value={open.designFile?.id || ""} onChange={async e=>{
                 const r=await fetch(`/api/assets/${open.id}/design`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({designId:e.target.value || null})});
@@ -178,12 +179,12 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               <textarea key={open.id} defaultValue={open.note} maxLength={500} onBlur={(e) => e.target.value !== open.note && save(open, { note: e.target.value })} />
             </label>
             <dl>
-              <div><dt>Size</dt><dd>{open.dims.join(" × ")} mm</dd></div>
+              {open.hasStl !== false && <><div><dt>Size</dt><dd>{open.dims.join(" × ")} mm</dd></div>
               <div><dt>Triangles</dt><dd>{open.triangles.toLocaleString()}</dd></div>
-              <div><dt>Source</dt><dd>{open.source || "Uploaded"}</dd></div>
+              </>}<div><dt>Source</dt><dd>{open.source || "Uploaded"}</dd></div>
               <div><dt>Updated</dt><dd>{new Date(open.updated).toLocaleDateString()}</dd></div>
             </dl>
-            <a className="secondary download-stl" href={`/api/assets/${open.id}/stl`} download={`${open.name}.stl`}><Download size={16} /> Download STL</a>
+            {open.hasStl !== false && <a className="secondary download-stl" href={`/api/assets/${open.id}/stl`} download={`${open.name}.stl`}><Download size={16} /> Download STL</a>}
           </section>
         </div>
       )}

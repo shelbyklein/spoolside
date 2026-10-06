@@ -2069,3 +2069,5 @@ footer .tiny-dot {
 .design-picker { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
 .design-picker select { min-height: 44px; max-width: 100%; }
 .asset-pill small { text-align: right; white-space: normal; }
+
+@media (max-width: 760px) { .segmented[aria-label="Asset type"] { flex-wrap: wrap; } }

@@ -77,3 +77,10 @@ test('design auto linking only accepts unique exact source names; sleeve imports
  assert.equal(exactDesign({type:'Part',source:'Parts/2026/Triggers 2026.stl'},[{name:'Parts 2026.c4d',source:'Parts/Parts 2026.c4d'}]),null);
  assert.equal(classify('Faceplate Sleeves/ds plus sleeve.stl').fit.size,'Plus');assert.equal(classify('Faceplate Sleeves/red.stl').status,'Needs check');
 });
+
+test('phone base design-only assets preserve IDs and do not expose an STL',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-phone-base-'));const assets=new Assets(':memory:',dir);
+ try {const design=assets.addDesign({source:'Phone Bases/16.c4d',name:'16.c4d'},Buffer.from('project'));const meta={name:'iPhone 16',source:'Phone Bases/16.c4d',status:'Needs check'};
+ const a=assets.addPhoneBase(meta,design.id);assert.equal(a.type,'Phone Base');assert.equal(a.hasStl,false);assert.equal(a.complete,true);assets.update(a.id,{status:'Current'});const next=assets.addPhoneBase(meta,design.id);assert.equal(next.id,a.id);assert.equal(next.status,'Current');assert.equal(assets.list().length,1);
+ }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

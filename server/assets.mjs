@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-export const TYPES = ["Case", "Faceplate", "Sleeve", "Part"];
+export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone Base"];
 export const STATUSES = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
 const text = (v, max) => String(v ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
 
@@ -51,7 +51,7 @@ function clean(input, prior = {}) {
     source: text(input.source ?? prior.source, 300),
   };
   if (!out.name) throw Error("Name is required");
-  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve or Part");
+  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part or Phone Base");
   if (!STATUSES.includes(out.status)) throw Error("Unknown status");
   if (![3, 4].includes(out.generation)) throw Error("Generation must be 3 or 4");
   return out;
@@ -68,7 +68,7 @@ export class Assets {
   }
   row(r) {
     const design = this.db.prepare("SELECT d.* FROM designfiles d JOIN design_links l ON l.design=d.id WHERE l.asset=?").get(r.id);
-    return { id: r.id, ...JSON.parse(r.body), designFile:design || null, complete:!!design, hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
+    return { id: r.id, ...JSON.parse(r.body), designFile:design || null, hasStl:r.triangles > 0, complete:!!design, hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
   }
   list() {
     return this.db.prepare("SELECT * FROM assets").all().map((r) => this.row(r))
@@ -83,6 +83,13 @@ export class Assets {
     fs.writeFileSync(path.join(this.dir,`design-${id}${path.extname(name).toLowerCase()}`),buf,{mode:0o600});
     this.db.prepare("INSERT INTO designfiles VALUES(?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET name=excluded.name,hash=excluded.hash,bytes=excluded.bytes").run(id,source,name,createHash("sha256").update(buf).digest("hex"),buf.length);
     return this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);
+  }
+  addPhoneBase(meta, designId) {
+    const design=this.designFile(designId).meta;
+    const body=clean({...meta,type:"Phone Base"});
+    const existing=this.list().find(a=>a.source===body.source),id=existing?.id || randomUUID();
+    this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,hash=excluded.hash,bytes=excluded.bytes,updated=excluded.updated").run(id,JSON.stringify(existing?clean({...body,status:existing.status,note:existing.note},existing):body),design.hash,0,"[]",design.bytes,new Date().toISOString());
+    return this.linkDesign(id,designId);
   }
   linkDesign(assetId,designId) {
     if(!this.get(assetId))throw Error("Unknown asset");
