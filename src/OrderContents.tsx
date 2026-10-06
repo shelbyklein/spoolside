@@ -44,29 +44,3 @@ export function OrderContents({ order }: { order: Order }) {
     </span>
   );
 }
-
-// Full item breakdown with a photo for the case and each faceplate.
-export function ItemBreakdown({ item }: { item: OrderItem }) {
-  return (
-    <div className="item-breakdown">
-      <div className="item-hero">
-        <ItemThumb src={item.image} alt={`${item.colorway || ""} ${item.name}`.trim()} size={88} />
-        <dl>
-          {item.phone && (<><dt>Phone</dt><dd>{item.phone}</dd></>)}
-          {item.colorway && (<><dt>Colorway</dt><dd>{swatch(item.colorway) && <span className="color-dot" style={{ background: swatch(item.colorway) }} />}{item.colorway}</dd></>)}
-          {!item.phone && !item.colorway && (<><dt>Details</dt><dd>{item.variant}</dd></>)}
-        </dl>
-      </div>
-      {!!item.parts?.length && (
-        <ul className="part-grid">
-          {item.parts.map((p) => (
-            <li key={p.name}>
-              <ItemThumb src={p.image} alt={`${item.colorway || ""} ${p.name}`.trim()} size={64} />
-              <span>{p.name}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}

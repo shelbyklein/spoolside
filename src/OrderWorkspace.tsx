@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Search, ShoppingBag, ArrowUpRight, ChevronDown, ChevronUp, Truck } from "lucide-react";
-import { OrderContents, ItemBreakdown } from "./OrderContents";
+import { Search, ShoppingBag, ArrowUpRight, Truck } from "lucide-react";
+import { OrderContents } from "./OrderContents";
 import { type Order, initialOrders, isOpenOrder, storeStatus } from "./order-model";
 export { initialOrders };
 
@@ -10,8 +10,8 @@ export const PIRATE_SHIP_URL = "https://ship.pirateship.com/ship";
 export function ShipButton({ order }: { order: Order }) {
   if (order.commercial.toLowerCase() !== "processing") return null;
   return (
-    <a className="ship-button" href={PIRATE_SHIP_URL} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-      <Truck size={16} /> Ship in Pirate Ship
+    <a className="ship-button" href={PIRATE_SHIP_URL} target="_blank" rel="noreferrer" aria-label={`Ship ${order.number} in Pirate Ship`}>
+      <Truck size={16} /> Ship
     </a>
   );
 }
@@ -21,12 +21,26 @@ export function StatusTag({ order }: { order: Order }) {
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
 }
 
+export function OrderRow({ order }: { order: Order }) {
+  return (
+    <article className="overview-order-row" aria-label={`Order ${order.number}`}>
+      <span className="order-id">
+        <strong>{order.number}</strong>
+        <small>{order.placed}</small>
+      </span>
+      <OrderContents order={order} />
+      <StatusTag order={order} />
+      <span className="ship-slot"><ShipButton order={order} /></span>
+    </article>
+  );
+}
+
 const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"];
 
 export function Orders({ live = false, openOrderId, orders }: { live?: boolean; openOrderId: string | null; orders: Order[] }) {
-  const [search, setSearch] = useState(""),
-    [filter, setFilter] = useState(openOrderId ? "All orders" : "Open orders"),
-    [expanded, setExpanded] = useState<string | null>(openOrderId);
+  const focus = orders.find((o) => o.id === openOrderId);
+  const [search, setSearch] = useState(focus ? focus.number : ""),
+    [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
   const visible = orders.filter((o) => {
     const status = o.commercial.toLowerCase();
     const match =
@@ -71,36 +85,7 @@ export function Orders({ live = false, openOrderId, orders }: { live?: boolean; 
             <button className="text-button" onClick={() => { setSearch(""); setFilter("All orders"); }}>Clear filters</button>
           </div>
         )}
-        {visible.map((order) => {
-          const open = expanded === order.id;
-          return (
-            <article key={order.id} className="order-entry">
-              <button className="order-summary" aria-expanded={open} aria-controls={`order-${order.id}`} onClick={() => setExpanded(open ? null : order.id)}>
-                <span className="order-id">
-                  <strong>{order.number}</strong>
-                  <small>{order.placed}</small>
-                </span>
-                <OrderContents order={order} />
-                <StatusTag order={order} />
-                {open ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
-              </button>
-              {open && (
-                <div id={`order-${order.id}`} className="order-detail">
-                  {order.items.map((item) => (
-                    <div className="order-item" key={item.id}>
-                      <div className="line-item-title">
-                        <strong>{item.name}</strong>
-                        <span>× {item.quantity}</span>
-                      </div>
-                      <ItemBreakdown item={item} />
-                    </div>
-                  ))}
-                  <ShipButton order={order} />
-                </div>
-              )}
-            </article>
-          );
-        })}
+        {visible.map((order) => <OrderRow key={order.id} order={order} />)}
       </div>
     </section>
   );

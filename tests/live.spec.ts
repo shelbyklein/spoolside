@@ -22,11 +22,12 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(page.getByText('2 of 3 orders')).toBeVisible();
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   const overview=page.getByRole('region',{name:'PlayCase orders overview'});
-  await expect(overview.getByRole('button',{name:'Open order #1',exact:true})).toContainText('Processing');
-  await expect(overview.getByRole('button',{name:'Open order #3',exact:true})).toContainText('On hold');
-  await expect(overview.getByRole('button',{name:'Open order #2',exact:true})).toHaveCount(0);
-  await overview.getByRole('button',{name:'Open order #1',exact:true}).click();
-  await expect(page.locator('#order-1').getByRole('link',{name:'Ship in Pirate Ship'})).toBeVisible();
+  await expect(overview.getByRole('article',{name:'Order #1',exact:true})).toContainText('Processing');
+  await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
+  await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
+  await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
+  await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
+  await overview.getByRole('button',{name:'View orders'}).click();
   await page.getByLabel('Filter orders').selectOption('Shipped');
   await expect(page.getByText('#2',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Refresh orders'}).click();

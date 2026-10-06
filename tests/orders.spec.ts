@@ -6,18 +6,16 @@ const openOrders = async (page: import("@playwright/test").Page) => {
     .getByRole("button", { name: "Orders", exact: true })
     .click();
 };
-test("orders show contents, store status and a Pirate Ship action only", async ({ page }) => {
+test("order rows show contents, store status and a direct Pirate Ship action", async ({ page }) => {
   await openOrders(page);
   await expect(page.getByLabel("Filter orders")).toHaveValue("Open orders");
-  await page.getByRole("button", { name: /DEMO-1042/ }).click();
-  const detail = page.locator("#order-demo-1042");
-  const ship = detail.getByRole("link", { name: "Ship in Pirate Ship" });
-  await expect(ship).toHaveAttribute("href", "https://ship.pirateship.com/ship");
-  await expect(detail.locator("input, textarea, select")).toHaveCount(0);
+  const row = page.getByRole("article", { name: "Order DEMO-1042" });
+  await expect(row.getByRole("link", { name: "Ship DEMO-1042 in Pirate Ship" })).toHaveAttribute("href", "https://ship.pirateship.com/ship");
+  await expect(page.locator(".orders-workspace [aria-expanded]")).toHaveCount(0);
   await page.getByLabel("Filter orders").selectOption("All orders");
-  await page.getByRole("button", { name: /DEMO-1044/ }).click();
-  await expect(page.locator("#order-demo-1044").getByRole("link", { name: "Ship in Pirate Ship" })).toHaveCount(0);
-  await expect(page.locator(".order-entry").filter({ hasText: "DEMO-1044" }).locator(".production-stage")).toHaveText("Cancelled");
+  const cancelled = page.getByRole("article", { name: "Order DEMO-1044" });
+  await expect(cancelled.locator(".production-stage")).toHaveText("Cancelled");
+  await expect(cancelled.getByRole("link")).toHaveCount(0);
 });
 test("orders desktop and mobile renders", async ({ page }) => {
   for (const [name, width, height] of [

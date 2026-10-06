@@ -1,4 +1,3 @@
-import { OrderContents } from "./OrderContents";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -32,7 +31,7 @@ import "@fontsource/dm-sans/latin-600.css";
 import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
-import { Orders, initialOrders, StatusTag } from "./OrderWorkspace";
+import { Orders, initialOrders, OrderRow } from "./OrderWorkspace";
 import { type Job, type Order, productionAllowed, isOpenOrder } from "./order-model";
 import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
 
@@ -582,11 +581,7 @@ function App() {
               </div>
               <div className="orders-list">
                 {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : overviewOrders.slice(0,5).map(order => {
-                                    return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
-                    <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
-                    <OrderContents order={order} />
-                    <StatusTag order={order} /><ChevronRight size={17}/>
-                  </button>;
+                  return <OrderRow key={order.id} order={order} />;
                 })}
               </div>
               {overviewOrders.length > 5 && <p className="overview-order-more">Showing 5 of {overviewOrders.length} open orders.</p>}
