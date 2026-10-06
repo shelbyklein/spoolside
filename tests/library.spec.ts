@@ -6,7 +6,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  const pathname=new URL(route.request().url()).pathname;
  if(pathname==='/api/assets')return route.fulfill({json:assets});
  if(pathname==='/api/designfiles')return route.fulfill({json:[]});
- if(pathname==='/api/assemblies'){if(route.request().method()==='POST'){assemblies.push({...route.request().postDataJSON(),id:'assembly'});return route.fulfill({json:assemblies[0]});}return route.fulfill({json:assemblies});}
+ if(pathname==='/api/assemblies'){if(route.request().method()==='POST'){assemblies.push({...route.request().postDataJSON(),id:'33333333-3333-4333-8333-333333333333'});return route.fulfill({json:assemblies[0]});}return route.fulfill({json:assemblies});}
  return route.fulfill({json:{}});
  });
  await page.goto('/library');await page.getByRole('tab',{name:'Sleeves',exact:true}).click();await expect(page.getByRole('button',{name:'DS Sleeve, Needs check',exact:true})).toBeVisible();
@@ -16,4 +16,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  await form.getByRole('button',{name:'DS Top Faceplate'}).click();await form.getByLabel('Quantity',{exact:true}).fill('2');await form.getByRole('button',{name:'Save assembly'}).click();
  await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();expect(assemblies[0].components[0].quantity).toBe(2);
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/DS Top × 2/})).toBeVisible();
+ await page.getByRole('link',{name:'DS package',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies\/33333333-3333-4333-8333-333333333333$/);
+ await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByText('Quantity 2 · Current',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Download design'})).toHaveAttribute('href','/api/designfiles/design/download');
+ await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await page.getByRole('button',{name:'← Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);await page.goBack();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();
 });

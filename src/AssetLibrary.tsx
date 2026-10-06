@@ -1,5 +1,5 @@
 import { Assemblies } from "./Assemblies";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Download, Box, LayoutGrid, List } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
@@ -37,9 +37,10 @@ const groupOf = (a: Asset) =>
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
 export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
+  const assemblyReturnPath=useRef(window.location.pathname);
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [designs, setDesigns] = useState<{id:string;name:string;source:string}[]>([]),
-    [section, setSectionState] = useState(window.location.pathname === "/library/assemblies" ? "Assemblies" : "Assets"),
+    [section, setSectionState] = useState(window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets"),
     [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("Active"),
@@ -48,12 +49,13 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const setSection = (value:string) => {setSectionState(value);const path=value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
   // An open model has its own address: /library/<asset id>.
   const setOpenId = (id: string | null) => {
-    const path = id ? `/library/${id}` : "/library";
+    const path = id ? `/library/${id}` : (section === "Assemblies" ? assemblyReturnPath.current : "/library");
+    if(id && section === "Assemblies")assemblyReturnPath.current=window.location.pathname;
     if (window.location.pathname !== path) window.history.pushState(null, "", path);
     setOpenState(id);
   };
   useEffect(() => {
-    const onPop = () => {setOpenState(assetFromPath());setSectionState(window.location.pathname === "/library/assemblies" ? "Assemblies" : "Assets");};
+    const onPop = () => {setOpenState(assetFromPath());setSectionState(window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets");};
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);

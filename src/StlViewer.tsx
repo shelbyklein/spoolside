@@ -5,6 +5,7 @@ export default function StlViewer({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   useEffect(() => {
+    setError("");
     let cancelled = false,
       cleanup = () => {};
     (async () => {
@@ -25,6 +26,15 @@ export default function StlViewer({ url }: { url: string }) {
       const camera = new THREE.PerspectiveCamera(35, el.clientWidth / el.clientHeight, 0.1, 5000);
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
+      let geometryResource: import("three").BufferGeometry | undefined;
+      let materialResource: import("three").Material | undefined;
+      const resize = new ResizeObserver(()=>{
+        if(!el.clientWidth || !el.clientHeight)return;
+        renderer.setSize(el.clientWidth,el.clientHeight);
+        camera.aspect=el.clientWidth/el.clientHeight;
+        camera.updateProjectionMatrix();
+      });
+      resize.observe(el);
       let frame = 0;
       const loop = () => {
         controls.update();
@@ -33,18 +43,25 @@ export default function StlViewer({ url }: { url: string }) {
       };
       cleanup = () => {
         cancelAnimationFrame(frame);
+        resize.disconnect();
         controls.dispose();
+        geometryResource?.dispose();
+        materialResource?.dispose();
         renderer.dispose();
         renderer.domElement.remove();
       };
       try {
-        const buffer = await (await fetch(url)).arrayBuffer();
+        const response = await fetch(url);
+        if (!response.ok) throw Error("Model unavailable");
+        const buffer = await response.arrayBuffer();
         if (cancelled) return;
         const geometry = new STLLoader().parse(buffer);
+        geometryResource=geometry;
         geometry.computeVertexNormals();
         geometry.center();
         geometry.computeBoundingSphere();
         const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x5aa9a3, roughness: 0.55, metalness: 0.05 }));
+        materialResource=mesh.material;
         mesh.rotation.x = -Math.PI / 2;
         scene.add(mesh);
         const r = geometry.boundingSphere?.radius || 50;

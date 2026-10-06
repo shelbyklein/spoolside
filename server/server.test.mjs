@@ -165,6 +165,7 @@ test("app pages have their own URLs and survive sign-in", async () => {
     const assemblies = await fetch(base + "/library/assemblies", {headers:{Cookie:login.headers.get("set-cookie").split(";")[0]}});
     assert.equal(assemblies.status,200);
     assert.match(await assemblies.text(), /<title>app<\/title>/);
+    const detail=await fetch(base+"/library/assemblies/33333333-3333-4333-8333-333333333333",{headers:{Cookie:login.headers.get("set-cookie").split(";")[0]}});assert.equal(detail.status,200);
     const assemblyGate=await fetch(base+"/library/assemblies",{redirect:"manual"});
     assert.equal(assemblyGate.headers.get("location"),"/login?next=%2Flibrary%2Fassemblies");
   } finally {
