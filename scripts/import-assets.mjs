@@ -82,7 +82,7 @@ async function main() {
   const plan = files.map((f) => ({ file: f, rel: path.relative(ROOT, f), meta: classify(path.relative(ROOT, f)) }));
   for (const p of plan) console.log(p.meta ? `${p.meta.status.padEnd(12)} ${p.meta.type.padEnd(9)} ${p.meta.name}` : `skip         ${p.rel}`);
   if (dryRun) return;
-  const pin = fs.readFileSync(path.join(os.homedir(), ".config/spoolside/pin.txt"), "utf8").match(/\d{6}/)[0];
+  const pin = fs.readFileSync(path.join(os.homedir(), ".config/spoolside/pin.txt"), "utf8").match(/\d{8}/)[0];
   const login = await fetch(site + "/login", { method: "POST", headers: { Origin: site }, body: new URLSearchParams({ pin }), redirect: "manual" });
   const cookie = login.headers.get("set-cookie")?.split(";")[0];
   if (!cookie) throw Error("Login failed");

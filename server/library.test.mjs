@@ -31,12 +31,12 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     },
   };
   const salt = "b".repeat(32);
-  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("123456", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library });
+  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
-    const login = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "123456" }), redirect: "manual" });
+    const login = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "12345678" }), redirect: "manual" });
     const headers = { Cookie: login.headers.get("set-cookie").split(";")[0], Origin: "http://localhost" };
     const up = await fetch(base + "/api/library", { method: "POST", headers: { ...headers, "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent("Handheld – Green.gcode.3mf") }, body: fixture });
     const file = await up.json();

@@ -6,7 +6,7 @@ const walk=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirector
 async function main(){
  const files=['Cases','Faceplates','Sleeves','Parts'].flatMap(d=>walk(path.join(root,d)));
  if(process.argv.includes('--dry-run')){console.log(files.map(f=>path.relative(root,f)).join('\n'));return;}
- const site='https://spoolside.shelbyklein.com';const pin=fs.readFileSync(path.join(os.homedir(),'.config/spoolside/pin.txt'),'utf8').match(/PIN: (\d{6})/)[1];
+ const site='https://spoolside.shelbyklein.com';const pin=fs.readFileSync(path.join(os.homedir(),'.config/spoolside/pin.txt'),'utf8').match(/PIN: (\d{8})/)[1];
  const login=await fetch(site+'/login',{method:'POST',redirect:'manual',headers:{Origin:site},body:new URLSearchParams({pin})});const cookie=login.headers.get('set-cookie')?.split(';')[0];if(!cookie)throw Error('Login failed');
  const headers={Cookie:cookie,Origin:site};
  for(const f of files){const r=await fetch(site+'/api/designfiles',{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream','X-Design':encodeURIComponent(JSON.stringify({source:path.relative(root,f),name:path.basename(f)}))},body:fs.readFileSync(f)});if(!r.ok)throw Error('Design upload failed: '+path.basename(f));}

@@ -38,7 +38,7 @@ The tests run the production preview on port 4173 and exercise simulated pause/r
 
 Spoolside is deployed at https://spoolside.shelbyklein.com from `/srv/projects/spoolside` on Beelink. Compose binds the Node application to `127.0.0.1:3110`; a dedicated Cloudflare tunnel publishes HTTPS. No router port-forwarding or changes to other apps.
 
-The server requires a six-digit PIN login, hashes the PIN with scrypt, stores hashed session tokens in SQLite, uses secure HttpOnly SameSite cookies, checks POST origins, and persistently limits failed logins per visitor (eight failures, 15-minute cooldown) and across the workspace (100 active failures). It accepts Cloudflare client IP only from the configured Docker gateway; set `SPOOLSIDE_PROXY_ADDRESS` from the actual project network. Logout awaits service-worker/cache cleanup before navigation. PIN and previous credentials remain outside Git in restricted files. `deploy/.env.example` describes required environment values; live `.env` and tunnel credentials must never be committed.
+The server requires a eight-digit PIN login, hashes the PIN with scrypt, stores hashed session tokens in SQLite, uses secure HttpOnly SameSite cookies, checks POST origins, and persistently limits failed logins per visitor (eight failures, 15-minute cooldown) and across the workspace (100 active failures). It accepts Cloudflare client IP only from the configured Docker gateway; set `SPOOLSIDE_PROXY_ADDRESS` from the actual project network. Logout awaits service-worker/cache cleanup before navigation. PIN and previous credentials remain outside Git in restricted files. `deploy/.env.example` describes required environment values; live `.env` and tunnel credentials must never be committed.
 
 ```sh
 node --test server/*.test.mjs
