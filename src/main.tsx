@@ -527,7 +527,7 @@ function App() {
         <div className="sidebar-bottom">
           <img
             src="/spoolside.png"
-            alt="A navy filament figure relaxing on an orange spool in turquoise water"
+            alt="A red filament figure relaxing on a white spool"
           />
           <button
             onClick={() => {
