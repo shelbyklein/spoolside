@@ -6,7 +6,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["spoolside.png"],
+      includeAssets: ["spoolside.png", "apple-touch-icon.png"],
       manifest: {
         name: "Spoolside",
         short_name: "Spoolside",

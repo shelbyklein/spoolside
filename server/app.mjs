@@ -65,8 +65,11 @@ export function createApp({
   app.get("/auth-icon.png", (_req, res) =>
     res.sendFile(path.join(dist, "icon-192.png")),
   );
+  for (const file of ["icon-192.png", "icon-512.png", "apple-touch-icon.png", "manifest.webmanifest"]) {
+    app.get("/" + file, (_req,res) => res.sendFile(path.join(dist,file)));
+  }
   const loginPage = (error = false) =>
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Your workshop awaits.</h1><p>Enter your six-digit PIN to open Spoolside.</p>${error ? '<p role="alert" class="error">Sign-in failed. Check your PIN, or wait a few minutes before trying again.</p>' : ""}<form action="/login" method="post"><label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required aria-describedby="pin-help"></label><p id="pin-help">Your six-digit workshop PIN.</p><button type="submit">Sign in</button></form><footer>Spoolside · Shelby’s workshop</footer></main></body></html>`;
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Your workshop awaits.</h1><p>Enter your six-digit PIN to open Spoolside.</p>${error ? '<p role="alert" class="error">Sign-in failed. Check your PIN, or wait a few minutes before trying again.</p>' : ""}<form action="/login" method="post"><label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required aria-describedby="pin-help"></label><p id="pin-help">Your six-digit workshop PIN.</p><button type="submit">Sign in</button></form><footer>Spoolside · Shelby’s workshop</footer></main></body></html>`;
   app.get("/login", (_req, res) => res.type("html").send(loginPage()));
   app.use((req, res, next) => {
     if (

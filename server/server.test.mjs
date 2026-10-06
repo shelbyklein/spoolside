@@ -132,3 +132,12 @@ test('six digit PIN format and failed-attempt lockout persist across app restart
   assert.equal((await send('012345')).status,429);
  }finally{await new Promise(r=>server.close(r));instance.close();fs.rmSync(directory,{recursive:true});}
 });
+test('Home Screen icons and manifest are available before login without exposing APIs',async()=>{
+ const salt='d'.repeat(32);const {app,close}=createApp({pinHash:salt+':'+scryptSync('123456',salt,64).toString('hex'),secure:false});
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base=`http://127.0.0.1:${server.address().port}`;
+ try{
+  const login=await(await fetch(base+'/login')).text();assert.match(login,/apple-touch-icon.*180x180.*apple-touch-icon.png/);assert.match(login,/manifest.webmanifest/);
+  for(const file of ['icon-192.png','icon-512.png','apple-touch-icon.png','manifest.webmanifest']){const r=await fetch(base+'/'+file,{redirect:'manual'});assert.equal(r.status,200);assert.equal(r.headers.get('location'),null);}
+  assert.equal((await fetch(base+'/api/workspace')).status,401);
+ }finally{await new Promise(r=>server.close(r));close();}
+});
