@@ -2172,7 +2172,7 @@ footer .tiny-dot {
 .material-toolbar h2 {margin:0 auto 0 0;}
 .material-toolbar label {display:flex;align-items:center;gap:8px;font-size:12px;}
 .material-toolbar input {width:80px;}
-.material-cards {display:grid;gap:20px;}
+.material-cards {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start;}
 .material-card {padding:20px;}
 .material-card .section-top {padding:0;align-items:flex-start;}
 .material-card h3,.material-card h4 {margin:0;}
@@ -2184,7 +2184,8 @@ footer .tiny-dot {
 .material-spool input {width:80px;text-align:right;}
 .restock-heading {display:flex;align-items:center;gap:12px;margin:16px 0;}
 .restock-heading h4 {margin-right:auto;}
-.material-offer {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--line);font-size:13px;}
+.material-offer {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--line);font-size:13px;}
+.material-offer .offer-delivery {grid-column:1;}
 .material-offer>div {display:flex;flex-direction:column;gap:5px;min-width:0;}
 .material-offer small,.material-checked {font-size:11px;color:var(--muted);}
 .offer-stock {font-size:11px;color:var(--teal);}
@@ -2201,3 +2202,5 @@ footer .tiny-dot {
 .material-toolbar input,.material-usage input,.material-form input,.material-spool input {font:inherit;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:#fff;padding:8px;min-height:36px;}
 .material-form input[type="checkbox"] {min-height:0;}
 @media(max-width:760px){.material-toolbar{justify-content:flex-start;}.material-toolbar input,.material-form input,.material-spool input{min-height:44px;font-size:16px;}}
+
+@media(max-width:1000px){.material-cards{grid-template-columns:minmax(0,1fr);}}

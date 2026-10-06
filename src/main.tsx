@@ -775,10 +775,10 @@ function App() {
           {tab === "Printers" && remote && <PrintLibrary notify={setNotice} />}
           {(tab === "Overview" || tab === "Queue" || tab === "Filament") && (
             <div
-              className={tab === "Overview" ? "bottom-grid" : "single-section"}
+              className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
               {tab !== "Filament" && queue}
-              {tab === "Filament" && remote ? <FilamentManager spools={spools} onSpools={setSpools} notify={setNotice} live={remote}/> : tab !== "Queue" && filament}
+              {tab === "Filament" && remote ? <FilamentManager notify={setNotice}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}
