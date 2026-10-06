@@ -11,7 +11,17 @@ Run `node scripts/import-handheld-designs.mjs --dry-run` to review the import, o
 
 ## Standard assembly
 
-Added D-pad, one Start button and AB Buttons ×2. The second AB button is offset `(-13.92, -6.50, 0)` mm from the printable STL, matching the cap positions in the source. The C4D AB stem is 0.5 mm shorter; cap heights match, so no vertical adjustment was applied. The assembly remains unconfirmed and incomplete. Plus and all nine other assemblies were preserved.
+Added D-pad, Start/Select ×2 and AB Buttons ×2. Positions are measured against the Top STL openings, with cap tops approximately 1 mm above its 19.68 mm surface:
+
+| Part | STL offsets (x, y, z), mm |
+| --- | --- |
+| D-pad | (0.01, -0.18, -2.85) |
+| Start/Select right | (-0.05, 0.01, -1.73) |
+| Start/Select left | (-10.79, 0.01, -1.73) |
+| AB right | (-0.02, 0, -2.20) |
+| AB left | (-13.97, -6.51, -2.20) |
+
+The assembly remains unconfirmed and incomplete. Plus and all nine other assemblies were preserved. These are display offsets; native designs and print files are unchanged. Existing components are preserved when re-running the importer.
 
 ## Seven designs awaiting reconciliation
 
@@ -23,7 +33,7 @@ Added D-pad, one Start button and AB Buttons ×2. The second AB button is offset
 - Trigger Touch Points: generated design lacks some geometry present in the current bridge STL; existing bridge design retained.
 - Inserts: design contains a pair; current STL is one insert and differs in height; existing Insert design retained.
 
-All seven are available in each asset's Design file picker, but are not automatically linked. Remaining assembly work includes the second Start/Select button and membranes, pins, bridge and inserts. Do not mark the assembly complete or apply Standard offsets to Plus without reviewing those pieces.
+All seven are available in each asset's Design file picker, but are not automatically linked. Remaining assembly work includes membranes, pins, bridge and inserts. Do not mark the assembly complete or apply Standard offsets to Plus without reviewing those pieces.
 
 ## Verification
 

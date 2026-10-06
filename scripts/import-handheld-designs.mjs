@@ -13,10 +13,10 @@ const links=[
  ['Handheld - Touch Pin.c4d','23722cc9-36b0-4308-afaa-ff4490e8f325'],
 ];
 const additions=[
- {assetId:'d56af1d6-6601-423f-a9f5-4a8d2fc987ca',quantity:1},
- {assetId:'f67a5eeb-7770-4556-b068-137743d5375d',quantity:1},
- // Two AB caps in the source; the printable revision has a 0.5 mm longer stem.
- {assetId:'cb2a5902-2ba8-4e0e-914d-b7305b03da87',quantity:2,positions:[[0,0,0],[-13.92,-6.5,0]]},
+ {assetId:'d56af1d6-6601-423f-a9f5-4a8d2fc987ca',quantity:1,positions:[[.01,-.18,-2.85]]},
+ {assetId:'f67a5eeb-7770-4556-b068-137743d5375d',quantity:2,positions:[[-.05,.01,-1.73],[-10.79,.01,-1.73]]},
+ // Measured Top openings; display caps approximately 1 mm above the surface.
+ {assetId:'cb2a5902-2ba8-4e0e-914d-b7305b03da87',quantity:2,positions:[[-.02,0,-2.2],[-13.97,-6.51,-2.2]]},
 ];
 const assemblyId='2386a769-d054-45e2-95ee-ca8d731d8d84';
 const hash=buf=>createHash('sha256').update(buf).digest('hex');
