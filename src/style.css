@@ -2075,11 +2075,19 @@ footer .tiny-dot {
 .assembly-back { margin: 8px 0 20px; }
 .assembly-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .assembly-heading h2 { margin: 0 0 8px; }
-.assembly-previews { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
-.assembly-preview { min-width: 0; padding: 20px; }
-.assembly-preview h3 { margin: 0 0 8px; }
-.assembly-preview .stl-viewer { height: 320px; }
-.assembly-downloads { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; font-size: 13px; }
 .group-card h3 a { color: inherit; text-decoration: none; }
 .group-card h3 a:hover { text-decoration: underline; }
-@media(max-width:760px) { .assembly-previews { grid-template-columns: 1fr; } .assembly-heading { flex-direction: column; } .assembly-preview .stl-viewer { height: 260px; } }
+
+.group-card .assembly-combined-preview { margin: 12px 0; }
+.group-card .assembly-combined-preview .stl-viewer { height: 180px; }
+.assembly-detail-columns > .assembly-combined-preview { margin-bottom: 24px; }
+.assembly-detail-columns > .assembly-combined-preview .stl-viewer { height: 420px; }
+@media(max-width:760px) { .assembly-detail-columns > .assembly-combined-preview .stl-viewer { height: 300px; } }
+
+.assembly-cards { grid-template-columns: repeat(3,minmax(0,1fr)); }
+@media(max-width:1100px) { .assembly-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .assembly-cards { grid-template-columns: 1fr; } }
+
+.assembly-detail-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; align-items: start; }
+.assembly-parts h3 { margin: 0 0 16px; }
+@media(max-width:760px) { .assembly-detail-columns { grid-template-columns: 1fr; } .assembly-heading { flex-direction: column; } }

@@ -88,4 +88,8 @@ Phone Bases is a separate asset category: six design-only C4D reference assets a
 
 The initial 10 faceplate assemblies pair one Top and one Bottom of matching style/size, including Classic Standard's current Ridges Top. MAME Plus has no matching Bottom and is skipped. Shared hardware and store SKU identifiers await explicit definitions. `node scripts/create-faceplate-assemblies.mjs` adds only missing named pairs and preserves existing assembly edits.
 
-Each assembly now has a detail URL at `/library/assemblies/<UUID>` with rotatable component STL previews, quantities, dimensions, production status, notes and downloads. Previews show individual components, with two columns on desktop and one on phones. The supplied All Sleeves C4D project is stored privately and linked to all 16 sleeve assets as a shared source; Needs check is retained until geometry validation.
+Each assembly now has a detail URL at `/library/assemblies/<UUID>` with rotatable component STL previews, quantities, dimensions, production status, notes and downloads. Previews show individual components, with a combined preview and component pills in two columns on desktop and stacked on phones. The supplied All Sleeves C4D project is stored privately and linked to all 16 sleeve assets as a shared source; Needs check is retained until geometry validation.
+
+Assembly cards and detail pages include interactive combined previews. The viewer preserves exported STL coordinates and centers the group as a whole. The initial faceplate previews show their recorded Top and Bottom; shared hardware is not yet included. Card viewers mount near the viewport and release resources offscreen.
+
+Assembly card grid is three columns on desktop. Assembly detail uses two columns: interactive combined preview and a component list of pills, without per-component thumbnails. Shared-parts membership and quantities remain pending user confirmation.

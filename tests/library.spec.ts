@@ -17,6 +17,6 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();expect(assemblies[0].components[0].quantity).toBe(2);
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/DS Top × 2/})).toBeVisible();
  await page.getByRole('link',{name:'DS package',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies\/33333333-3333-4333-8333-333333333333$/);
- await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByText('Quantity 2 · Current',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Download design'})).toHaveAttribute('href','/api/designfiles/design/download');
+ await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.locator('.assembly-parts').getByRole('button',{name:/DS Top × 2/})).toBeVisible();await expect(page.locator('.assembly-detail-columns')).toBeVisible();
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await page.getByRole('button',{name:'← Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);await page.goBack();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();
 });

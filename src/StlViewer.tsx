@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 // Lazy-loaded three.js viewer: drag to rotate, pinch/scroll to zoom.
-export default function StlViewer({ url }: { url: string }) {
+export default function StlViewer({ url, urls }: { url?: string; urls?: string[] }) {
+  const sourceKey=JSON.stringify(urls || (url?[url]:[]));
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -26,8 +27,8 @@ export default function StlViewer({ url }: { url: string }) {
       const camera = new THREE.PerspectiveCamera(35, el.clientWidth / el.clientHeight, 0.1, 5000);
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      let geometryResource: import("three").BufferGeometry | undefined;
-      let materialResource: import("three").Material | undefined;
+      const geometries: import("three").BufferGeometry[]=[];
+      const materials: import("three").Material[]=[];
       const resize = new ResizeObserver(()=>{
         if(!el.clientWidth || !el.clientHeight)return;
         renderer.setSize(el.clientWidth,el.clientHeight);
@@ -45,26 +46,34 @@ export default function StlViewer({ url }: { url: string }) {
         cancelAnimationFrame(frame);
         resize.disconnect();
         controls.dispose();
-        geometryResource?.dispose();
-        materialResource?.dispose();
+        geometries.forEach(g=>g.dispose());
+        materials.forEach(m=>m.dispose());
         renderer.dispose();
         renderer.domElement.remove();
       };
       try {
-        const response = await fetch(url);
-        if (!response.ok) throw Error("Model unavailable");
-        const buffer = await response.arrayBuffer();
-        if (cancelled) return;
-        const geometry = new STLLoader().parse(buffer);
-        geometryResource=geometry;
-        geometry.computeVertexNormals();
-        geometry.center();
-        geometry.computeBoundingSphere();
-        const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x5aa9a3, roughness: 0.55, metalness: 0.05 }));
-        materialResource=mesh.material;
-        mesh.rotation.x = -Math.PI / 2;
-        scene.add(mesh);
-        const r = geometry.boundingSphere?.radius || 50;
+        const group=new THREE.Group();
+        const sources: string[]=JSON.parse(sourceKey);
+        if(!sources.length)throw Error("No models");
+        // Preserve relative STL coordinates; center only the combined assembly.
+        for(const source of sources){
+          const response=await fetch(source);
+          if(!response.ok)throw Error("Model unavailable");
+          const buffer=await response.arrayBuffer();
+          if(cancelled)return;
+          const geometry=new STLLoader().parse(buffer);
+          geometries.push(geometry);
+          geometry.computeVertexNormals();
+          const material=new THREE.MeshStandardMaterial({color:0x5aa9a3,roughness:0.55,metalness:0.05});
+          materials.push(material);
+          group.add(new THREE.Mesh(geometry,material));
+        }
+        const bounds=new THREE.Box3().setFromObject(group);
+        const center=bounds.getCenter(new THREE.Vector3());
+        group.children.forEach(mesh=>mesh.position.sub(center));
+        group.rotation.x=-Math.PI/2;
+        scene.add(group);
+        const r=bounds.getBoundingSphere(new THREE.Sphere()).radius || 50;
         camera.position.set(r * 1.2, r * 1.5, r * 2.2);
         camera.lookAt(0, 0, 0);
         loop();
@@ -76,6 +85,6 @@ export default function StlViewer({ url }: { url: string }) {
       cancelled = true;
       cleanup();
     };
-  }, [url]);
+  }, [sourceKey]);
   return <div className="stl-viewer" ref={host}>{error && <p>{error}</p>}</div>;
 }
