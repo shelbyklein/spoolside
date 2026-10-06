@@ -1967,10 +1967,9 @@ footer .tiny-dot {
 .secondary.icon-only.spinning svg { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .secondary.icon-only.spinning svg { animation: none; } }
-/* Overview: printers left, orders right on wide screens; orders first when stacked */
+/* Overview: orders left, printers right on wide screens */
 @media (min-width: 1151px) {
-  .overview-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 28px; align-items: start; }
-  .overview-split .fleet-column { order: -1; }
+  .overview-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
   .overview-split .overview-orders { margin: 0; }
   .overview-split .fleet-layout { grid-template-columns: 1fr; }
   .overview-split .overview-order-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 16px 18px; }
