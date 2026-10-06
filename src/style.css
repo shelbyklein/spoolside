@@ -1960,3 +1960,6 @@ footer .tiny-dot {
   .order-summary .order-contents { flex-basis: 100%; order: 3; }
   .overview-order-row { grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; }
 }
+.ship-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; min-height: 44px; margin-top: 16px; padding: 0 18px; border-radius: 10px; background: var(--navy); color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.ship-button:hover { background: #1b4260; }
+@media (max-width: 760px) { .ship-button { width: 100%; } }

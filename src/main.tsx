@@ -32,8 +32,8 @@ import "@fontsource/dm-sans/latin-600.css";
 import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
-import { Orders, initialOrders } from "./OrderWorkspace";
-import { type Job, type Order, productionAllowed, orderStage } from "./order-model";
+import { Orders, initialOrders, StatusTag } from "./OrderWorkspace";
+import { type Job, type Order, productionAllowed, isOpenOrder } from "./order-model";
 import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
 
 const initialMachines: Machine[] = [
@@ -237,7 +237,7 @@ function App() {
         : "Job removed from your demo queue.",
     );
   };
-  const overviewOrders = orders.filter(o => ["processing", "pending", "on-hold"].includes(o.commercial.toLowerCase()) && !o.shipped);
+  const overviewOrders = orders.filter(isOpenOrder);
   const queueJobs = jobs.filter(
     (j) =>
       !j.orderId ||
@@ -582,11 +582,10 @@ function App() {
               </div>
               <div className="orders-list">
                 {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : overviewOrders.slice(0,5).map(order => {
-                  const stage=orderStage(order,jobs);
-                  return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
+                                    return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
                     <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
                     <OrderContents order={order} />
-                    <span className={`production-stage ${["Blocked","On hold"].includes(stage) ? "attention" : ""}`}>{stage}</span><ChevronRight size={17}/>
+                    <StatusTag order={order} /><ChevronRight size={17}/>
                   </button>;
                 })}
               </div>
@@ -765,14 +764,6 @@ function App() {
               openOrderId={focusedOrder}
               live={remote}
               orders={orders}
-              setOrders={setOrders}
-              jobs={jobs}
-              setJobs={setJobs}
-              printers={machines
-                .filter((m) => m.state !== "Offline")
-                .map((m) => m.name)}
-              notify={setNotice}
-              showQueue={() => setTab("Queue")}
             />
           )}
           {tab === "Settings" && (

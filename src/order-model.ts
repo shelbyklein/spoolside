@@ -208,3 +208,10 @@ export function buildMissingJobs(
       : [];
   });
 }
+
+export const isOpenOrder = (o: Order) =>
+  ["processing", "pending", "on-hold"].includes(o.commercial.toLowerCase()) && !o.shipped;
+export const storeStatus = (o: Order) => {
+  const s = o.commercial.replace(/-/g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};

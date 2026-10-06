@@ -54,7 +54,7 @@ The dedicated WooCommerce key is read-only. Orders sync every minute with pagina
 
 Private `deploy/woocommerce.json` and `deploy/printers.json` are mounted read-only under `/run/spoolside`. They are excluded from Git. Each printer connection uses MQTT TLS with a pinned certificate and fingerprint; snapshot requests read status only. The UI refreshes every ten seconds, with printer reports considered stale after 90 seconds. New printer certificates require deliberate configuration updates.
 
-Production records belong to Spoolside: assembly, packing and tracking edits do not change WooCommerce. Queue records do not start printer jobs or mirror a printer's physical queue. Printer controls, camera, slicing/upload, multiple users remain pending. See `instructions/live-connections.md` for validation and rollback.
+Orders are read-only in Spoolside: each shows the case photo, phone model, colorway, faceplates and store status. Processing orders have a Ship in Pirate Ship button; Pirate Ship has no API or per-order link, so it opens Pirate Ship's Ship page, where WooCommerce Processing orders are already imported. Buying the label there marks the order shipped in WooCommerce. Queue records do not start printer jobs or mirror a printer's physical queue. Printer controls, camera, slicing/upload, multiple users remain pending. See `instructions/live-connections.md` for validation and rollback.
 
 ## Artwork
 
