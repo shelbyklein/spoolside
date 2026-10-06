@@ -2110,3 +2110,9 @@ footer .tiny-dot {
 .asset-title input { width: 100%; padding: 4px 8px; margin-left: -8px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; color: inherit; }
 .asset-title input:hover { border-color: #d4dfe0; }
 .asset-title input:focus { border-color: var(--teal); background: #fff; outline: none; }
+.upload-asset { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; min-height: 42px; }
+.delete-asset { display: inline-flex; align-items: center; gap: 6px; margin: 12px 0 0 8px; }
+.upload-dialog { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.upload-dialog label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.upload-dialog input:not([type=file]), .upload-dialog select { min-height: 42px; padding: 0 12px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 14px; color: var(--navy); background: #fff; }
+.upload-dialog .primary { min-height: 46px; margin-top: 6px; }

@@ -123,3 +123,21 @@ test("assembly parts keep display color and positions, and reject bad positions"
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("deleting an asset keeps it out of re-imports and is blocked while an assembly uses it", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-del-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const a = assets.add({ name: "Paddle", type: "Part", source: "Parts/2026/Triggers 2026.stl" }, stl());
+    const asm = assets.saveAssembly({ name: "DS", type: "Faceplate", components: [{ assetId: a.id, quantity: 1 }] });
+    assert.throws(() => assets.remove(a.id), /Used in DS/);
+    assets.deleteAssembly(asm.id);
+    assets.remove(a.id);
+    assert.equal(assets.get(a.id), null);
+    assert.throws(() => assets.add({ name: "Paddle", type: "Part", source: "Parts/2026/Triggers 2026.stl" }, stl()), /Deleted in Spoolside/);
+    assert.ok(assets.add({ name: "Paddle v2", type: "Part", source: "upload/abc/paddle.stl" }, stl()).id);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

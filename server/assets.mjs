@@ -74,7 +74,7 @@ export class Assets {
     this.dir = dir;
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
-    this.db.exec("CREATE TABLE IF NOT EXISTS designfiles (id TEXT PRIMARY KEY, source TEXT UNIQUE NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS design_links (asset TEXT PRIMARY KEY, design TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS designfiles (id TEXT PRIMARY KEY, source TEXT UNIQUE NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS design_links (asset TEXT PRIMARY KEY, design TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deleted_sources (source TEXT PRIMARY KEY, deleted TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assemblies (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
   }
@@ -142,6 +142,8 @@ export class Assets {
   // Adds a model; re-importing the same source path replaces that asset's STL.
   add(meta, buf) {
     const body = clean(meta);
+    if (body.source && this.db.prepare("SELECT 1 FROM deleted_sources WHERE source=?").get(body.source))
+      throw Object.assign(Error("Deleted in Spoolside; not re-imported"), { status: 409 });
     const { triangles, size } = inspectStl(buf);
     const hash = createHash("sha256").update(buf).digest("hex");
     const existing = body.source && this.list().find((a) => a.source === body.source);
@@ -158,8 +160,13 @@ export class Assets {
     this.db.prepare("UPDATE assets SET body=?, updated=? WHERE id=?").run(JSON.stringify(body), new Date().toISOString(), id);
     return this.get(id);
   }
+  // Deleting removes the item from Spoolside only (Dropbox is untouched) and remembers its
+  // source so the folder import doesn't bring it back.
   remove(id) {
-    if (this.assemblies().some(a=>[...a.components,...(a.removed||[])].some(c=>c.assetId===id))) throw Error("Asset belongs to an assembly; remove that reference first");
+    const used = this.assemblies().filter(a=>[...a.components,...(a.removed||[])].some(c=>c.assetId===id)).map(a=>a.name);
+    if (used.length) throw Object.assign(Error(`Used in ${used.join(", ")}. Remove it from ${used.length === 1 ? "that assembly" : "those assemblies"} first.`), { status: 409 });
+    const source = this.get(id)?.source;
+    if (source) this.db.prepare("INSERT OR IGNORE INTO deleted_sources VALUES (?, ?)").run(source, new Date().toISOString());
     this.db.prepare("DELETE FROM design_links WHERE asset=?").run(String(id));
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });

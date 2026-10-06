@@ -94,6 +94,7 @@ async function main() {
       body: fs.readFileSync(p.file),
     });
     if (r.ok) ok++;
+    else if (r.status === 409) console.log("skip (deleted in Spoolside)", p.rel);
     else console.error("FAILED", p.rel, (await r.json().catch(() => ({}))).error);
   }
   console.log(`Imported ${ok} of ${plan.filter((p) => p.meta).length} assets.`);

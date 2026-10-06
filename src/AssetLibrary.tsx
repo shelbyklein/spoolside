@@ -1,6 +1,6 @@
 import { Assemblies } from "./Assemblies";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Download, Box, LayoutGrid, List } from "lucide-react";
+import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2 } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -45,6 +45,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("Active"),
     [search, setSearch] = useState(""),
+    [uploading, setUploading] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
   const setSection = (value:string) => {setSectionState(value);const path=value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
   // An open model has its own address: /library/<asset id>.
@@ -121,7 +122,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             </button>
           ))}
         </div>
+        <button className="primary upload-asset" onClick={() => setUploading(true)}><Upload size={16} /> Upload</button>
       </div>
+      {uploading && <UploadDialog onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {needs > 0 && status !== "Needs check" && (
         <button className="needs-check-banner" onClick={() => { setStatus("Needs check"); setType("All"); }}>
           {needs} {needs === 1 ? "asset needs" : "assets need"} a check
@@ -191,6 +194,15 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               <div><dt>Updated</dt><dd>{new Date(open.updated).toLocaleDateString()}</dd></div>
             </dl>
             {open.hasStl !== false && <a className="secondary download-stl" href={`/api/assets/${open.id}/stl`} download={`${open.name}.stl`}><Download size={16} /> Download STL</a>}
+            <button className="secondary danger delete-asset" onClick={async () => {
+              if (!window.confirm(`Delete ${open.name} from the library? The original file in Dropbox is not touched, and the folder import won't bring it back.`)) return;
+              const r = await fetch(`/api/assets/${open.id}`, { method: "DELETE" });
+              const body = await r.json().catch(() => ({}));
+              if (!r.ok) return notify(body.error || "Couldn't delete");
+              setAssets((all) => all?.filter((x) => x.id !== open.id) || null);
+              setOpenId(null);
+              notify(`Deleted ${open.name}.`);
+            }}><Trash2 size={16} /> Delete</button>
           </section>
         </div>
       )}
@@ -221,5 +233,65 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
         ))}
       </div>
     </section>
+  );
+}
+
+const STYLES = ["Handheld", "DS", "Classic", "3DS", "N64", "MAME", "Keyboard"];
+// Adds a new library item from an STL, with an optional matching design file.
+function UploadDialog({ onClose, onAdded, notify }: { onClose: () => void; onAdded: (a: Asset) => void; notify: (m: string) => void }) {
+  const [stl, setStl] = useState<File | null>(null),
+    [design, setDesign] = useState<File | null>(null),
+    [name, setName] = useState(""),
+    [type, setType] = useState("Part"),
+    [phone, setPhone] = useState(""),
+    [style, setStyle] = useState("Handheld"),
+    [size, setSize] = useState("Standard"),
+    [piece, setPiece] = useState("Top"),
+    [status, setStatus] = useState<Status>("Current"),
+    [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stl) return;
+    setBusy(true);
+    try {
+      const key = crypto.randomUUID();
+      const fit = type === "Case" ? { phone } : type === "Faceplate" ? { style, size, piece } : type === "Sleeve" ? { style, size } : { piece: name };
+      const r = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ name, type, status, generation: 3, fit, source: `upload/${key}/${stl.name}` })) }, body: stl });
+      let asset = await r.json();
+      if (!r.ok) throw Error(asset.error || "Upload failed");
+      if (design) {
+        const d = await fetch("/api/designfiles", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Design": encodeURIComponent(JSON.stringify({ source: `upload/${key}/${design.name}`, name: design.name })) }, body: design });
+        const df = await d.json();
+        if (!d.ok) throw Error(`STL added, but the design file failed: ${df.error || "upload error"}`);
+        const l = await fetch(`/api/assets/${asset.id}/design`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ designId: df.id }) });
+        if (l.ok) asset = await l.json();
+      }
+      notify(`Added ${asset.name}.`);
+      onAdded(asset);
+    } catch (err) {
+      notify((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="detail-overlay" onClick={onClose}>
+      <form role="dialog" aria-modal="true" aria-label="Upload library item" className="detail-panel upload-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()} onSubmit={submit}>
+        <button type="button" autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
+        <h2>Upload</h2>
+        <label>STL file<input type="file" accept=".stl" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.stl$/i, "")); }} /></label>
+        <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>
+        <label>Name<input value={name} required maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
+        <label>Type<select value={type} onChange={(e) => setType(e.target.value)}>{["Case", "Faceplate", "Sleeve", "Part"].map((t) => <option key={t}>{t}</option>)}</select></label>
+        {type === "Case" && <label>Phone model<input value={phone} required placeholder="iPhone 17 Air" onChange={(e) => setPhone(e.target.value)} /></label>}
+        {(type === "Faceplate" || type === "Sleeve") && <>
+          <label>Style<select value={style} onChange={(e) => setStyle(e.target.value)}>{STYLES.map((s) => <option key={s}>{s}</option>)}</select></label>
+          <label>Size<select value={size} onChange={(e) => setSize(e.target.value)}><option>Standard</option><option>Plus</option></select></label>
+        </>}
+        {type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
+        <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as Status)}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
+        <button className="primary" type="submit" disabled={busy || !stl}>{busy ? "Uploading…" : "Add to library"}</button>
+      </form>
+    </div>
   );
 }
