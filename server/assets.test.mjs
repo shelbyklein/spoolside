@@ -49,4 +49,6 @@ test("import rules follow the confirmed Gen 3 decisions", () => {
   assert.equal(classify("Parts/2026/start select membrane v2.stl").status, "Retired");
   assert.equal(classify("Parts/2026/abxy outie.stl").fit.style, "Classic");
   assert.equal(classify("Parts/2026/Orca/Insert.3mf"), null);
+  assert.deepEqual([classify("Parts/2026/Triggers 2026.stl").name, classify("Parts/2026/Triggers 2026.stl").status], ["Paddle", "Current"]);
+  assert.deepEqual([classify("Parts/2026/DS Trigger.stl").name, classify("Parts/2026/DS Trigger.stl").status], ["DS Faceplate Bridge", "Current"]);
 });

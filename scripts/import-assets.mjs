@@ -61,11 +61,11 @@ export function classify(rel) {
       "start select membrane v2": { name: "Start/Select Membrane (v2)", status: "Retired", note: "Older than the plain start select membrane." },
       "AB - outie + p5mm": { name: "AB Buttons", fit: { style: "Handheld", piece: "AB buttons" } },
       "abxy outie": { name: "ABXY Buttons", fit: { style: "Classic", piece: "ABXY buttons" } },
-      "Triggers 2026": { status: "Needs check", note: "Overlaps with DS Trigger and Faceplate Trigger Touch Points — decide which are used." },
+      "Triggers 2026": { name: "Paddle", fit: { piece: "Paddle" } },
       "AB Button membrane": { name: "AB Button Membrane", fit: { style: "Handheld", piece: "AB membrane" } },
       dpad: { name: "D-pad" },
       "dpad membrane soft": { name: "D-pad Membrane (Soft)" },
-      "DS Trigger": { status: "Needs check", fit: { style: "DS", piece: "Trigger" }, note: "Overlaps with Triggers 2026 — decide which is used." },
+      "DS Trigger": { name: "DS Faceplate Bridge", fit: { style: "DS", piece: "Faceplate bridge" } },
     };
     return { ...asset, ...(rules[file] || {}) };
   }
