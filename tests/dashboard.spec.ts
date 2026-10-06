@@ -5,7 +5,7 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "A good day to make something." }),
+    page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
   await page.getByLabel("Filter printers").selectOption("Ready");
   await expect(page.locator(".featured")).toHaveCount(0);
@@ -59,7 +59,7 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
   await context.setOffline(true);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "A good day to make something." }),
+    page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
   await expect(
     page.getByText(

@@ -39,13 +39,11 @@ export function NotificationSettings() {
   };
   return <section className="notification-settings" aria-label="Order notifications">
     <h2>Order notifications</h2>
-    <p>Get PlayCase updates on this device. Alerts include an order number and update type, without customer details.</p>
-    {ios && !standalone && <p>Add Spoolside to your Home Screen using Safari’s Share menu, then open the installed app to enable notifications. iOS 16.4 or newer is required.</p>}
-    {!supported && <p>This browser does not support push notifications. Use an updated browser or the installed iPhone app.</p>}
-    {!enabled && !busy && <p>Notifications are currently unavailable on the server.</p>}
+    {ios && !standalone && <p>Add to Home Screen first (iOS 16.4+).</p>}
+    {!supported && <p>Push not supported in this browser.</p>}
+    {!enabled && !busy && <p>Unavailable on server.</p>}
     <label><input type="checkbox" checked={preferences.newOrders} disabled={busy} onChange={e=>{const next={...preferences,newOrders:e.target.checked};setPreferences(next);if(id) action(async()=>{try{await register(next);}catch(e){setPreferences(preferences);throw e;}});}}/> New orders</label>{' '}
     <label><input type="checkbox" checked={preferences.changes} disabled={busy} onChange={e=>{const next={...preferences,changes:e.target.checked};setPreferences(next);if(id) action(async()=>{try{await register(next);}catch(e){setPreferences(preferences);throw e;}});}}/> Order changes</label>
-    <p>Status, item and refund changes are checked every minute. Existing orders do not trigger alerts when you first enable notifications.</p>
     {!id ? <button className="primary" disabled={busy || !enabled || !supported || (ios && !standalone)} onClick={()=>action(()=>register())}>{busy?'Checking notifications…':'Enable notifications'}</button> : <>
       <button className="secondary" disabled={busy} onClick={()=>action(async()=>{try {await request('/api/notifications/'+id+'/test',{method:'POST'});} catch(e) {const status=await request('/api/notifications?device='+id);if(!status.device){setId('');await (await (await worker()).pushManager.getSubscription())?.unsubscribe();}throw e;}setMessage('Test accepted by the push service. Check this device for the notification.');})}>Send test notification</button>{' '}
       <button className="text-button" disabled={busy} onClick={()=>action(async()=>{await request('/api/notifications/'+id,{method:'DELETE'});setId('');const subscription=await (await worker()).pushManager.getSubscription();await subscription?.unsubscribe();setId('');setMessage('Notifications disabled on this device.');})}>Disable on this device</button>

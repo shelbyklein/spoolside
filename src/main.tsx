@@ -249,7 +249,6 @@ function App() {
       <div className="section-top">
         <div>
           <h2>Up next</h2>
-          <p>A little planning. A lot of possibilities.</p>
         </div>
         <button
           className="text-button"
@@ -331,8 +330,7 @@ function App() {
       {queueJobs.length === 0 ? (
         <div className="empty">
           <Layers3 />
-          <h3>A clear runway</h3>
-          <p>Add a job when your next idea is ready.</p>
+          <h3>Queue empty</h3>
         </div>
       ) : (
         <div className="job-list">
@@ -419,8 +417,7 @@ function App() {
     <section className="panel filament">
       <div className="section-top">
         <div>
-          <h2>On the spool</h2>
-          <p>Your colors, ready to go.</p>
+          <h2>Filament</h2>
         </div>
         <button
           className="icon-button"
@@ -430,7 +427,7 @@ function App() {
           <ArrowUpRight size={19} />
         </button>
       </div>
-      {spools.length === 0 && <div className="empty"><p>No filament inventory recorded. Enter material and color when adding a job.</p></div>}
+      {spools.length === 0 && <div className="empty"><p>No filament recorded.</p></div>}
       {spools.map((s) => (
         <div className="spool-row" key={s.id}>
           <div
@@ -496,7 +493,6 @@ function App() {
           <span className="avatar">SK</span>
           <div>
             <strong>Shelby’s workshop</strong>
-            <small>Room for good ideas</small>
           </div>
         </div>
         <nav aria-label="Main navigation">
@@ -520,11 +516,6 @@ function App() {
             src="/spoolside.png"
             alt="A navy filament figure relaxing on an orange spool in turquoise water"
           />
-          <p>
-            Your printers are busy.
-            <br />
-            You can take a breath.
-          </p>
           <button
             onClick={() => {
               setTab("Settings");
@@ -554,32 +545,7 @@ function App() {
         <div className="main-content">
           <div className="page-heading">
             <div>
-              <h1>
-                {tab === "Overview"
-                  ? "A good day to make something."
-                  : tab === "Printers"
-                    ? "Meet your little makers."
-                    : tab === "Orders"
-                      ? "Your PlayCase orders."
-                      : tab === "Queue"
-                        ? "Keep the ideas coming."
-                        : tab === "Filament"
-                          ? "A color for every idea."
-                          : "Make yourself at home."}
-              </h1>
-              <p>
-                {tab === "Overview"
-                  ? `${printing} ${printing === 1 ? "printer" : "printers"} making progress. Your next idea is in good company.`
-                  : tab === "Printers"
-                    ? "Your A1 mini fleet, all in one place."
-                    : tab === "Orders"
-                      ? "Your PlayCase production desk. Every order, every part, every step."
-                      : tab === "Queue"
-                        ? "Plan your prints and put the next one in line."
-                        : tab === "Filament"
-                          ? "Keep an eye on what’s left, before the next print."
-                          : "Your workspace, connections, and app preferences."}
-              </p>
+              <h1>{tab}</h1>
             </div>
             {tab !== "Settings" && tab !== "Orders" && (
               <button
@@ -630,11 +596,11 @@ function App() {
           {tab === "Overview" && (
             <section className="overview-orders" aria-label="PlayCase orders overview">
               <div className="section-top">
-                <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2><p>{remote ? "Open store orders, including work on hold." : "Open sample orders."}</p></div>
+                <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2></div>
                 <button className="text-button" onClick={() => {setFocusedOrder(null);setTab("Orders");}}>View orders <ArrowUpRight size={16} /></button>
               </div>
               <div className="orders-list">
-                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store orders. Connection status appears above." : "No open orders. View orders for history."}</p></div> : overviewOrders.slice(0,5).map(order => {
+                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : overviewOrders.slice(0,5).map(order => {
                   const stage=orderStage(order,jobs);
                   return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
                     <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
@@ -833,11 +799,6 @@ function App() {
               <h2>
                 {remote ? "Live connections" : "Bring your printers online"}
               </h2>
-              <p>
-                {remote
-                  ? "The Beelink reads printer status over LAN and imports WooCommerce orders. Access codes and store credentials stay on the server. Live printer controls remain disabled."
-                  : "This version is a demo PWA. To monitor real A1 minis from the online dashboard, a small bridge on your home network will securely forward their status to Spoolside."}
-              </p>
               {!remote && (
                 <>
                   <ol>
@@ -864,21 +825,13 @@ function App() {
                 </>
               )}
               <h2>PlayCase orders</h2>
-              <p>
-                {remote
-                  ? "Read-only WooCommerce import from playcase.gg. Fulfillment notes and jobs are saved to the Beelink. Billing, payment and customer address fields are not imported. Changes do not modify WooCommerce."
-                  : "WooCommerce at playcase.gg is the confirmed order source. Sample orders are used in local preview."}
-              </p>
+              <p>{remote ? "playcase.gg · read-only" : "Sample orders"}</p>
               <button className="secondary" onClick={() => setTab("Orders")}>
                 <ShoppingBag size={16} /> View orders
               </button>
               {remote && <NotificationSettings />}
               <h2>Install Spoolside</h2>
-              <p>
-                Add the dashboard to your home screen for an app-like workspace.
-                On iPhone, use Safari’s Share menu → Add to Home Screen. On
-                desktop, look for the browser’s install button.
-              </p>
+              <p>Safari → Share → Add to Home Screen.</p>
               {install && (
                 <button
                   className="primary"
@@ -893,7 +846,6 @@ function App() {
               {hosted && (
                 <>
                   <h2>Account</h2>
-                  <p>Hosted privately on your Beelink.</p>
                   <form
                     method="post"
                     action="/logout"
@@ -956,9 +908,8 @@ function App() {
           <footer>
             <span>
               <span className="tiny-dot" />{" "}
-              {online ? "All good on this side." : "Offline, but still here."}
+              {online ? "Online" : "Offline"}
             </span>
-            <span>Made for the things you’ll make.</span>
           </footer>
         </div>
       </main>

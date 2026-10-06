@@ -94,11 +94,7 @@ export function Orders({
           Open store <ArrowUpRight size={15} />
         </a>
       </div>
-      <p className="sample-disclaimer">
-        {live
-          ? "Production changes save to the Beelink and do not update WooCommerce. Store order status remains the source of truth."
-          : "These are illustrative orders and component recipes, not your store’s catalog or customer records. Changes stay in this browser and never update WooCommerce."}
-      </p>
+      {!live && <p className="sample-disclaimer">Sample orders. Changes stay in this browser.</p>}
       <div className="orders-toolbar">
         <label className="search-field">
           <Search size={17} />
@@ -193,12 +189,11 @@ export function Orders({
                     <span>
                       WooCommerce status: <strong>{order.commercial}</strong>
                     </span>
-                    <span>Production status is tracked separately.</span>
                   </div>
                   {order.sourceReview && (
                     <div className="order-warning">
                       <AlertCircle size={17} />
-                      <span>Store items changed. Review quantities, variants and existing print records before continuing.</span>
+                      <span>Store items changed.</span>
                       <button className="text-button" onClick={() => { if (window.confirm("Have you reviewed changed store items and existing print records?")) update(order.id, {sourceReview: false}); }}>Confirm review</button>
                     </div>
                   )}
@@ -283,9 +278,7 @@ export function Orders({
                           </button>
                         </div>
                         {linked.length === 0 ? (
-                          <p>
-                            No print jobs yet. Queue existing components when needed.
-                          </p>
+                          <p>No print jobs.</p>
                         ) : (
                           linked.map((job) => (
                             <div className="linked-job" key={job.id}>
@@ -341,9 +334,6 @@ export function Orders({
                     </section>
                     <section className="fulfillment">
                       <h3>Fulfillment</h3>
-                      <p>
-                        Confirm the items are ready, then complete the quality check and packing. Existing print records must be accepted when present.
-                      </p>
                       <label className="check-row">
                         <input
                           type="checkbox"
@@ -426,13 +416,10 @@ export function Orders({
                           {live ? "Undo shipment record" : "Undo demo shipment"}
                         </button>
                       )}
-                      <p className="fulfillment-note">
-                        No shipping label is purchased or store status changed.
-                      </p>
                       <label className="tracking-field">
                         Production notes
                         <textarea
-                          placeholder="A note for your workshop"
+                          placeholder="Notes"
                           maxLength={1000}
                           value={order.note}
                           onChange={(e) =>
