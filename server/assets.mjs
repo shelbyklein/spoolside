@@ -65,21 +65,7 @@ export class Assets {
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
   }
   row(r) {
-    return { id: r.id, ...JSON.parse(r.body), hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated, thumb: fs.existsSync(this.thumbFile(r.id, r.hash)) };
-  }
-  // Previews are keyed to the STL hash, so a replaced model gets a fresh render.
-  thumbFile(id, hash) {
-    this.file(id);
-    return path.join(this.dir, `${id}-${String(hash).slice(0, 12)}.png`);
-  }
-  setThumb(id, png) {
-    const asset = this.get(id);
-    if (!asset) throw Object.assign(Error("Unknown asset"), { status: 404 });
-    if (!Buffer.isBuffer(png) || png.length > 1_000_000 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
-      throw Error("Preview must be a PNG under 1 MB");
-    for (const f of fs.readdirSync(this.dir)) if (f.startsWith(id + "-") && f.endsWith(".png")) fs.rmSync(path.join(this.dir, f));
-    fs.writeFileSync(this.thumbFile(id, asset.hash), png, { mode: 0o600 });
-    return this.get(id);
+    return { id: r.id, ...JSON.parse(r.body), hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
   }
   list() {
     return this.db.prepare("SELECT * FROM assets").all().map((r) => this.row(r))
@@ -115,7 +101,6 @@ export class Assets {
   remove(id) {
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });
-    for (const f of fs.readdirSync(this.dir)) if (f.startsWith(id + "-") && f.endsWith(".png")) fs.rmSync(path.join(this.dir, f));
   }
   close() {
     this.db.close();

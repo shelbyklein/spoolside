@@ -223,18 +223,6 @@ export function createApp({
       fail(res, e);
     }
   });
-  app.get("/api/assets/:id/thumb", (req, res) => {
-    try {
-      const asset = assets?.get(req.params.id);
-      if (!asset?.thumb) return res.status(404).json({ error: "No preview yet" });
-      res.set("Cache-Control", "private, max-age=31536000, immutable").type("png").sendFile(assets.thumbFile(asset.id, asset.hash));
-    } catch (e) {
-      fail(res, e);
-    }
-  });
-  app.put("/api/assets/:id/thumb", express.raw({ type: "image/png", limit: "1mb" }), (req, res) => {
-    try { res.json(assets.setThumb(req.params.id, req.body)); } catch (e) { fail(res, e); }
-  });
   app.post("/api/assets", express.raw({ type: "application/octet-stream", limit: "50mb" }), (req, res) => {
     if (!assets) return res.status(503).json({ error: "Asset library unavailable" });
     try {

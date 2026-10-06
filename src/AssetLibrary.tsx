@@ -1,5 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { requestThumbnail } from "./thumbnails";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Search, X, Download, Box, LayoutGrid, List } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
@@ -17,8 +16,6 @@ export type Asset = {
   triangles: number;
   bytes: number;
   updated: string;
-  hash: string;
-  thumb: boolean;
 };
 type Status = "Current" | "Needs update" | "Needs check" | "Experimental" | "Retired";
 const STATUSES: Status[] = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
@@ -119,7 +116,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           {view === "cards" ? (
             <div className="asset-cards">
               {list.map((a) => (
-                <AssetCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} onThumb={() => setAssets((all) => all?.map((x) => (x.id === a.id ? { ...x, thumb: true } : x)) || null)} />
+                <AssetCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />
               ))}
             </div>
           ) : (
@@ -171,30 +168,20 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   );
 }
 
-// Card with a cached model preview; renders one on first sight if missing.
-function AssetCard({ asset, onOpen, onThumb }: { asset: Asset; onOpen: () => void; onThumb: () => void }) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (asset.thumb || failed || !ref.current) return;
-    const io = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      io.disconnect();
-      requestThumbnail(asset.id).then((ok) => (ok ? onThumb() : setFailed(true)));
-    }, { rootMargin: "200px" });
-    io.observe(ref.current);
-    return () => io.disconnect();
-  }, [asset.thumb, failed]);
+// Short label within its group: "12 Pro Max" under iPhone 12, "Plus Top" under DS.
+function cardLabel(a: Asset) {
+  if (a.type === "Case") return (a.fit.phone.replace(/^iPhone /, "").replace(/^Samsung /, "") || a.name) + (/\(Rounded\)/.test(a.name) ? " Rounded" : "") + (/\(older\)/.test(a.name) ? " (older)" : "");
+  if (a.type === "Faceplate" && ["Top", "Bottom"].includes(a.fit.piece))
+    return `${a.fit.size === "Plus" ? "Plus " : ""}${a.fit.piece}${/Ridges/.test(a.name) ? " (Ridges)" : ""}`;
+  if (a.type === "Faceplate") return a.name.replace(new RegExp(`^${a.fit.style}( Plus)? – `), "");
+  return a.name;
+}
+
+function AssetCard({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
   return (
-    <button ref={ref} className="asset-card" onClick={onOpen}>
-      <span className="asset-card-image">
-        {asset.thumb ? <img src={`/api/assets/${asset.id}/thumb?h=${asset.hash.slice(0, 12)}`} alt="" loading="lazy" /> : <Box size={28} aria-hidden="true" />}
-        <span className={`asset-status ${slug(asset.status)}`}>{asset.status}</span>
-      </span>
-      <span className="asset-card-body">
-        <strong>{asset.name}</strong>
-        <small>{[asset.fit.size && asset.type === "Faceplate" ? asset.fit.size : "", asset.dims.join(" × ") + " mm"].filter(Boolean).join(" · ")}</small>
-      </span>
+    <button className="asset-card" onClick={onOpen} aria-label={`${asset.name}, ${asset.status}`}>
+      <strong>{cardLabel(asset)}</strong>
+      <span className={`asset-status ${slug(asset.status)}`}>{asset.status}</span>
     </button>
   );
 }
