@@ -31,6 +31,13 @@ test("re-importing a source keeps the reviewed status and note", () => {
     assert.equal(again.note, "Old");
     assert.throws(() => assets.update(a.id, { status: "Maybe" }), /status/);
     assert.equal(assets.list().length, 1);
+    const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(20)]);
+    assert.throws(() => assets.setThumb(a.id, Buffer.from("nope")), /PNG/);
+    assert.equal(assets.setThumb(a.id, png).thumb, true);
+    const changed = stl(); changed.writeFloatLE(30, 84 + 12 + 12);
+    assert.equal(assets.add({ name: "DS – Top", type: "Faceplate", source: "Faceplates/DS/DS - Top.stl" }, changed).thumb, false);
+    assets.remove(a.id);
+    assert.deepEqual(fs.readdirSync(dir), []);
   } finally {
     assets.close();
     fs.rmSync(dir, { recursive: true, force: true });

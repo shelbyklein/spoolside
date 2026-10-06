@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Search, X, Download, Box } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { requestThumbnail } from "./thumbnails";
+import { Search, X, Download, Box, LayoutGrid, List } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -16,6 +17,8 @@ export type Asset = {
   triangles: number;
   bytes: number;
   updated: string;
+  hash: string;
+  thumb: boolean;
 };
 type Status = "Current" | "Needs update" | "Needs check" | "Experimental" | "Retired";
 const STATUSES: Status[] = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
@@ -31,7 +34,8 @@ const groupOf = (a: Asset) =>
       : "Parts";
 
 export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
-  const [assets, setAssets] = useState<Asset[] | null>(null),
+  const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
+    [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("Active"),
     [search, setSearch] = useState(""),
@@ -82,6 +86,13 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
           <option value="All">All statuses</option>
         </select>
+        <div className="segmented view-toggle" role="radiogroup" aria-label="View">
+          {(["cards", "list"] as const).map((v) => (
+            <button key={v} role="radio" aria-checked={view === v} aria-label={v === "cards" ? "Card view" : "List view"} className={view === v ? "selected" : ""} onClick={() => { setView(v); localStorage.setItem("spoolside-library-view", v); }}>
+              {v === "cards" ? <LayoutGrid size={16} /> : <List size={16} />}
+            </button>
+          ))}
+        </div>
       </div>
       {needs > 0 && status !== "Needs check" && (
         <button className="needs-check-banner" onClick={() => { setStatus("Needs check"); setType("All"); }}>
@@ -92,6 +103,13 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       {groups.map(([key, list]) => (
         <div className="asset-group" key={key}>
           <h3>{key.split("|")[1]}</h3>
+          {view === "cards" ? (
+            <div className="asset-cards">
+              {list.map((a) => (
+                <AssetCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} onThumb={() => setAssets((all) => all?.map((x) => (x.id === a.id ? { ...x, thumb: true } : x)) || null)} />
+              ))}
+            </div>
+          ) : (
           <ul>
             {list.map((a) => (
               <li key={a.id}>
@@ -105,6 +123,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               </li>
             ))}
           </ul>
+          )}
         </div>
       ))}
       {open && (
@@ -136,5 +155,33 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
         </div>
       )}
     </section>
+  );
+}
+
+// Card with a cached model preview; renders one on first sight if missing.
+function AssetCard({ asset, onOpen, onThumb }: { asset: Asset; onOpen: () => void; onThumb: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (asset.thumb || failed || !ref.current) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      io.disconnect();
+      requestThumbnail(asset.id).then((ok) => (ok ? onThumb() : setFailed(true)));
+    }, { rootMargin: "200px" });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [asset.thumb, failed]);
+  return (
+    <button ref={ref} className="asset-card" onClick={onOpen}>
+      <span className="asset-card-image">
+        {asset.thumb ? <img src={`/api/assets/${asset.id}/thumb?h=${asset.hash.slice(0, 12)}`} alt="" loading="lazy" /> : <Box size={28} aria-hidden="true" />}
+        <span className={`asset-status ${slug(asset.status)}`}>{asset.status}</span>
+      </span>
+      <span className="asset-card-body">
+        <strong>{asset.name}</strong>
+        <small>{[asset.fit.size && asset.type === "Faceplate" ? asset.fit.size : "", asset.dims.join(" × ") + " mm"].filter(Boolean).join(" · ")}</small>
+      </span>
+    </button>
   );
 }
