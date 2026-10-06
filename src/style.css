@@ -1937,7 +1937,7 @@ footer .tiny-dot {
   .overview-order-row .order-id { width: auto; }
   .overview-order-row .production-stage { grid-column: 2; grid-row: 1; }
   .overview-order-row .ship-slot { grid-column: 3; grid-row: 1; width: auto; }
-  .overview-order-row .order-contents { grid-column: 1 / -1; grid-row: 2; }
+  .overview-order-row .order-content-readiness { grid-column: 1 / -1; grid-row: 2; }
 }
 /* Order contents: store photos + phone, colorway and faceplates */
 .order-contents { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
@@ -1974,8 +1974,9 @@ footer .tiny-dot {
   .overview-split .fleet-layout { grid-template-columns: 1fr; }
   .overview-split .overview-order-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 16px 18px; }
   .overview-split .overview-order-row .order-id { width: auto; }
-  .overview-split .overview-order-row .ship-slot { width: auto; }
-  .overview-split .overview-order-row .order-contents { grid-column: 1 / -1; grid-row: 2; }
+  .overview-split .overview-order-row .ship-slot { width: auto; grid-column: 3; grid-row: 1; }
+  .overview-split .overview-order-row .production-stage { grid-column: 2; grid-row: 1; }
+  .overview-split .overview-order-row .order-content-readiness { grid-column: 1 / -1; grid-row: 2; }
 }
 .overview-orders .section-top { padding: 0; margin-bottom: 17px; align-items: center; }
 @media (min-width: 1151px) { .overview-split .fleet-heading, .overview-split .overview-orders .section-top { min-height: 36px; } }
@@ -2161,8 +2162,8 @@ footer .tiny-dot {
 .plate-assets { margin: 12px 0; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .plate-assets .section-top { padding: 0; margin-bottom: 8px; }
 .plate-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.order-content-readiness { min-width: 0; }
-.print-readiness { margin-top: 6px; font-size: 11px; }
+.order-content-readiness { flex: 1; min-width: 0; }
+.print-readiness { margin: 4px 0 0 64px; font-size: 11px; }
 .print-readiness summary { cursor: pointer; display: inline-block; padding: 4px 8px; border-radius: 20px; background: #fff1d4; color: #6b4800; font-weight: 700; }
 .print-readiness.ready summary { background: #d8f2e5; color: #176440; }
 .print-readiness > div { padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }

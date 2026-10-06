@@ -27,6 +27,15 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
   await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
   const first=overview.getByRole('article',{name:'Order #1',exact:true});
+  for (const width of [1440, 428]) {
+    await page.setViewportSize({width,height:926});
+    const content=await first.locator('.order-content-readiness').boundingBox();
+    const ship=await first.locator('.ship-slot').boundingBox();
+    const id=await first.locator('.order-id').boundingBox();
+    expect(Math.abs(ship!.y-id!.y)).toBeLessThan(20);
+    expect(content!.y).toBeGreaterThan(ship!.y);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
   await first.getByText('V3 sliced files missing',{exact:true}).click();
   await expect(first.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
   await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
