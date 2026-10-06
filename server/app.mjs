@@ -20,6 +20,7 @@ export function createApp({
   notifications,
   printers,
   library,
+  assets,
 } = {}) {
   if (
     !pinHash ||
@@ -209,6 +210,31 @@ export function createApp({
     catch(e){res.status(400).json({error:e.message});}
   });
   const fail = (res, e) => res.status(e.status || 400).json({ error: e.message });
+  app.get("/api/assets", (_req, res) => res.json(assets?.list() || []));
+  app.get("/api/assets/:id/stl", (req, res) => {
+    try {
+      const asset = assets?.get(req.params.id);
+      if (!asset) return res.status(404).json({ error: "Unknown asset" });
+      res.type("model/stl").sendFile(assets.file(asset.id));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/assets", express.raw({ type: "application/octet-stream", limit: "50mb" }), (req, res) => {
+    if (!assets) return res.status(503).json({ error: "Asset library unavailable" });
+    try {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) throw Error("Choose an STL file");
+      res.json(assets.add(JSON.parse(decodeURIComponent(String(req.get("x-asset") || "{}"))), req.body));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.patch("/api/assets/:id", (req, res) => {
+    try { res.json(assets.update(req.params.id, req.body || {})); } catch (e) { fail(res, e); }
+  });
+  app.delete("/api/assets/:id", (req, res) => {
+    try { assets.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
+  });
   app.get("/api/library", (_req, res) => res.json(library?.list() || []));
   app.post(
     "/api/library",

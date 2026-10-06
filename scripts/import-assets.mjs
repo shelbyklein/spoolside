@@ -1,0 +1,96 @@
+// Imports Gen 3 PlayCase STLs from the Dropbox print-file folders into Spoolside.
+// Usage: node scripts/import-assets.mjs [--dry-run] [--site https://spoolside.shelbyklein.com]
+// Re-running updates existing assets (matched by source path) and keeps their status and notes.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const ROOT = path.join(os.homedir(), "Dropbox (Personal)/Work/Playcase/Product/Print Files");
+const args = process.argv.slice(2);
+const dryRun = args.includes("--dry-run");
+const site = args.includes("--site") ? args[args.indexOf("--site") + 1] : "https://spoolside.shelbyklein.com";
+
+const walk = (dir) =>
+  fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(path.join(dir, e.name)) : e.name.toLowerCase().endsWith(".stl") ? [path.join(dir, e.name)] : [],
+  );
+
+const STYLES = { Handheld: "Handheld", DS: "DS", SNES: "Classic", "3DS": "3DS", N64: "N64", MAME: "MAME", Keyboard: "Keyboard" };
+const SOLD = ["Handheld", "DS", "Classic"];
+
+// Returns asset metadata for one file, or null to skip it.
+export function classify(rel) {
+  const parts = rel.split("/");
+  const file = parts.at(-1).replace(/\.stl$/i, "");
+  const [top] = parts;
+  if (top === "Cases") {
+    if (/chamfer/i.test(file)) return null; // stray faceplate piece in Cases/15
+    const phone = file.replace(/\s+(Phone\s+)?Case(\s+Rounded)?$/i, "").replace(/^s26$/i, "Samsung S26");
+    const asset = { type: "Case", name: `${phone} Case${/rounded/i.test(file) ? " (Rounded)" : ""}`, fit: { phone }, status: "Current" };
+    if (rel === "Cases/16/iPhone 16 Pro Case.stl")
+      Object.assign(asset, { name: "iPhone 16 Pro Case (older)", status: "Needs check", note: "Older duplicate (Feb 7) of iPhone 16 Pro Phone Case (Sep 14). Same outer size, different geometry. Compare and retire one." });
+    if (/rounded/i.test(file)) Object.assign(asset, { status: "Needs check", note: "Rounded variant. Which S26 case ships?" });
+    return asset;
+  }
+  if (top === "Faceplates") {
+    const style = STYLES[parts[1]];
+    const size = parts.includes("Plus") || /\bPlus\b/.test(file) ? "Plus" : "Standard";
+    const piece = file.match(/ - (Top|Bottom)$/)?.[1] || file;
+    const ridges = parts.includes("Ridges");
+    const asset = {
+      type: "Faceplate",
+      name: ["Top", "Bottom"].includes(piece) ? `${style}${size === "Plus" ? " Plus" : ""} – ${piece}${ridges ? " (Ridges)" : ""}` : `${style} – ${file}`,
+      fit: { style, size, piece },
+      status: "Current",
+    };
+    if (style === "MAME") Object.assign(asset, { status: "Experimental" });
+    else if (!SOLD.includes(style)) Object.assign(asset, { status: "Experimental", note: "Not sold in the store yet." });
+    if (style === "Classic" && piece === "Top" && size === "Standard")
+      Object.assign(asset, ridges ? { note: "Ridges version ships." } : { status: "Retired", note: "Replaced by the Ridges top." });
+    if (SOLD.includes(style) && piece === "Top" && !ridges)
+      asset.note ||= "Needs a Ridges version.";
+    return asset;
+  }
+  if (top === "Parts") {
+    if (parts.includes("Orca")) return null;
+    const asset = { type: "Part", name: file, fit: { piece: file }, status: "Current" };
+    const rules = {
+      "Faceplate Trigger Touch Points 5.2": { name: "Faceplate Trigger Touch Points", note: "5.2 mm version (current)." },
+      "Faceplate Trigger Touch Points 5.6": { status: "Retired", note: "5.6 mm version; 5.2 is current." },
+      "start select membrane": { name: "Start/Select Membrane" },
+      "start select membrane v2": { name: "Start/Select Membrane (v2)", status: "Retired", note: "Older than the plain start select membrane." },
+      "AB - outie + p5mm": { name: "AB Buttons", fit: { style: "Handheld", piece: "AB buttons" } },
+      "abxy outie": { name: "ABXY Buttons", fit: { style: "Classic", piece: "ABXY buttons" } },
+      "Triggers 2026": { status: "Needs check", note: "Overlaps with DS Trigger and Faceplate Trigger Touch Points — decide which are used." },
+      "AB Button membrane": { name: "AB Button Membrane", fit: { style: "Handheld", piece: "AB membrane" } },
+      dpad: { name: "D-pad" },
+      "dpad membrane soft": { name: "D-pad Membrane (Soft)" },
+      "DS Trigger": { status: "Needs check", fit: { style: "DS", piece: "Trigger" }, note: "Overlaps with Triggers 2026 — decide which is used." },
+    };
+    return { ...asset, ...(rules[file] || {}) };
+  }
+  return null;
+}
+
+async function main() {
+  const files = ["Cases", "Faceplates", "Parts/2026"].flatMap((d) => walk(path.join(ROOT, d)));
+  const plan = files.map((f) => ({ file: f, rel: path.relative(ROOT, f), meta: classify(path.relative(ROOT, f)) }));
+  for (const p of plan) console.log(p.meta ? `${p.meta.status.padEnd(12)} ${p.meta.type.padEnd(9)} ${p.meta.name}` : `skip         ${p.rel}`);
+  if (dryRun) return;
+  const pin = fs.readFileSync(path.join(os.homedir(), ".config/spoolside/pin.txt"), "utf8").match(/\d{6}/)[0];
+  const login = await fetch(site + "/login", { method: "POST", headers: { Origin: site }, body: new URLSearchParams({ pin }), redirect: "manual" });
+  const cookie = login.headers.get("set-cookie")?.split(";")[0];
+  if (!cookie) throw Error("Login failed");
+  let ok = 0;
+  for (const p of plan.filter((p) => p.meta)) {
+    const r = await fetch(site + "/api/assets", {
+      method: "POST",
+      headers: { Cookie: cookie, Origin: site, "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ ...p.meta, generation: 3, source: p.rel })) },
+      body: fs.readFileSync(p.file),
+    });
+    if (r.ok) ok++;
+    else console.error("FAILED", p.rel, (await r.json().catch(() => ({}))).error);
+  }
+  console.log(`Imported ${ok} of ${plan.filter((p) => p.meta).length} assets.`);
+}
+if (import.meta.url === `file://${process.argv[1]}`) main().catch((e) => { console.error(e.message); process.exit(1); });

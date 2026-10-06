@@ -1,4 +1,5 @@
 import { PrintControls, PrintLibrary } from "./PrintControls";
+import { AssetLibrary } from "./AssetLibrary";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   WifiOff,
   RefreshCw,
+  Boxes,
   Clock3,
   Thermometer,
   Check,
@@ -122,6 +124,7 @@ const tabs = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Printers", icon: Printer },
   { name: "Orders", icon: ShoppingBag },
+  { name: "Library", icon: Boxes },
   { name: "Queue", icon: Layers3 },
   { name: "Filament", icon: Disc3 },
   { name: "Settings", icon: Settings },
@@ -530,7 +533,7 @@ function App() {
               <h1>{tab}</h1>
             </div>
             <div className="page-actions">
-              {remote && (
+              {remote && tab !== "Library" && (
                 <button
                   className={`secondary icon-only${refreshing ? " spinning" : ""}`}
                   aria-label="Refresh orders"
@@ -544,7 +547,7 @@ function App() {
                   <RefreshCw size={17} />
                 </button>
               )}
-              {tab !== "Settings" && tab !== "Orders" && (
+              {!["Settings", "Orders", "Library"].includes(tab) && (
                 <button
                   className="secondary"
                   onClick={() => {
@@ -763,6 +766,7 @@ function App() {
               {tab !== "Queue" && filament}
             </div>
           )}
+          {tab === "Library" && <AssetLibrary notify={setNotice} />}
           {tab === "Orders" && (
             <Orders
               openOrderId={focusedOrder}
