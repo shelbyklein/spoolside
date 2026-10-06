@@ -29,6 +29,8 @@ test("re-importing a source keeps the reviewed status and note", () => {
     assert.equal(again.id, a.id);
     assert.equal(again.status, "Retired");
     assert.equal(again.note, "Old");
+    assets.update(a.id, { name: "DS Top (renamed)" });
+    assert.equal(assets.add({ name: "DS – Top", type: "Faceplate", source: "Faceplates/DS/DS - Top.stl", fit: { style: "DS" } }, stl()).name, "DS Top (renamed)");
     assert.throws(() => assets.update(a.id, { status: "Maybe" }), /status/);
     assert.equal(assets.list().length, 1);
     assets.remove(a.id);

@@ -148,7 +148,7 @@ export class Assets {
     const id = existing?.id || randomUUID();
     fs.writeFileSync(this.file(id), buf, { mode: 0o600 });
     this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body, hash=excluded.hash, triangles=excluded.triangles, dims=excluded.dims, bytes=excluded.bytes, updated=excluded.updated")
-      .run(id, JSON.stringify(existing ? clean({ ...meta, status: existing.status, note: existing.note || body.note }, existing) : body), hash, triangles, JSON.stringify(size), buf.length, new Date().toISOString());
+      .run(id, JSON.stringify(existing ? clean({ ...meta, name: existing.name, status: existing.status, note: existing.note || body.note }, existing) : body), hash, triangles, JSON.stringify(size), buf.length, new Date().toISOString());
     return this.get(id);
   }
   update(id, patch) {

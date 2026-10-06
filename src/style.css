@@ -2107,3 +2107,6 @@ footer .tiny-dot {
 .position-row label { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 11px; color: var(--muted); }
 .position-row input { min-height: 34px; padding: 0 8px; border: 1px solid #d4dfe0; border-radius: 7px; font-size: 13px; }
 .position-actions { display: flex; justify-content: space-between; align-items: center; }
+.asset-title input { width: 100%; padding: 4px 8px; margin-left: -8px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; color: inherit; }
+.asset-title input:hover { border-color: #d4dfe0; }
+.asset-title input:focus { border-color: var(--teal); background: #fff; outline: none; }
