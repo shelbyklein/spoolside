@@ -2100,3 +2100,10 @@ footer .tiny-dot {
 .removed-heading { margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .part-row.removed .asset-pill { text-decoration: line-through; }
 .part-row .part-color { flex-shrink: 0; width: 38px; height: 38px; padding: 3px; border: 1px solid #d4dfe0; border-radius: 8px; background: #fff; cursor: pointer; }
+.part-row { flex-wrap: wrap; }
+.positions-toggle { flex-shrink: 0; font-size: 12px; }
+.positions-editor { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; padding: 12px; border-radius: 10px; background: #f3f7f6; }
+.position-row { display: flex; align-items: flex-end; gap: 6px; }
+.position-row label { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 11px; color: var(--muted); }
+.position-row input { min-height: 34px; padding: 0 8px; border: 1px solid #d4dfe0; border-radius: 7px; font-size: 13px; }
+.position-actions { display: flex; justify-content: space-between; align-items: center; }

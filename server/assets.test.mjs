@@ -106,3 +106,18 @@ test("removing an assembly part keeps it restorable and never deletes the asset"
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("assembly parts keep display color and positions, and reject bad positions", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-pos-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const abxy = assets.add({ name: "ABXY Buttons", type: "Part", status: "Current", source: "abxy.stl" }, stl());
+    const a = assets.saveAssembly({ name: "Classic", type: "Faceplate", components: [{ assetId: abxy.id, quantity: 4, color: "#1A1A1A", positions: [[0.02, -8.46, 0], [7.85, -0.6, 0]] }] });
+    assert.deepEqual(a.components[0], { assetId: abxy.id, quantity: 4, color: "#1a1a1a", positions: [[0.02, -8.46, 0], [7.85, -0.6, 0]] });
+    assert.throws(() => assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2]] }] }, a.id), /Positions/);
+    assert.equal(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, color: "red" }] }, a.id).components[0].color, undefined);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

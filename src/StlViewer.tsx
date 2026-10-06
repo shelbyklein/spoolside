@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PART_COLOR } from "./colors";
 
 // Lazy-loaded three.js viewer: drag to rotate, pinch/scroll to zoom.
-export default function StlViewer({ url, urls, colors }: { url?: string; urls?: string[]; colors?: string[] }) {
-  const sourceKey=JSON.stringify(urls || (url?[url]:[]));
+export default function StlViewer({ url, urls, colors, positions }: { url?: string; urls?: string[]; colors?: string[]; positions?: (number[][] | undefined)[] }) {
+  const sourceKey=JSON.stringify([urls || (url?[url]:[]), positions || []]);
   const host = useRef<HTMLDivElement>(null);
   const meshMaterials = useRef<import("three").MeshStandardMaterial[]>([]);
   const colorsRef = useRef(colors);
@@ -57,7 +57,7 @@ export default function StlViewer({ url, urls, colors }: { url?: string; urls?: 
       };
       try {
         const group=new THREE.Group();
-        const sources: string[]=JSON.parse(sourceKey);
+        const [sources, offsets]: [string[], (number[][] | undefined)[]]=JSON.parse(sourceKey);
         if(!sources.length)throw Error("No models");
         // Preserve relative STL coordinates; center only the combined assembly.
         for(const source of sources){
@@ -70,7 +70,12 @@ export default function StlViewer({ url, urls, colors }: { url?: string; urls?: 
           geometry.computeVertexNormals();
           const material=new THREE.MeshStandardMaterial({color:colorsRef.current?.[materials.length]||DEFAULT_PART_COLOR,roughness:0.55,metalness:0.05});
           materials.push(material);
-          group.add(new THREE.Mesh(geometry,material));
+          // One mesh per position; parts without positions render where the STL sits.
+          for(const [x,y,z] of offsets[materials.length-1]?.length ? offsets[materials.length-1]! : [[0,0,0]]){
+            const mesh=new THREE.Mesh(geometry,material);
+            mesh.position.set(x,y,z);
+            group.add(mesh);
+          }
         }
         meshMaterials.current=materials as import("three").MeshStandardMaterial[];
         const bounds=new THREE.Box3().setFromObject(group);

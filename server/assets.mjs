@@ -57,6 +57,18 @@ function clean(input, prior = {}) {
   return out;
 }
 
+// Optional display-only settings for an assembly part: color, and positions (mm offsets
+// from where the STL sits) so one printed piece can be shown several times, e.g. ABXY.
+function extras(c) {
+  const out = {};
+  if (/^#[0-9a-f]{6}$/i.test(c.color || "")) out.color = c.color.toLowerCase();
+  if (Array.isArray(c.positions) && c.positions.length) {
+    if (c.positions.length > 20 || !c.positions.every((p) => Array.isArray(p) && p.length === 3 && p.every((n) => Number.isFinite(n) && Math.abs(n) <= 500)))
+      throw Error("Positions must be up to 20 x, y, z offsets in mm");
+    out.positions = c.positions.map((p) => p.map((n) => Math.round(n * 100) / 100));
+  }
+  return out;
+}
 export class Assets {
   constructor(dbFile, dir) {
     this.dir = dir;
@@ -107,11 +119,11 @@ export class Assets {
     const seen=new Set();
     const components=input.components.map(c=>{
       if(!this.get(c.assetId) || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
-      seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity,...(/^#[0-9a-f]{6}$/i.test(c.color||"")?{color:c.color.toLowerCase()}:{})};
+      seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity,...extras(c)};
     });
     // Removed parts are kept (not deleted) so they can be restored later.
     const removed=(Array.isArray(input.removed)?input.removed:[]).filter(c=>this.get(c.assetId) && !seen.has(c.assetId)).slice(0,100)
-      .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1,...(/^#[0-9a-f]{6}$/i.test(c.color||"")?{color:c.color.toLowerCase()}:{})}))
+      .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1,...extras(c)}))
       .filter((c,i,all)=>all.findIndex(x=>x.assetId===c.assetId)===i);
     if(!components.length && !removed.length) throw Error("Select assembly components");
     const body={name,sku,type,components,removed};
