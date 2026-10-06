@@ -217,6 +217,10 @@ export function createApp({
   app.post("/api/designfiles",express.raw({type:"application/octet-stream",limit:"150mb"}),(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addDesign(JSON.parse(decodeURIComponent(String(req.get("x-design")||"{}"))),req.body));}catch(e){fail(res,e);}});
   app.get("/api/designfiles/:id/download",(req,res)=>{try{const file=assets.designFile(req.params.id);res.download(file.path,file.meta.name);}catch(e){fail(res,e);}});
   app.put("/api/assets/:id/design",(req,res)=>{try{res.json(assets.linkDesign(req.params.id,req.body.designId));}catch(e){fail(res,e);}});
+  app.get("/api/categories", (_req, res) => res.json(assets?.categories() || []));
+  app.post("/api/categories", (req, res) => { try { res.json(assets.saveCategory(req.body || {})); } catch (e) { fail(res, e); } });
+  app.put("/api/categories/:id", (req, res) => { try { res.json(assets.saveCategory(req.body || {}, req.params.id)); } catch (e) { fail(res, e); } });
+  app.delete("/api/categories/:id", (req, res) => { try { assets.deleteCategory(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   app.get("/api/assemblies", (_req,res)=>assets ? res.json(assets.assemblies()) : res.status(503).json({error:"Library unavailable"}));
   app.post("/api/assemblies", (req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.saveAssembly(req.body));}catch(e){fail(res,e);}});
   app.put("/api/assemblies/:id",(req,res)=>{try{if(!assets?.assemblies().some(a=>a.id===req.params.id))return res.status(404).json({error:"Assembly not found"});res.json(assets.saveAssembly(req.body,req.params.id));}catch(e){fail(res,e);}});

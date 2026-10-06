@@ -2130,3 +2130,13 @@ footer .tiny-dot {
 /* Assembly page preview: square, and stays in view while you scroll the parts list. */
 .position-tool .stl-viewer { height: auto; aspect-ratio: 1 / 1; margin: 0; }
 @media (min-width: 761px) { .assembly-detail-columns > .position-tool { position: sticky; top: 20px; } }
+.categories-button { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; margin-left: auto; }
+.categories-button + .upload-asset { margin-left: 0; }
+.category-manager { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.category-manager ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.category-manager li, .category-add { display: flex; align-items: center; gap: 8px; }
+.category-manager input[type=color] { flex-shrink: 0; width: 40px; height: 40px; padding: 3px; border: 1px solid #d4dfe0; border-radius: 8px; background: #fff; }
+.category-manager input:not([type=color]) { flex: 1; min-width: 0; min-height: 40px; padding: 0 10px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 14px; }
+.category-manager small { flex-shrink: 0; width: 56px; color: var(--muted); font-size: 11px; }
+.category-add { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.reset-color { flex-shrink: 0; font-size: 16px; padding: 0 4px; }

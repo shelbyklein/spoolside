@@ -67,7 +67,8 @@ function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly
   <div className="asset-pills">
    {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
     <button className={pill(c.assetId)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span><small>{asset?.status}{asset&&!asset.designFile?' · Missing design':''}</small></button>
-    <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} defaultValue={c.color||DEFAULT_PART_COLOR} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
+    <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} key={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||'default'} defaultValue={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||DEFAULT_PART_COLOR} title={c.color?'Custom color for this assembly':'Category color'} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
+    {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>}
     <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
     <button className="text-button positions-toggle" aria-expanded={editing===c.assetId} onClick={()=>setEditing(editing===c.assetId?null:c.assetId)}>{c.positions?.length?`${c.positions.length} positions`:'Position'}</button>
     <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>

@@ -141,3 +141,29 @@ test("deleting an asset keeps it out of re-imports and is blocked while an assem
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("categories are seeded once, sort existing items, and survive re-import", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-cat-"));
+  const file = path.join(dir, "db.sqlite");
+  let assets = new Assets(file, dir);
+  const btn = assets.add({ name: "ABXY Buttons", type: "Part", source: "abxy.stl" }, stl());
+  const top = assets.add({ name: "DS – Top", type: "Faceplate", source: "top.stl" }, stl());
+  assets.close();
+  // Seeding happens on a fresh categories table; simulate by dropping it.
+  const { DatabaseSync } = await import("node:sqlite");
+  try {
+    const db = new DatabaseSync(file); db.exec("DROP TABLE categories"); db.close();
+    assets = new Assets(file, dir);
+    assert.equal(assets.get(btn.id).category, "buttons");
+    assert.equal(assets.get(top.id).category, "body");
+    const c = assets.saveCategory({ name: "Clear", color: "#FFFFFF" });
+    assets.update(top.id, { category: c.id });
+    assert.equal(assets.add({ name: "DS – Top", type: "Faceplate", source: "top.stl" }, stl()).category, c.id);
+    assert.throws(() => assets.saveCategory({ name: "Clear", color: "#000000" }), /exists/);
+    assets.deleteCategory(c.id);
+    assert.equal(assets.get(top.id).category, "");
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

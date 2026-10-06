@@ -49,6 +49,7 @@ function clean(input, prior = {}) {
       piece: text(fit.piece, 40),
     },
     source: text(input.source ?? prior.source, 300),
+    category: text(input.category ?? prior.category, 40),
   };
   if (!out.name) throw Error("Name is required");
   if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part or Phone Base");
@@ -77,6 +78,42 @@ export class Assets {
     this.db.exec("CREATE TABLE IF NOT EXISTS designfiles (id TEXT PRIMARY KEY, source TEXT UNIQUE NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS design_links (asset TEXT PRIMARY KEY, design TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deleted_sources (source TEXT PRIMARY KEY, deleted TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assemblies (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL)");
+    this.seedCategories();
+  }
+  // First run only: create starter categories and sort existing items into them by name/type.
+  seedCategories() {
+    if (this.db.prepare("SELECT COUNT(*) n FROM categories").get().n) return;
+    const starters = [["body", "Body", "#5b6bb5"], ["buttons", "Buttons", "#2b2b2b"], ["membranes", "Membranes", "#5aa9a3"], ["hardware", "Hardware", "#9aa6ab"]];
+    for (const c of starters) this.db.prepare("INSERT INTO categories VALUES (?,?,?)").run(...c);
+    for (const a of this.list()) {
+      if (a.category) continue;
+      const n = a.name.toLowerCase();
+      const category = /membrane/.test(n) ? "membranes"
+        : /button|abxy|d-pad|paddle|trigger|start/.test(n) ? "buttons"
+        : ["Case", "Faceplate", "Sleeve", "Phone Base"].includes(a.type) ? "body"
+        : "hardware";
+      this.db.prepare("UPDATE assets SET body=? WHERE id=?").run(JSON.stringify({ ...clean({}, a), category }), a.id);
+    }
+  }
+  categories() {
+    return this.db.prepare("SELECT * FROM categories ORDER BY name COLLATE NOCASE").all();
+  }
+  saveCategory(input, id = randomUUID()) {
+    const name = text(input.name, 40), color = String(input.color || "").toLowerCase();
+    if (!name || !/^#[0-9a-f]{6}$/.test(color)) throw Error("Category needs a name and a color");
+    try {
+      this.db.prepare("INSERT INTO categories VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, color=excluded.color").run(id, name, color);
+    } catch {
+      throw Error("A category with that name already exists");
+    }
+    return this.db.prepare("SELECT * FROM categories WHERE id=?").get(id);
+  }
+  // Items in a deleted category become uncategorized; nothing else changes.
+  deleteCategory(id) {
+    for (const a of this.list().filter((a) => a.category === id))
+      this.db.prepare("UPDATE assets SET body=? WHERE id=?").run(JSON.stringify({ ...clean({}, a), category: "" }), a.id);
+    this.db.prepare("DELETE FROM categories WHERE id=?").run(String(id));
   }
   row(r) {
     const design = this.db.prepare("SELECT d.* FROM designfiles d JOIN design_links l ON l.design=d.id WHERE l.asset=?").get(r.id);
@@ -150,7 +187,7 @@ export class Assets {
     const id = existing?.id || randomUUID();
     fs.writeFileSync(this.file(id), buf, { mode: 0o600 });
     this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body, hash=excluded.hash, triangles=excluded.triangles, dims=excluded.dims, bytes=excluded.bytes, updated=excluded.updated")
-      .run(id, JSON.stringify(existing ? clean({ ...meta, name: existing.name, status: existing.status, note: existing.note || body.note }, existing) : body), hash, triangles, JSON.stringify(size), buf.length, new Date().toISOString());
+      .run(id, JSON.stringify(existing ? clean({ ...meta, name: existing.name, status: existing.status, note: existing.note || body.note, category: existing.category }, existing) : body), hash, triangles, JSON.stringify(size), buf.length, new Date().toISOString());
     return this.get(id);
   }
   update(id, patch) {

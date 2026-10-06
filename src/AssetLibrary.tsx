@@ -1,6 +1,6 @@
 import { Assemblies } from "./Assemblies";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2 } from "lucide-react";
+import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -18,6 +18,8 @@ export type Asset = {
   bytes: number;
   updated: string;
   designFile?: {id:string;name:string;source:string}|null;
+  category?: string;
+  categoryColor?: string;
   complete?: boolean;
   hasStl?: boolean;
 };
@@ -61,6 +63,12 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const load = () => fetch("/api/assets").then((r) => r.json()).then(setAssets).catch(() => setAssets([]));
+  const [categories, setCategories] = useState<Category[]>([]),
+    [managing, setManaging] = useState(false);
+  const loadCategories = () => fetch("/api/categories").then((r) => r.json()).then((c) => setCategories(Array.isArray(c) ? c : [])).catch(() => setCategories([]));
+  useEffect(() => { loadCategories(); }, []);
+  // Each item carries its category's color so previews can use it as the default.
+  const colored = useMemo(() => assets?.map((a) => ({ ...a, categoryColor: categories.find((c) => c.id === a.category)?.color })) || null, [assets, categories]);
   useEffect(() => {
     load();
     fetch("/api/designfiles").then(r=>{if(!r.ok)throw Error();return r.json();}).then(setDesigns).catch(()=>notify("Could not load design files"));
@@ -95,7 +103,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       <div className="segmented library-sections" role="tablist" aria-label="Library section">
         {["Assets","Assemblies"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
       </div>
-      {section === "Assemblies" && assets && <Assemblies assets={assets} onOpen={setOpenId} notify={notify}/>}
+      {section === "Assemblies" && colored && <Assemblies assets={colored} onOpen={setOpenId} notify={notify}/>}
       {section === "Assets" && <>
       <div className="asset-toolbar">
         <div className="segmented" role="tablist" aria-label="Asset type">
@@ -122,9 +130,11 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             </button>
           ))}
         </div>
+        <button className="secondary categories-button" onClick={() => setManaging(true)}><Palette size={16} /> Categories</button>
         <button className="primary upload-asset" onClick={() => setUploading(true)}><Upload size={16} /> Upload</button>
       </div>
-      {uploading && <UploadDialog onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
+      {managing && <CategoryManager categories={categories} assets={assets || []} onChange={() => { loadCategories(); load(); }} onClose={() => setManaging(false)} notify={notify} />}
+      {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {needs > 0 && status !== "Needs check" && (
         <button className="needs-check-banner" onClick={() => { setStatus("Needs check"); setType("All"); }}>
           {needs} {needs === 1 ? "asset needs" : "assets need"} a check
@@ -169,8 +179,14 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             </h2>
             <p>{open.type} · Gen {open.generation}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
             {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
-              <StlViewer url={`/api/assets/${open.id}/stl`} />
+              <StlViewer url={`/api/assets/${open.id}/stl`} colors={[categories.find((c) => c.id === open.category)?.color || ""]} />
             </Suspense>}
+            <label className="design-picker">Category
+              <select aria-label="Category" value={open.category || ""} onChange={(e) => save(open, { category: e.target.value })}>
+                <option value="">No category</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
             <label className="design-picker">Design file
               <select aria-label="Design file" value={open.designFile?.id || ""} onChange={async e=>{
                 const r=await fetch(`/api/assets/${open.id}/design`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({designId:e.target.value || null})});
@@ -238,7 +254,7 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
 
 const STYLES = ["Handheld", "DS", "Classic", "3DS", "N64", "MAME", "Keyboard"];
 // Adds a new library item from an STL, with an optional matching design file.
-function UploadDialog({ onClose, onAdded, notify }: { onClose: () => void; onAdded: (a: Asset) => void; notify: (m: string) => void }) {
+function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Category[]; onClose: () => void; onAdded: (a: Asset) => void; notify: (m: string) => void }) {
   const [stl, setStl] = useState<File | null>(null),
     [design, setDesign] = useState<File | null>(null),
     [name, setName] = useState(""),
@@ -248,6 +264,7 @@ function UploadDialog({ onClose, onAdded, notify }: { onClose: () => void; onAdd
     [size, setSize] = useState("Standard"),
     [piece, setPiece] = useState("Top"),
     [status, setStatus] = useState<Status>("Current"),
+    [category, setCategory] = useState(""),
     [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,7 +273,7 @@ function UploadDialog({ onClose, onAdded, notify }: { onClose: () => void; onAdd
     try {
       const key = crypto.randomUUID();
       const fit = type === "Case" ? { phone } : type === "Faceplate" ? { style, size, piece } : type === "Sleeve" ? { style, size } : { piece: name };
-      const r = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ name, type, status, generation: 3, fit, source: `upload/${key}/${stl.name}` })) }, body: stl });
+      const r = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ name, type, status, category, generation: 3, fit, source: `upload/${key}/${stl.name}` })) }, body: stl });
       let asset = await r.json();
       if (!r.ok) throw Error(asset.error || "Upload failed");
       if (design) {
@@ -290,8 +307,48 @@ function UploadDialog({ onClose, onAdded, notify }: { onClose: () => void; onAdd
         </>}
         {type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
         <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as Status)}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
+        <label>Category<select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">No category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <button className="primary" type="submit" disabled={busy || !stl}>{busy ? "Uploading…" : "Add to library"}</button>
       </form>
+    </div>
+  );
+}
+
+export type Category = { id: string; name: string; color: string };
+// Name and color each category; the color is the default for its items in 3D previews.
+function CategoryManager({ categories, assets, onChange, onClose, notify }: { categories: Category[]; assets: Asset[]; onChange: () => void; onClose: () => void; notify: (m: string) => void }) {
+  const send = async (url: string, method: string, body?: object) => {
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) notify(out.error || "Couldn't save category");
+    onChange();
+  };
+  const [name, setName] = useState(""), [color, setColor] = useState("#5aa9a3");
+  return (
+    <div className="detail-overlay" onClick={onClose}>
+      <section role="dialog" aria-modal="true" aria-label="Categories" className="detail-panel category-manager" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()}>
+        <button autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
+        <h2>Categories</h2>
+        <p className="plate-meta">Each item's category sets its color in 3D previews. A color picked on an assembly part still wins.</p>
+        <ul>
+          {categories.map((c) => {
+            const count = assets.filter((a) => a.category === c.id).length;
+            return (
+              <li key={c.id}>
+                <input type="color" aria-label={`${c.name} color`} defaultValue={c.color} onBlur={(e) => e.target.value !== c.color && send(`/api/categories/${c.id}`, "PUT", { name: c.name, color: e.target.value })} />
+                <input aria-label="Category name" defaultValue={c.name} maxLength={40} onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && send(`/api/categories/${c.id}`, "PUT", { name: e.target.value.trim(), color: c.color })} />
+                <small>{count} {count === 1 ? "item" : "items"}</small>
+                <button className="icon-button" aria-label={`Delete ${c.name}`} onClick={() => window.confirm(`Delete ${c.name}? Its ${count} items become uncategorized.`) && send(`/api/categories/${c.id}`, "DELETE")}><Trash2 size={16} /></button>
+              </li>
+            );
+          })}
+        </ul>
+        <form className="category-add" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; send("/api/categories", "POST", { name: name.trim(), color }); setName(""); }}>
+          <input type="color" aria-label="New category color" value={color} onChange={(e) => setColor(e.target.value)} />
+          <input aria-label="New category name" placeholder="New category" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
+          <button className="secondary" type="submit"><Plus size={16} /> Add</button>
+        </form>
+      </section>
     </div>
   );
 }
