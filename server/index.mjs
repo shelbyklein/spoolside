@@ -1,3 +1,4 @@
+import {Materials} from "./materials.mjs";
 import fs from "node:fs";
 import { Notifications } from "./notifications.mjs";
 import { Workspace } from "./workspace.mjs";
@@ -50,8 +51,12 @@ const assets = new Assets(
   process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   process.env.SPOOLSIDE_ASSET_DIR || "/data/assets",
 );
+const materials = workspace ? new Materials(workspace.db) : null;
+materials?.refresh();
+const materialTimer=setInterval(()=>materials?.refresh(),6*60*60*1000);
 const { app, close } = createApp({
   library,
+  materials,
   assets,
   workspace,
   notifications,
@@ -69,6 +74,7 @@ for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () =>
     server.close(() => {
       clearInterval(syncTimer);
+      clearInterval(materialTimer);
       clearInterval(pushTimer);
       clearInterval(backupTimer);
       backup();

@@ -2168,3 +2168,36 @@ footer .tiny-dot {
 .print-readiness.ready summary { background: #d8f2e5; color: #176440; }
 .print-readiness > div { padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .print-readiness ul { padding-left: 16px; margin: 0 0 8px; }
+.material-toolbar {display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+.material-toolbar h2 {margin:0 auto 0 0;}
+.material-toolbar label {display:flex;align-items:center;gap:8px;font-size:12px;}
+.material-toolbar input {width:80px;}
+.material-cards {display:grid;gap:20px;}
+.material-card {padding:20px;}
+.material-card .section-top {padding:0;align-items:flex-start;}
+.material-card h3,.material-card h4 {margin:0;}
+.material-usage {display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px;}
+.material-usage input {max-width:230px;min-width:0;padding:6px 8px;}
+.material-inventory {padding:16px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.material-spool {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.material-spool label {margin-left:auto;}
+.material-spool input {width:80px;text-align:right;}
+.restock-heading {display:flex;align-items:center;gap:12px;margin:16px 0;}
+.restock-heading h4 {margin-right:auto;}
+.material-offer {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--line);font-size:13px;}
+.material-offer>div {display:flex;flex-direction:column;gap:5px;min-width:0;}
+.material-offer small,.material-checked {font-size:11px;color:var(--muted);}
+.offer-stock {font-size:11px;color:var(--teal);}
+.material-offer .secondary {text-decoration:none;display:flex;align-items:center;gap:6px;}
+.material-checked {margin:12px 0 0;}
+.material-form {display:flex;flex-direction:column;gap:12px;padding:16px 0;max-width:480px;}
+.material-form label {display:flex;flex-direction:column;gap:6px;font-size:12px;}
+.material-form label.check-row {flex-direction:row;}
+.quote-dialog {padding:24px;width:calc(100% - 32px);max-height:85vh;overflow:auto;}
+@media(max-width:760px){.material-card{padding:16px;}.material-card .section-top{gap:8px;}.material-usage{flex-direction:column;align-items:flex-start;}.material-usage input{width:100%;}.material-offer{grid-template-columns:minmax(0,1fr) auto;gap:12px;}.offer-delivery{grid-column:1;}.material-toolbar h2{width:100%;}.material-toolbar{gap:8px;}.restock-heading{gap:8px;}.restock-heading select{max-width:110px;}}
+.material-variant {width:100%;max-width:460px;margin-bottom:12px;font-size:12px;}
+.modal-backdrop {position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(16,45,68,.5);padding:16px;}
+.material-toolbar {justify-content:flex-end;}
+.material-toolbar input,.material-usage input,.material-form input,.material-spool input {font:inherit;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:#fff;padding:8px;min-height:36px;}
+.material-form input[type="checkbox"] {min-height:0;}
+@media(max-width:760px){.material-toolbar{justify-content:flex-start;}.material-toolbar input,.material-form input,.material-spool input{min-height:44px;font-size:16px;}}

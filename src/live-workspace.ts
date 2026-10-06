@@ -19,6 +19,8 @@ export type Machine = {
   external?: { type: string; color: string } | null;
 };
 export type Spool = {
+  materialId?: string;
+  capacity?: number;
   id: string;
   name: string;
   color: string;

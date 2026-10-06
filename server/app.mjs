@@ -22,6 +22,7 @@ export function createApp({
   printers,
   library,
   assets,
+  materials,
 } = {}) {
   if (
     !pinHash ||
@@ -256,6 +257,13 @@ export function createApp({
   app.delete("/api/assets/:id", (req, res) => {
     try { assets.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
+  app.get("/api/materials", (_req,res)=>res.json(materials?.list() || {materials:[],settings:{zip:"30360",sort:"fastest"}}));
+  app.post("/api/materials/refresh", async (_req,res)=>{try{if(!materials)throw Error("Materials unavailable");res.json(await materials.refresh());}catch(e){fail(res,e);}});
+  app.patch("/api/materials/settings", (req,res)=>{try{res.json(materials.saveSettings(req.body));}catch(e){fail(res,e);}});
+  app.patch("/api/materials/:id", (req,res)=>{try{res.json(materials.saveUsage(req.params.id,req.body?.usage));}catch(e){fail(res,e);}});
+  app.post("/api/material-offers", (req,res)=>{try{res.json(materials.addOffer(req.body));}catch(e){fail(res,e);}});
+  app.patch("/api/material-offers", (req,res)=>{try{res.json(req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body));}catch(e){fail(res,e);}});
+  app.delete("/api/material-offers/:id", (req,res)=>{try{res.json(materials.removeOffer(req.params.id));}catch(e){fail(res,e);}});
   app.get("/api/library", (_req, res) => res.json(library?.list() || []));
   app.post(
     "/api/library",

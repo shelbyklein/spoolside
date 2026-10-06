@@ -1,3 +1,4 @@
+import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { NotificationSettings } from "./NotificationSettings";
@@ -457,7 +458,7 @@ function App() {
           </div>
           <div className="spool-copy">
             <strong>{s.name}</strong>
-            <span>Bambu PLA Basic</span>
+            <span>{s.materialId ? materialName(s.materialId) : "Unassigned material"}</span>
           </div>
           {tab === "Filament" ? (
             <label className="grams">
@@ -494,8 +495,7 @@ function App() {
       ))}
       <div className="filament-note">
         <Disc3 size={16} />{" "}
-        {spools.reduce((n, s) => n + s.remaining, 0).toLocaleString()} g of
-        possibility
+        {spools.reduce((n, s) => n + s.remaining, 0).toLocaleString()} g remaining
       </div>
     </section>
   );
@@ -778,7 +778,7 @@ function App() {
               className={tab === "Overview" ? "bottom-grid" : "single-section"}
             >
               {tab !== "Filament" && queue}
-              {tab !== "Queue" && filament}
+              {tab === "Filament" && remote ? <FilamentManager spools={spools} onSpools={setSpools} notify={setNotice} live={remote}/> : tab !== "Queue" && filament}
             </div>
           )}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}

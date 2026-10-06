@@ -218,3 +218,14 @@ test("order items pick store photos in the ordered colorway", () => {
   assert.equal(black.image, up + "handheld-black-300x300.png");
   assert.equal(black.parts[1].image, up + "ds-black-300x300.png");
 });
+
+test('filament updates retain material identity and net capacity while preserving legacy spools',()=>{
+ const ws=new Workspace(':memory:');
+ try{
+ const spools=[{id:'new',name:'Conductive',color:'#111111',materialId:'proto-conductive',capacity:2000,remaining:1500},{id:'legacy',name:'Old spool',color:'#ffffff',remaining:200}];
+ const saved=ws.update({...ws.snapshot(),spools});assert.deepEqual(saved.spools,spools);
+ assert.throws(()=>ws.update({...ws.snapshot(),spools:[{...spools[0],remaining:2001}]}),/filament/);
+ assert.throws(()=>ws.update({...ws.snapshot(),spools:[{...spools[0],materialId:'unknown'}]}),/material/);
+ assert.throws(()=>ws.update({...ws.snapshot(),spools:[{...spools[0],capacity:-1}]}),/filament|capacity/);
+ }finally{ws.close();}
+});

@@ -432,10 +432,12 @@ export class Workspace {
         !/^#[0-9a-fA-F]{6}$/.test(s.color) ||
         !Number.isFinite(s.remaining) ||
         s.remaining < 0 ||
-        s.remaining > 1000
+        s.remaining > (s.capacity ?? 1000)
       )
         throw Error("Invalid filament record");
-      return { id: s.id, name: s.name, color: s.color, remaining: s.remaining };
+      if (s.capacity !== undefined && (!Number.isFinite(s.capacity) || s.capacity<100 || s.capacity>10000)) throw Error("Invalid spool capacity");
+      if (s.materialId !== undefined && !["bambu-tpu-ams","recreus-conductive","proto-conductive"].includes(s.materialId)) throw Error("Unknown filament material");
+      return { id: s.id, name: s.name, color: s.color, remaining: s.remaining, ...(s.capacity!==undefined?{capacity:s.capacity}:{}), ...(s.materialId?{materialId:s.materialId}:{}) };
     });
     if (spools.length > 200) throw Error("Too many filament records");
     this.state = {
