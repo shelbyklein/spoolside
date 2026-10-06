@@ -23,6 +23,10 @@ export type OrderItem = {
   variant: string;
   quantity: number;
   recipe: Recipe[];
+  phone?: string;
+  colorway?: string;
+  image?: string;
+  parts?: { name: string; image: string }[];
 };
 export type Order = {
   id: string;

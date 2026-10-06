@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OrderContents, ItemBreakdown } from "./OrderContents";
 import {
   Search,
   ShoppingBag,
@@ -166,16 +167,7 @@ export function Orders({
                   <strong>{order.number}</strong>
                   <small>{order.placed}</small>
                 </span>
-                <span className="order-product">
-                  {order.items[0]?.name || "No line items"}
-                  <small>
-                    {order.items.reduce((n, i) => n + i.quantity, 0)} units ·{" "}
-                    {(order.items[0]?.variant || "").replace(
-                      "Sample variant · ",
-                      "",
-                    )}
-                  </small>
-                </span>
+                <OrderContents order={order} />
                 <span
                   className={`production-stage ${stage === "Blocked" ? "attention" : ""}`}
                 >
@@ -216,7 +208,7 @@ export function Orders({
                             <strong>{item.name}</strong>
                             <span>× {item.quantity}</span>
                           </div>
-                          <p>{item.variant}</p>
+                          <ItemBreakdown item={item} />
                           {item.recipe.length > 0 ? (
                             <div className="recipe-list">
                               {item.recipe.map((r) => (

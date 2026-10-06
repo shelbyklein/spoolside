@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Workspace, normalizeOrder, variantDetails } from "./workspace.mjs";
+import { Workspace, normalizeOrder, variantDetails, catalogImages, itemDetails } from "./workspace.mjs";
 import { mergeTelemetry, printerView } from "./printers.mjs";
 const raw = {
   id: 12,
@@ -43,6 +43,7 @@ test("paginated Woo import is atomic and retains production mapping; failed sync
   const ws = new Workspace(":memory:", {
     woo: { url: "https://playcase.gg", key: "test", secret: "test" },
     fetcher: async (url) => {
+      if (new URL(url).pathname.endsWith("/products")) return Response.json([]);
       calls++;
       if (fail) return new Response("", { status: 503 });
       const page = new URL(url).searchParams.get("page");
@@ -188,4 +189,32 @@ test('fulfillment works without component setup while packing sequence remains e
  next=ws.snapshot();next.orders[0].assembled=true;next.orders[0].packed=true;next.orders[0].shipped=true;ws.update(next);
  assert.equal(ws.state.orders[0].shipped,true);assert.deepEqual(ws.state.orders[0].items[0].recipe,[]);
  }finally{ws.close();}
+});
+
+test("order items pick store photos in the ordered colorway", () => {
+  const up = "https://playcase.gg/wp-content/uploads/";
+  const catalog = catalogImages([
+    { name: "PlayCase (Case Only)", images: [{ src: up + "product_case-grey-01.webp" }, { src: up + "product_case-green-01.webp" }] },
+    { name: "Handheld Faceplate", images: [{ src: up + "handheld-green-1.webp" }, { src: up + "handheld-black.png" }] },
+    { name: "Dual Screen Faceplate", images: [{ src: up + "ds-black.png" }] },
+  ]);
+  const meta = (colorway) => [
+    { key: "Phone", value: "4443" },
+    { key: "Colorway", value: "#83ff00" },
+    { key: "Options", value: "Handheld Faceplate$9.99, DS Faceplate$14.99" },
+    { key: "Phone model", value: "iPhone 12 Pro Max" },
+    { key: "Colorway", value: colorway },
+    { key: "Options", value: "Handheld Faceplate, DS Faceplate" },
+  ];
+  const green = itemDetails({ name: "PlayCase", meta_data: meta("Green"), image: { src: up + "bundle.webp" } }, catalog);
+  assert.equal(green.phone, "iPhone 12 Pro Max");
+  assert.equal(green.colorway, "Green");
+  assert.equal(green.image, up + "product_case-green-01-300x300.webp");
+  assert.deepEqual(green.parts, [
+    { name: "Handheld Faceplate", image: up + "handheld-green-1-300x300.webp" },
+    { name: "DS Faceplate", image: "" },
+  ]);
+  const black = itemDetails({ name: "PlayCase", meta_data: meta("Black") }, catalog);
+  assert.equal(black.image, up + "handheld-black-300x300.png");
+  assert.equal(black.parts[1].image, up + "ds-black-300x300.png");
 });

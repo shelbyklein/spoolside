@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-export function variantDetails(metadata = []) {
+export function variantFields(metadata = []) {
   const values = new Map();
   for (const m of metadata) {
     if (String(m.key).startsWith("_") || typeof m.value === "object") continue;
@@ -12,9 +12,56 @@ export function variantDetails(metadata = []) {
     if (!prior || (technical.test(prior) && !technical.test(value))) values.set(key, value);
   }
   if (values.has("Phone model")) values.delete("Phone");
-  return [...values].map(([key, value]) => `${key}: ${value}`).join(" · ");
+  return values;
 }
-export function normalizeOrder(raw, prior) {
+export function variantDetails(metadata = []) {
+  return [...variantFields(metadata)].map(([key, value]) => `${key}: ${value}`).join(" · ");
+}
+const COLORS = ["grey", "gray", "green", "blue", "red", "black", "white", "orange", "purple", "pink", "yellow"];
+const thumb = (src) => src.replace(/(\.(webp|png|jpe?g))$/i, "-300x300$1");
+// Store catalog -> { "handheld faceplate": { green: url, ... , "": fallback } }
+export function catalogImages(products = []) {
+  const catalog = {};
+  for (const p of Array.isArray(products) ? products : []) {
+    if (!p || typeof p.name !== "string" || !Array.isArray(p.images)) continue;
+    const byColor = {};
+    for (const img of p.images) {
+      if (typeof img?.src !== "string" || !img.src.startsWith("https://")) continue;
+      const file = img.src.split("/").pop().toLowerCase();
+      const color = COLORS.find((c) => new RegExp(`(^|[-_])${c}([-_.]|$)`).test(file));
+      if (color && !byColor[color === "gray" ? "grey" : color]) byColor[color === "gray" ? "grey" : color] = thumb(img.src);
+      byColor[""] ??= thumb(img.src);
+    }
+    catalog[p.name.toLowerCase()] = byColor;
+  }
+  return catalog;
+}
+const productImage = (catalog, name, color) => {
+  const key = name.toLowerCase();
+  const entry = catalog[key] || catalog[key.replace(/^ds\b/, "dual screen")];
+  if (!entry) return "";
+  const c = (color || "").toLowerCase().replace("gray", "grey");
+  return entry[c] || "";
+};
+export function itemDetails(item, catalog = {}) {
+  const fields = variantFields(item.meta_data);
+  const colorway = fields.get("Colorway") || "";
+  const options = (fields.get("Options") || "").split(",").map((o) => o.trim()).filter(Boolean);
+  const parts = options.map((name) => ({ name, image: productImage(catalog, name, colorway) }));
+  // Prefer a photo in the ordered colorway over the store's generic product photo.
+  const image =
+    productImage(catalog, `${item.name} (Case Only)`, colorway) ||
+    productImage(catalog, String(item.name || ""), colorway) ||
+    parts.find((p) => p.image)?.image ||
+    (typeof item.image?.src === "string" && item.image.src.startsWith("https://") ? thumb(item.image.src) : "");
+  return {
+    phone: fields.get("Phone model") || fields.get("Phone") || "",
+    colorway,
+    image,
+    parts,
+  };
+}
+export function normalizeOrder(raw, prior, catalog = {}) {
   const priorItems = new Map((prior?.items || []).map((i) => [i.id, i]));
   const sourceChanged = !!prior && JSON.stringify((raw.line_items || []).map(i => [String(i.id), i.quantity, i.product_id, i.variation_id, i.sku || "", variantDetails(i.meta_data) || i.sku || "No variant details"])) !== JSON.stringify(prior.items.map(i => [i.id, i.quantity, i.productId, i.variationId, i.sku, i.variant]));
   const sourceReview = !!prior?.sourceReview || sourceChanged;
@@ -41,6 +88,7 @@ export function normalizeOrder(raw, prior) {
       productId: i.product_id,
       variationId: i.variation_id,
       sku: i.sku || "",
+      ...itemDetails(i, catalog),
       recipe: priorItems.get(String(i.id))?.recipe || [],
     })),
     assembled:
@@ -80,7 +128,24 @@ export class Workspace {
         };
     this.woo = woo;
     this.fetcher = fetcher;
+    this.catalog = {};
     this.syncing = false;
+  }
+  async refreshCatalog() {
+    if (this.catalogAt && Date.now() - this.catalogAt < 3600000) return;
+    try {
+      const url = new URL("/wp-json/wc/v3/products", this.woo.url);
+      url.search = new URLSearchParams({ per_page: "100", status: "publish", _fields: "name,images" }).toString();
+      const response = await this.fetcher(url, {
+        headers: { Authorization: "Basic " + Buffer.from(this.woo.key + ":" + this.woo.secret).toString("base64") },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!response.ok) return;
+      this.catalog = catalogImages(await response.json());
+      this.catalogAt = Date.now();
+    } catch {
+      // Imagery is optional; keep the last catalog and continue with orders.
+    }
   }
   persist() {
     this.db
@@ -94,6 +159,7 @@ export class Workspace {
     this.syncing = true;
     try {
       if (!this.woo) throw Error("WooCommerce connection is not configured");
+      await this.refreshCatalog();
       let all = [],
         page = 1,
         totalPages = 1;
@@ -133,7 +199,7 @@ export class Workspace {
         ...this.state,
         revision: this.state.revision + 1,
         orders: all.map((raw) =>
-          normalizeOrder(raw, previous.get(`wc-${raw.id}`)),
+          normalizeOrder(raw, previous.get(`wc-${raw.id}`), this.catalog),
         ),
         lastSync: new Date().toISOString(),
         syncError: null,

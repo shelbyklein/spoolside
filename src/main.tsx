@@ -1,3 +1,4 @@
+import { OrderContents } from "./OrderContents";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -522,14 +523,6 @@ function App() {
         </div>
       </aside>
       <main>
-        <header className="topbar">
-          <span>
-            <img className="mobile-mark" src="/icon-192.png" alt="Spoolside" />
-          </span>
-          <div className="top-actions">
-            {!remote && <span className="demo-pill">Demo workspace</span>}
-          </div>
-        </header>
         <div className="main-content">
           <div className="page-heading">
             <div>
@@ -592,7 +585,7 @@ function App() {
                   const stage=orderStage(order,jobs);
                   return <button className="overview-order-row" key={order.id} aria-label={`Open order ${order.number}`} onClick={() => {setFocusedOrder(order.id);setTab("Orders");}}>
                     <span className="order-id"><strong>{order.number}</strong><small>{order.placed}</small></span>
-                    <span className="order-product">{order.items[0]?.name || "No line items"}<small>{order.items.reduce((n,i)=>n+i.quantity,0)} {order.items.reduce((n,i)=>n+i.quantity,0) === 1 ? "unit" : "units"}{order.items.length > 1 ? ` · ${order.items.length} items` : ""}</small></span>
+                    <OrderContents order={order} />
                     <span className={`production-stage ${["Blocked","On hold"].includes(stage) ? "attention" : ""}`}>{stage}</span><ChevronRight size={17}/>
                   </button>;
                 })}
