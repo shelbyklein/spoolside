@@ -85,3 +85,5 @@ Library → Assemblies (`/library/assemblies`) stores named component lists with
 October 6 import: 98 assets (82 original + 16 sleeves marked Needs check), 62 design files, 25 exact links and 73 unpaired assets. No assembly recipes were guessed.
 
 Phone Bases is a separate asset category: six design-only C4D reference assets and two STL assets, imported by `node scripts/import-phone-bases.mjs`. Design-only references offer design downloads without an STL preview. The import preserves reviewed statuses and IDs. Texture PNGs are excluded. Total catalog: 106 assets and 68 design files.
+
+The initial 10 faceplate assemblies pair one Top and one Bottom of matching style/size, including Classic Standard's current Ridges Top. MAME Plus has no matching Bottom and is skipped. Shared hardware and store SKU identifiers await explicit definitions. `node scripts/create-faceplate-assemblies.mjs` adds only missing named pairs and preserves existing assembly edits.
