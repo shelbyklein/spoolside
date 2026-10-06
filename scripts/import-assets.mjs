@@ -52,7 +52,7 @@ export function classify(rel) {
     return asset;
   }
   if (top === "Parts") {
-    if (parts.includes("Orca")) return null;
+    if (parts.includes("Orca") || file === "dpad membrane soft") return null;
     const asset = { type: "Part", name: file, fit: { piece: file }, status: "Current" };
     const rules = {
       "Faceplate Trigger Touch Points 5.2": { name: "Faceplate Trigger Touch Points", note: "5.2 mm version (current)." },
@@ -64,7 +64,6 @@ export function classify(rel) {
       "Triggers 2026": { name: "Paddle", fit: { piece: "Paddle" } },
       "AB Button membrane": { name: "AB Button Membrane", fit: { style: "Handheld", piece: "AB membrane" } },
       dpad: { name: "D-pad" },
-      "dpad membrane soft": { name: "D-pad Membrane (Soft)" },
       "DS Trigger": { name: "DS Faceplate Bridge", fit: { style: "DS", piece: "Faceplate bridge" } },
     };
     return { ...asset, ...(rules[file] || {}) };
