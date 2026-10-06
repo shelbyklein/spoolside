@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
-test('filament restock uses two columns without inventory and keeps ZIP quotes separate',async({page})=>{
+test('filament restock uses rows without inventory and keeps ZIP quotes separate',async({page})=>{
  const materialId='proto-conductive';
  let catalog={settings:{zip:'30360',sort:'fastest'},materials:[{id:materialId,name:'Proto-pasta Conductive PLA',usage:'Other parts',url:'https://proto-pasta.com/products/conductive-pla',offers:[{id:'offer',materialId,seller:'Proto-pasta',label:'Black 1.75mm 500g',grams:500,price:49.99,available:true,refill:false,url:'https://proto-pasta.com/products/conductive-pla',source:'live',checked:new Date().toISOString(),stale:false,arrival:null as string|null,shipping:null as number|null,delivered:null as number|null,deliveredPerKg:null as number|null,perKg:99.98}]}]};
+ catalog.materials[0].offers.push(...[1000,1500,2000].map(grams=>({...catalog.materials[0].offers[0],id:'offer-'+grams,label:'Black '+grams+'g',grams})));
  let state:any={revision:1,orders:[],jobs:[],spools:[],machines:[],lastSync:new Date().toISOString(),syncError:null};
  await page.route('https://spoolside.shelbyklein.com/**',async route=>{
  const url=new URL(route.request().url());const method=route.request().method();
@@ -13,13 +14,18 @@ test('filament restock uses two columns without inventory and keeps ZIP quotes s
  const response=await route.fetch({url:'http://127.0.0.1:4173'+url.pathname+url.search});return route.fulfill({response});
  });
  await page.setViewportSize({width:428,height:926});await page.goto('https://spoolside.shelbyklein.com/filament');
- await expect(page.getByLabel('Delivery ZIP')).toHaveValue('30360');await expect(page.getByLabel('Sort restock offers')).toHaveValue('fastest');await expect(page.getByText('Arrival unknown',{exact:true})).toBeVisible();
+ await expect(page.getByLabel('Delivery ZIP')).toHaveValue('30360');await expect(page.getByLabel('Sort restock offers')).toHaveValue('fastest');await expect(page.getByText('Arrival unknown',{exact:true}).first()).toBeVisible();
+ await expect(page.locator('.material-offer')).toHaveCount(3);
+ await page.getByLabel('Variant for Proto-pasta Conductive PLA').selectOption('Black · 2000 g');
+ await expect(page.locator('.material-offer')).toHaveCount(1);
+ await expect(page.locator('.offer-info')).toContainText('Black 2000g');
+ await page.getByLabel('Variant for Proto-pasta Conductive PLA').selectOption('all');
  await expect(page.getByRole('button',{name:'Spool',exact:true})).toHaveCount(0);
  await expect(page.getByText('No spools recorded')).toHaveCount(0);
- await page.getByRole('button',{name:'Set shipping quote'}).click();await page.getByLabel('Shipping cost (USD)').fill('10');await page.getByLabel('Latest estimated arrival').fill('2099-10-10');await page.getByRole('button',{name:'Save quote'}).click();await expect(page.getByText('Quote for 30360')).toBeVisible();
- await page.getByLabel('Delivery ZIP').fill('10001');await page.getByLabel('Delivery ZIP').blur();await expect(page.getByText('Arrival unknown',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Set shipping quote'}).first().click();await page.getByLabel('Shipping cost (USD)').fill('10');await page.getByLabel('Latest estimated arrival').fill('2099-10-10');await page.getByRole('button',{name:'Save quote'}).click();await expect(page.getByText('Quote for 30360')).toBeVisible();
+ await page.getByLabel('Delivery ZIP').fill('10001');await page.getByLabel('Delivery ZIP').blur();await expect(page.getByText('Arrival unknown',{exact:true}).first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.setViewportSize({width:1440,height:1000});
- expect(await page.locator('.material-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);
+ expect(await page.locator('.material-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(1);
 
 });

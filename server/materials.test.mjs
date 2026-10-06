@@ -6,14 +6,14 @@ const html=nodes=>`<script type="application/ld+json">${JSON.stringify(nodes)}</
 const product=(name,url,price=50,currency='USD',availability='InStock')=>({'@type':'Product',name,offers:{url,price,priceCurrency:currency,availability:'https://schema.org/'+availability}});
 test('supplier parser uses net filament weight, filters wrong diameter and sample coils, USD and variant',()=>{
  const nodes={'@graph':[
- {...product('PLA 1.75mm / 500g Spool','https://proto-pasta.com/products/conductive-pla?variant=1'),weight:{value:816}},
+ {...product('PLA 1.75mm / 500g Spool','https://proto-pasta.com/products/conductive-pla?variant=1'),weight:{value:816},image:['https://proto-pasta.com/cdn/spool.jpg']},
  product('PLA 2.85mm / 500g Spool','https://proto-pasta.com/products/conductive-pla?variant=2'),
  product('PLA 1.75mm / 50g Coil','https://proto-pasta.com/products/conductive-pla?variant=3'),
  product('PLA 1.75mm / 1kg Spool','https://proto-pasta.com/products/conductive-pla?variant=4',90),
  product('PLA 1.75mm / 500g Spool','https://proto-pasta.com/products/conductive-pla?variant=5',50,'EUR'),
  ]};
  const offers=productOffers(html(nodes),MATERIALS[2]);assert.deepEqual(offers.map(o=>o.grams),[500,1000]);
- assert.equal(offers[0].available,true);
+ assert.equal(offers[0].available,true);assert.equal(offers[0].image,'https://proto-pasta.com/cdn/spool.jpg');assert.equal(offers[1].image,null);
  assert.throws(()=>productOffers(html(product('Black 1.75mm / 500 GR','https://recreus.com/en-en/products/filaflex-conductivo?variant=wrong')),MATERIALS[1]),/No USD/);
  assert.throws(()=>productOffers(html(product('PLA 1.75mm / 500g','https://evil.example/')),MATERIALS[2]),/No USD/);
 });

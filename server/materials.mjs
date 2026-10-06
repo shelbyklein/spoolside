@@ -35,7 +35,10 @@ export function productOffers(html,material,checked=new Date().toISOString()) {
    const rate=delivery?.shippingRate?.currency==='USD'?Number(delivery.shippingRate.value):null;
    const published=us&&Number.isFinite(days)&&days>0&&days<100 ? {days,shipping:Number.isFinite(rate)&&rate!==null&&rate>=0?rate:null}:null;
    const color=material.id==='bambu-tpu-ams'?(label.match(/Neon Green|Red|Yellow|Blue|White|Gray|Black/i)?.[0]||'Unknown'):'Black';
-   results.set(url.href,{color,sourceUrl:material.url,published,id:url.href,materialId:material.id,seller:material.seller,label,grams,price,currency:'USD',available,url:url.href,refill:/refill/i.test(label),checked,source:'live'});
+   const picture=offer.image||node.image;
+   const rawImage=Array.isArray(picture)?picture[0]:typeof picture==='object'?picture?.url:picture;
+   let image=null;try{if(typeof rawImage!=='string'||!rawImage)throw Error();const u=new URL(rawImage,material.url);if(u.protocol==='https:'&&['store.bblcdn.com','proto-pasta.com','recreus.com','3d.nice-cdn.com'].includes(u.hostname))image=u.href;}catch{}
+   results.set(url.href,{image,color,sourceUrl:material.url,published,id:url.href,materialId:material.id,seller:material.seller,label,grams,price,currency:'USD',available,url:url.href,refill:/refill/i.test(label),checked,source:'live'});
   }
  }
  if(!results.size)throw Error('No USD 1.75 mm spool offers found');

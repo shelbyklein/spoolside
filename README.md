@@ -102,7 +102,7 @@ Order badges check exact phone case metadata and Standard/Plus faceplate assembl
 
 ### Filament and restock
 
-The hosted Filament page focuses on supplier and restock comparison, with two columns on desktop and one on iPhone. Inventory amounts and controls are hidden; existing records remain stored. Initial materials are Bambu TPU for AMS, Recreus Conductive Filaflex (touch pins) and Proto-pasta Conductive PLA (other parts). No stock amounts are required.
+The hosted Filament page focuses on supplier and restock comparison, with stacked material sections and the top three ranked offers per material. Offers include supplier spool thumbnails, with a placeholder if unavailable. Inventory amounts and controls are hidden; existing records remain stored. Initial materials are Bambu TPU for AMS, Recreus Conductive Filaflex (touch pins) and Proto-pasta Conductive PLA (other parts). No stock amounts are required.
 
 Official suppliers and the exact conductive materials at 3DJake refresh on startup and every six hours; Check prices refreshes immediately. Only USD, 1.75 mm spool variants are compared, with net filament grams for $/kg. Filter by color/size and spool/refill. Add seller records an exact-material offer manually (seven-day freshness); custom seller URLs are not fetched by the server.
 
