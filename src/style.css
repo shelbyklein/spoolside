@@ -2057,3 +2057,15 @@ footer .tiny-dot {
   .asset-pill { min-height: 44px; }
   .view-toggle { width: auto; }
 }
+.library-sections { margin-bottom: 18px; }
+.assembly-editor { margin-top: 24px; padding: 24px; }
+.assembly-editor label { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; font-size: 13px; }
+.assembly-editor input,.assembly-editor select { min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; width: 100%; font: inherit; }
+.assembly-component { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+.assembly-component > span { flex: 1; }
+.assembly-component label { width: 75px; }
+.assembly-options { display: grid; gap: 6px; max-height: 280px; overflow-y: auto; margin: 16px 0; }
+.assembly-options button { min-height: 44px; }
+.design-picker { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+.design-picker select { min-height: 44px; max-width: 100%; }
+.asset-pill small { text-align: right; white-space: normal; }

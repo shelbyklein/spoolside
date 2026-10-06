@@ -23,6 +23,11 @@ export function classify(rel) {
   const parts = rel.split("/");
   const file = parts.at(-1).replace(/\.stl$/i, "");
   const [top] = parts;
+  if (top === "Faceplate Sleeves") {
+    const match=file.match(/^(handheld|classic|ds|3ds|n64|genesis)( plus)? sleeve$/i);
+    const style=match ? ({handheld:"Handheld",classic:"Classic",ds:"DS","3ds":"3DS",n64:"N64",genesis:"Genesis"}[match[1].toLowerCase()]) : "Unclassified";
+    return {type:"Sleeve",name:match ? `${style}${match[2] ? " Plus" : ""} Sleeve` : file,fit:{style,size:match ? (match[2] ? "Plus" : "Standard") : "",piece:"Sleeve"},status:"Needs check",note:match ? "Sleeve imported; verify fit." : "Identify sleeve model and fit."};
+  }
   if (top === "Cases") {
     if (/chamfer/i.test(file)) return null; // stray faceplate piece in Cases/15
     const phone = file.replace(/\s+(Phone\s+)?Case(\s+Rounded)?$/i, "").replace(/^s26$/i, "Samsung S26");
@@ -72,7 +77,8 @@ export function classify(rel) {
 }
 
 async function main() {
-  const files = ["Cases", "Faceplates", "Parts/2026"].flatMap((d) => walk(path.join(ROOT, d)));
+  const folders = args.includes("--sleeves-only") ? ["Faceplate Sleeves"] : ["Cases", "Faceplates", "Faceplate Sleeves", "Parts/2026"];
+  const files = folders.flatMap((d) => walk(path.join(ROOT, d)));
   const plan = files.map((f) => ({ file: f, rel: path.relative(ROOT, f), meta: classify(path.relative(ROOT, f)) }));
   for (const p of plan) console.log(p.meta ? `${p.meta.status.padEnd(12)} ${p.meta.type.padEnd(9)} ${p.meta.name}` : `skip         ${p.rel}`);
   if (dryRun) return;

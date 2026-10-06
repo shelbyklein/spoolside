@@ -213,6 +213,14 @@ export function createApp({
     catch(e){res.status(400).json({error:e.message});}
   });
   const fail = (res, e) => res.status(e.status || 400).json({ error: e.message });
+  app.get("/api/designfiles",(_req,res)=>res.json(assets?.designs() || []));
+  app.post("/api/designfiles",express.raw({type:"application/octet-stream",limit:"150mb"}),(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addDesign(JSON.parse(decodeURIComponent(String(req.get("x-design")||"{}"))),req.body));}catch(e){fail(res,e);}});
+  app.get("/api/designfiles/:id/download",(req,res)=>{try{const file=assets.designFile(req.params.id);res.download(file.path,file.meta.name);}catch(e){fail(res,e);}});
+  app.put("/api/assets/:id/design",(req,res)=>{try{res.json(assets.linkDesign(req.params.id,req.body.designId));}catch(e){fail(res,e);}});
+  app.get("/api/assemblies", (_req,res)=>assets ? res.json(assets.assemblies()) : res.status(503).json({error:"Library unavailable"}));
+  app.post("/api/assemblies", (req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.saveAssembly(req.body));}catch(e){fail(res,e);}});
+  app.put("/api/assemblies/:id",(req,res)=>{try{if(!assets?.assemblies().some(a=>a.id===req.params.id))return res.status(404).json({error:"Assembly not found"});res.json(assets.saveAssembly(req.body,req.params.id));}catch(e){fail(res,e);}});
+  app.delete("/api/assemblies/:id",(req,res)=>{assets?.deleteAssembly(req.params.id);res.json({ok:true});});
   app.get("/api/assets", (_req, res) => res.json(assets?.list() || []));
   app.get("/api/assets/:id/stl", (req, res) => {
     try {

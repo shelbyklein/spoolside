@@ -41,3 +41,5 @@ Overview starts with up to five open store orders before printers, using compact
 
 ## Direct fulfillment
 Order rows show Fulfillment instead of a component setup status. Details lead from store line items to quality/assembly and packing checks; no setup form. Existing component and print histories remain available.
+
+Library now separates Assets and Assemblies. Assets include Sleeves and show missing editable designs independently from production status. Assemblies are manually authored name/SKU/component/quantity lists using existing asset IDs; no membership is inferred. Existing text group cards, Current-first sorting and numerical phone groups remain.

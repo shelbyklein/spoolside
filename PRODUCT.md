@@ -32,3 +32,5 @@ Implemented demo PWA with verified local browser flows. User-supplied artwork. A
 Make active work easy to scan. Keep simulated and live data unmistakable. Surface actionable printer states. Keep routine operations usable on phone and desktop.
 
 Order workflow is fulfillment, with no separate mapping status or setup action. Unconfigured orders can go directly through quality/assembly, packing and shipment recording. Existing component/print records remain preserved.
+
+Library now separates Assets and Assemblies. Assets include Sleeves and show missing editable designs independently from production status. Assemblies are manually authored name/SKU/component/quantity lists using existing asset IDs; no membership is inferred. Existing text group cards, Current-first sorting and numerical phone groups remain.

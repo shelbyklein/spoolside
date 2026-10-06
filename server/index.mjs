@@ -29,6 +29,7 @@ const backup = () => {
   try {
     fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
     const file = backupDir + "/workspace-" + Date.now() + ".sqlite";
+    fs.cpSync(process.env.SPOOLSIDE_ASSET_DIR || "/data/assets", backupDir + "/library-files", {recursive:true,force:true});
     workspace.backup(file);
     fs.chmodSync(file, 0o600);
     const files = fs

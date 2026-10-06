@@ -56,3 +56,24 @@ test("import rules follow the confirmed Gen 3 decisions", () => {
   assert.deepEqual([classify("Parts/2026/Triggers 2026.stl").name, classify("Parts/2026/Triggers 2026.stl").status], ["Paddle", "Current"]);
   assert.deepEqual([classify("Parts/2026/DS Trigger.stl").name, classify("Parts/2026/DS Trigger.stl").status], ["DS Faceplate Bridge", "Current"]);
 });
+
+test('sleeves and assemblies preserve asset references; design is required for completeness',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-assemblies-'));const library=new Assets(':memory:',dir);
+ try {
+ const sleeve=library.add({name:'DS Sleeve',type:'Sleeve',source:'Faceplate Sleeves/ds sleeve.stl'},stl());assert.equal(sleeve.complete,false);
+ const design=library.addDesign({name:'DS.c4d',source:'Faceplates/DS/DS.c4d'},Buffer.from('design project'));
+ library.linkDesign(sleeve.id,design.id);assert.equal(library.get(sleeve.id).complete,true);
+ const assembly=library.saveAssembly({name:'DS',sku:'DS',type:'Faceplate',components:[{assetId:sleeve.id,quantity:1}]});
+ assert.equal(library.assemblies()[0].id,assembly.id);assert.throws(()=>library.remove(sleeve.id),/assembly/);
+ assert.throws(()=>library.saveAssembly({...assembly,components:[{assetId:'missing',quantity:1}]}),/Invalid/);
+ assert.throws(()=>library.saveAssembly({...assembly,components:[{assetId:sleeve.id,quantity:0}]}),/Invalid/);
+ library.linkDesign(sleeve.id,null);assert.equal(library.get(sleeve.id).complete,false);library.deleteAssembly(assembly.id);library.remove(sleeve.id);
+ }finally{library.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('design auto linking only accepts unique exact source names; sleeve imports stay unverified',async()=>{
+ const {exactDesign}=await import('../scripts/import-designs.mjs');
+ const asset={source:'Cases/16/iPhone 16 Pro Phone Case.stl',type:'Case'};const design={id:'a',name:'Iphone 16 Pro Case.c4d',source:'Cases/16/Iphone 16 Pro Case.c4d'};
+ assert.equal(exactDesign(asset,[design]).id,'a');assert.equal(exactDesign(asset,[design,{...design,id:'b',source:'Cases/Iphone 16 Pro Case.c4d'}]),null);
+ assert.equal(exactDesign({type:'Part',source:'Parts/2026/Triggers 2026.stl'},[{name:'Parts 2026.c4d',source:'Parts/Parts 2026.c4d'}]),null);
+ assert.equal(classify('Faceplate Sleeves/ds plus sleeve.stl').fit.size,'Plus');assert.equal(classify('Faceplate Sleeves/red.stl').status,'Needs check');
+});

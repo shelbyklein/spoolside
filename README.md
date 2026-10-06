@@ -73,3 +73,13 @@ Delivery uses standard Apple/Google/Mozilla/Windows push services. This is at-le
 PIN login uses `SPOOLSIDE_PIN_HASH` (salt:scrypt hash); no username is required. The private current PIN is held outside Git. Existing sessions and push subscriptions survive this login change. Authentication/API routes are excluded from offline app-shell navigation fallback.
 
 Orders now use direct fulfillment: assembly/quality check, packing and shipment records. No component setup step is required. Existing component/job history and acceptance checks are preserved.
+
+## Asset library
+
+Library → Assets contains Cases, Faceplates, Sleeves and Parts. Group cards keep phone generations in numerical order and Current items first. Production status is separate from design completeness: an STL is complete only when an editable design is attached. Missing design is shown in card and list views and can be filtered. Asset details let you select or download an imported design.
+
+Library → Assemblies (`/library/assemblies`) stores named component lists with an optional SKU and quantities. Add existing assets and edit the list; membership is authored manually, never inferred from filenames. Referenced assets cannot be removed until their assembly references are removed.
+
+`node scripts/import-assets.mjs --sleeves-only` imports sleeve STLs without reimporting the original catalog. `node scripts/import-designs.mjs` imports editable files from the supplied Dropbox Design Files folders, preserves existing links and pairs only unique exact names within the corresponding category. Combined projects and ambiguous names require manual selection; Illustrator files are never automatically paired. Both scripts support `--dry-run`. Originals stay in Dropbox; private copies stay outside Git on Beelink. The asset/design directory is copied into `backups/library-files` alongside hourly SQLite backups.
+
+October 6 import: 98 assets (82 original + 16 sleeves marked Needs check), 62 design files, 25 exact links and 73 unpaired assets. No assembly recipes were guessed.

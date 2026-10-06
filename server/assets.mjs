@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-export const TYPES = ["Case", "Faceplate", "Part"];
+export const TYPES = ["Case", "Faceplate", "Sleeve", "Part"];
 export const STATUSES = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
 const text = (v, max) => String(v ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
 
@@ -51,7 +51,7 @@ function clean(input, prior = {}) {
     source: text(input.source ?? prior.source, 300),
   };
   if (!out.name) throw Error("Name is required");
-  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate or Part");
+  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve or Part");
   if (!STATUSES.includes(out.status)) throw Error("Unknown status");
   if (![3, 4].includes(out.generation)) throw Error("Generation must be 3 or 4");
   return out;
@@ -62,15 +62,51 @@ export class Assets {
     this.dir = dir;
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
+    this.db.exec("CREATE TABLE IF NOT EXISTS designfiles (id TEXT PRIMARY KEY, source TEXT UNIQUE NOT NULL, name TEXT NOT NULL, hash TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS design_links (asset TEXT PRIMARY KEY, design TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS assemblies (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
   }
   row(r) {
-    return { id: r.id, ...JSON.parse(r.body), hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
+    const design = this.db.prepare("SELECT d.* FROM designfiles d JOIN design_links l ON l.design=d.id WHERE l.asset=?").get(r.id);
+    return { id: r.id, ...JSON.parse(r.body), designFile:design || null, complete:!!design, hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
   }
   list() {
     return this.db.prepare("SELECT * FROM assets").all().map((r) => this.row(r))
       .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   }
+  designs() {return this.db.prepare("SELECT * FROM designfiles ORDER BY source").all();}
+  designFile(id) {const d=this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);if(!d)throw Error("Unknown design file");return {meta:d,path:path.join(this.dir,`design-${d.id}${path.extname(d.name).toLowerCase()}`)};}
+  addDesign(meta,buf) {
+    const source=text(meta.source,300),name=text(meta.name,120);
+    if(!source||!name||!/[.](c4d|blend|f3d|step|stp|ai)$/i.test(name)||!Buffer.isBuffer(buf)||!buf.length||buf.length>150*1024*1024)throw Error("Invalid design file");
+    const prior=this.db.prepare("SELECT id FROM designfiles WHERE source=?").get(source),id=prior?.id || randomUUID();
+    fs.writeFileSync(path.join(this.dir,`design-${id}${path.extname(name).toLowerCase()}`),buf,{mode:0o600});
+    this.db.prepare("INSERT INTO designfiles VALUES(?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET name=excluded.name,hash=excluded.hash,bytes=excluded.bytes").run(id,source,name,createHash("sha256").update(buf).digest("hex"),buf.length);
+    return this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);
+  }
+  linkDesign(assetId,designId) {
+    if(!this.get(assetId))throw Error("Unknown asset");
+    if(designId===null)this.db.prepare("DELETE FROM design_links WHERE asset=?").run(assetId);
+    else {if(!this.db.prepare("SELECT id FROM designfiles WHERE id=?").get(designId))throw Error("Unknown design");this.db.prepare("INSERT INTO design_links VALUES(?,?) ON CONFLICT(asset) DO UPDATE SET design=excluded.design").run(assetId,designId);}
+    return this.get(assetId);
+  }
+  assemblies() {
+    return this.db.prepare("SELECT id,body FROM assemblies").all().map(r=>({id:r.id,...JSON.parse(r.body)})).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  }
+  saveAssembly(input, id = randomUUID()) {
+    const name=text(input.name,100),sku=text(input.sku,100),type=input.type;
+    if(!name || !["Case","Faceplate","Sleeve"].includes(type)) throw Error("Assembly name and type are required");
+    if(!Array.isArray(input.components) || input.components.length<1 || input.components.length>100) throw Error("Select assembly components");
+    const seen=new Set();
+    const components=input.components.map(c=>{
+      if(!this.get(c.assetId) || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
+      seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity};
+    });
+    const body={name,sku,type,components};
+    this.db.prepare("INSERT INTO assemblies VALUES(?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body").run(id,JSON.stringify(body));
+    return {id,...body};
+  }
+  deleteAssembly(id) {this.db.prepare("DELETE FROM assemblies WHERE id=?").run(id);}
   get(id) {
     const r = this.db.prepare("SELECT * FROM assets WHERE id=?").get(String(id));
     return r ? this.row(r) : null;
@@ -99,6 +135,8 @@ export class Assets {
     return this.get(id);
   }
   remove(id) {
+    if (this.assemblies().some(a=>a.components.some(c=>c.assetId===id))) throw Error("Asset belongs to an assembly; remove that reference first");
+    this.db.prepare("DELETE FROM design_links WHERE asset=?").run(String(id));
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });
   }
