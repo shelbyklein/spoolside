@@ -2091,3 +2091,11 @@ footer .tiny-dot {
 .assembly-detail-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; align-items: start; }
 .assembly-parts h3 { margin: 0 0 16px; }
 @media(max-width:760px) { .assembly-detail-columns { grid-template-columns: 1fr; } .assembly-heading { flex-direction: column; } }
+.part-row { display: flex; align-items: center; gap: 6px; }
+.part-row .asset-pill { flex: 1; min-width: 0; }
+.part-row input[type=number] { width: 56px; min-height: 38px; padding: 0 8px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 13px; }
+.part-row .icon-button { flex-shrink: 0; min-width: 38px; min-height: 38px; font-size: 18px; }
+.add-part { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 8px; font-size: 12px; color: var(--muted); }
+.add-part input { min-height: 40px; padding: 0 12px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 13px; }
+.removed-heading { margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.part-row.removed .asset-pill { text-decoration: line-through; }

@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {AssemblyPreview} from './AssemblyPreview';
 import type {Asset} from './AssetLibrary';
-type Assembly={id:string;name:string;sku:string;type:string;components:{assetId:string;quantity:number}[]};
+type Assembly={id:string;name:string;sku:string;type:string;components:{assetId:string;quantity:number}[];removed?:{assetId:string;quantity:number}[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=()=>({id:'',name:'',sku:'',type:'Case',components:[] as Assembly['components']});
 export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
@@ -17,7 +17,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const selected=items.find(a=>a.id===selectedId);
  return <section aria-label="Assemblies">
  {selectedId && <button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button>}
- {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><AssemblyPreview assets={selected.components.map(c=>assets.find(a=>a.id===c.assetId)).filter((a):a is Asset=>!!a)}/><section className="group-card assembly-parts"><h3>Parts</h3><div className="asset-pills">{selected.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <button key={c.assetId} className={`asset-pill ${asset?.status.toLowerCase().replace(/\s+/g,'-') || ''}`} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name || 'Missing asset'} × {c.quantity}</span><small>{asset?.status}{!asset?.designFile?' · Missing design':''}</small></button>;})}</div></section></div></section>}
+ {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><AssemblyPreview assets={selected.components.map(c=>assets.find(a=>a.id===c.assetId)).filter((a):a is Asset=>!!a)}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} notify={notify}/></div></section>}
  {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found.</p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
@@ -36,5 +36,38 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
    <div className="assembly-options">{assets.filter(a=>a.status!=='Retired'&&!draft.components.some(c=>c.assetId===a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(assetSearch.toLowerCase())).map(a=><button type="button" className="asset-pill" key={a.id} onClick={()=>setDraft({...draft,components:[...draft.components,{assetId:a.id,quantity:1}]})}><span>{a.name}</span><small>{a.type}</small></button>)}</div>
    <button className="primary" type="submit" disabled={busy || !draft.components.length}>{busy?'Saving…':'Save assembly'}</button> <button className="text-button" type="button" disabled={busy} onClick={()=>setDraft(null)}>Cancel</button>
   </form>}
+ </section>;
+}
+
+// Inline part editing on the assembly page. Removing only moves a part to "Removed"; nothing is deleted.
+function PartsEditor({assembly,assets,onOpen,onSaved,notify}:{assembly:Assembly;assets:Asset[];onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;notify:(m:string)=>void}){
+ const [query,setQuery]=useState(''),[busy,setBusy]=useState(false);
+ const removed=assembly.removed||[];
+ const save=async(next:Assembly,message:string)=>{
+  setBusy(true);
+  try{const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});const body=await r.json();if(!r.ok)throw Error(body.error||'Could not save');onSaved(body);notify(message);}
+  catch(e){notify((e as Error).message);}finally{setBusy(false);}
+ };
+ const name=(id:string)=>assets.find(a=>a.id===id)?.name||'Missing asset';
+ const remove=(c:{assetId:string;quantity:number})=>save({...assembly,components:assembly.components.filter(x=>x.assetId!==c.assetId),removed:[c,...removed.filter(x=>x.assetId!==c.assetId)]},`Removed ${name(c.assetId)}. Restore it under Removed.`);
+ const restore=(c:{assetId:string;quantity:number})=>save({...assembly,components:[...assembly.components,c],removed:removed.filter(x=>x.assetId!==c.assetId)},`Restored ${name(c.assetId)}.`);
+ const add=(id:string)=>{setQuery('');save({...assembly,components:[...assembly.components,{assetId:id,quantity:1}],removed:removed.filter(x=>x.assetId!==id)},`Added ${name(id)}.`);};
+ const setQty=(c:{assetId:string},q:number)=>q>=1&&q<=100&&save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,quantity:q}:x)},'Quantity updated.');
+ const used=new Set(assembly.components.map(c=>c.assetId));
+ const matches=query.trim()?assets.filter(a=>a.status!=='Retired'&&!used.has(a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];
+ const pill=(id:string)=>`asset-pill ${assets.find(a=>a.id===id)?.status.toLowerCase().replace(/\s+/g,'-')||''}`;
+ return <section className="group-card assembly-parts" aria-busy={busy}>
+  <h3>Parts</h3>
+  <div className="asset-pills">
+   {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
+    <button className={pill(c.assetId)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span><small>{asset?.status}{asset&&!asset.designFile?' · Missing design':''}</small></button>
+    <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
+    <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>
+   </div>;})}
+   {!assembly.components.length&&<p className="plate-meta">No parts. Add one below or restore a removed part.</p>}
+  </div>
+  <label className="add-part">Add part<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search STL name" disabled={busy}/></label>
+  {matches.length>0&&<div className="asset-pills">{matches.map(a=><button key={a.id} className="asset-pill" disabled={busy} onClick={()=>add(a.id)}><span>+ {a.name}</span><small>{a.type}</small></button>)}</div>}
+  {removed.length>0&&<><h4 className="removed-heading">Removed</h4><div className="asset-pills">{removed.map(c=><div key={c.assetId} className="part-row removed"><button className="asset-pill retired" onClick={()=>onOpen(c.assetId)}><span>{name(c.assetId)} × {c.quantity}</span></button><button className="text-button" disabled={busy} onClick={()=>restore(c)}>Restore</button></div>)}</div></>}
  </section>;
 }

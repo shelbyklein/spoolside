@@ -6,6 +6,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  const pathname=new URL(route.request().url()).pathname;
  if(pathname==='/api/assets')return route.fulfill({json:assets});
  if(pathname==='/api/designfiles')return route.fulfill({json:[]});
+ if(pathname.startsWith('/api/assemblies/')&&route.request().method()==='PUT'){const body={...route.request().postDataJSON(),id:pathname.split('/').pop()};assemblies=assemblies.map(x=>x.id===body.id?body:x);return route.fulfill({json:body});}
  if(pathname==='/api/assemblies'){if(route.request().method()==='POST'){assemblies.push({...route.request().postDataJSON(),id:'33333333-3333-4333-8333-333333333333'});return route.fulfill({json:assemblies[0]});}return route.fulfill({json:assemblies});}
  return route.fulfill({json:{}});
  });
@@ -17,6 +18,14 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();expect(assemblies[0].components[0].quantity).toBe(2);
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/DS Top × 2/})).toBeVisible();
  await page.getByRole('link',{name:'DS package',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies\/33333333-3333-4333-8333-333333333333$/);
- await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.locator('.assembly-parts').getByRole('button',{name:/DS Top × 2/})).toBeVisible();await expect(page.locator('.assembly-detail-columns')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.locator('.assembly-parts').getByLabel('Quantity of DS Top')).toHaveValue('2');
+ const parts=page.locator('.assembly-parts');
+ await parts.getByRole('button',{name:'Remove DS Top from assembly'}).click();
+ await expect(parts.locator('.part-row.removed')).toContainText('DS Top × 2');
+ await page.reload();
+ await expect(page.locator('.assembly-parts .part-row.removed')).toContainText('DS Top × 2');
+ await page.locator('.assembly-parts').getByRole('button',{name:'Restore'}).click();
+ await expect(page.locator('.assembly-parts').getByLabel('Quantity of DS Top')).toHaveValue('2');
+ await expect(page.locator('.assembly-parts .part-row.removed')).toHaveCount(0);await expect(page.locator('.assembly-detail-columns')).toBeVisible();
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await page.getByRole('button',{name:'← Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);await page.goBack();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();
 });

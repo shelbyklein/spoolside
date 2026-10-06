@@ -103,13 +103,18 @@ export class Assets {
   saveAssembly(input, id = randomUUID()) {
     const name=text(input.name,100),sku=text(input.sku,100),type=input.type;
     if(!name || !["Case","Faceplate","Sleeve"].includes(type)) throw Error("Assembly name and type are required");
-    if(!Array.isArray(input.components) || input.components.length<1 || input.components.length>100) throw Error("Select assembly components");
+    if(!Array.isArray(input.components) || input.components.length>100) throw Error("Select assembly components");
     const seen=new Set();
     const components=input.components.map(c=>{
       if(!this.get(c.assetId) || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
       seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity};
     });
-    const body={name,sku,type,components};
+    // Removed parts are kept (not deleted) so they can be restored later.
+    const removed=(Array.isArray(input.removed)?input.removed:[]).filter(c=>this.get(c.assetId) && !seen.has(c.assetId)).slice(0,100)
+      .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1}))
+      .filter((c,i,all)=>all.findIndex(x=>x.assetId===c.assetId)===i);
+    if(!components.length && !removed.length) throw Error("Select assembly components");
+    const body={name,sku,type,components,removed};
     this.db.prepare("INSERT INTO assemblies VALUES(?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body").run(id,JSON.stringify(body));
     return {id,...body};
   }
@@ -142,7 +147,7 @@ export class Assets {
     return this.get(id);
   }
   remove(id) {
-    if (this.assemblies().some(a=>a.components.some(c=>c.assetId===id))) throw Error("Asset belongs to an assembly; remove that reference first");
+    if (this.assemblies().some(a=>[...a.components,...(a.removed||[])].some(c=>c.assetId===id))) throw Error("Asset belongs to an assembly; remove that reference first");
     this.db.prepare("DELETE FROM design_links WHERE asset=?").run(String(id));
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });

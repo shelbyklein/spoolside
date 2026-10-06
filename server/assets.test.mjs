@@ -84,3 +84,25 @@ test('phone base design-only assets preserve IDs and do not expose an STL',()=>{
  const a=assets.addPhoneBase(meta,design.id);assert.equal(a.type,'Phone Base');assert.equal(a.hasStl,false);assert.equal(a.complete,true);assets.update(a.id,{status:'Current'});const next=assets.addPhoneBase(meta,design.id);assert.equal(next.id,a.id);assert.equal(next.status,'Current');assert.equal(assets.list().length,1);
  }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("removing an assembly part keeps it restorable and never deletes the asset", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-asm-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const top = assets.add({ name: "DS – Top", type: "Faceplate", status: "Current", source: "t.stl" }, stl());
+    const bottom = assets.add({ name: "DS – Bottom", type: "Faceplate", status: "Current", source: "b.stl" }, stl());
+    const a = assets.saveAssembly({ name: "DS", type: "Faceplate", components: [{ assetId: top.id, quantity: 1 }, { assetId: bottom.id, quantity: 1 }] });
+    const removed = assets.saveAssembly({ ...a, components: [{ assetId: top.id, quantity: 1 }], removed: [{ assetId: bottom.id, quantity: 1 }] }, a.id);
+    assert.deepEqual(removed.removed, [{ assetId: bottom.id, quantity: 1 }]);
+    assert.ok(assets.get(bottom.id));
+    assert.throws(() => assets.remove(bottom.id), /assembly/);
+    const restored = assets.saveAssembly({ ...removed, components: [...removed.components, { assetId: bottom.id, quantity: 2 }], removed: [] }, a.id);
+    assert.equal(restored.components.length, 2);
+    assert.deepEqual(restored.removed, []);
+    // A part can't be both active and removed.
+    assert.deepEqual(assets.saveAssembly({ ...restored, removed: [{ assetId: top.id, quantity: 1 }] }, a.id).removed, []);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
