@@ -2099,3 +2099,4 @@ footer .tiny-dot {
 .add-part input { min-height: 40px; padding: 0 12px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 13px; }
 .removed-heading { margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .part-row.removed .asset-pill { text-decoration: line-through; }
+.part-row .part-color { flex-shrink: 0; width: 38px; height: 38px; padding: 3px; border: 1px solid #d4dfe0; border-radius: 8px; background: #fff; cursor: pointer; }

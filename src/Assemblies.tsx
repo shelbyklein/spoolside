@@ -1,11 +1,14 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {DEFAULT_PART_COLOR} from './colors';
 import {AssemblyPreview} from './AssemblyPreview';
 import type {Asset} from './AssetLibrary';
-type Assembly={id:string;name:string;sku:string;type:string;components:{assetId:string;quantity:number}[];removed?:{assetId:string;quantity:number}[]};
+type Part={assetId:string;quantity:number;color?:string};
+type Assembly={id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=()=>({id:'',name:'',sku:'',type:'Case',components:[] as Assembly['components']});
 export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
  const [selectedId,setSelectedId]=useState<string|null>(assemblyFromPath);
+ const [liveColors,setLiveColors]=useState<Assembly|null>(null);
  const navigate=(id:string|null)=>{window.history.pushState(null,'',id?'/library/assemblies/'+id:'/library/assemblies');setSelectedId(id);setDraft(null);};
  useEffect(()=>{const pop=()=>{setSelectedId(assemblyFromPath());setDraft(null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
  const [items,setItems]=useState<Assembly[]>([]),[draft,setDraft]=useState<ReturnType<typeof empty>|null>(null),[search,setSearch]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[assetSearch,setAssetSearch]=useState('');
@@ -17,13 +20,13 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const selected=items.find(a=>a.id===selectedId);
  return <section aria-label="Assemblies">
  {selectedId && <button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button>}
- {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><AssemblyPreview assets={selected.components.map(c=>assets.find(a=>a.id===c.assetId)).filter((a):a is Asset=>!!a)}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} notify={notify}/></div></section>}
+ {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><AssemblyPreview parts={(liveColors?.id===selected.id?liveColors.components:selected.components).flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color}]:[];})}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} onPreview={setLiveColors} notify={notify}/></div></section>}
  {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found.</p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
   <div className="asset-toolbar"><label className="search-field"><input aria-label="Search assemblies" placeholder="Search assembly or SKU" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="secondary" onClick={()=>{setDraft(empty());setAssetSearch('');}}>Add assembly</button></div>
 
-  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<div className="group-cards assembly-cards">{items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase())).map(a=><section key={a.id} className="group-card"><h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();navigate(a.id);}}>{a.name}</a></h3><p>{a.type}{a.sku?` · ${a.sku}`:''}</p><AssemblyPreview assets={a.components.map(c=>assets.find(x=>x.id===c.assetId)).filter((asset):asset is Asset=>!!asset)}/><div className="asset-pills">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className={`asset-pill ${asset?.status.toLowerCase().replace(/\s+/g,'-') || ''}`} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name || 'Missing asset'} × {c.quantity}</span><small>{asset?.status}{!asset?.designFile ? " · Missing design" : ""}</small></button>;})}</div><button className="text-button" onClick={()=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></section>)}</div>}
+  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<div className="group-cards assembly-cards">{items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase())).map(a=><section key={a.id} className="group-card"><h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();navigate(a.id);}}>{a.name}</a></h3><p>{a.type}{a.sku?` · ${a.sku}`:''}</p><AssemblyPreview parts={a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color}]:[];})}/><div className="asset-pills">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className={`asset-pill ${asset?.status.toLowerCase().replace(/\s+/g,'-') || ''}`} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name || 'Missing asset'} × {c.quantity}</span><small>{asset?.status}{!asset?.designFile ? " · Missing design" : ""}</small></button>;})}</div><button className="text-button" onClick={()=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></section>)}</div>}
   </>}
   {draft && <form className="panel assembly-editor" onSubmit={e=>{e.preventDefault();save();}}>
    <h3>{draft.id?'Edit assembly':'New assembly'}</h3>
@@ -40,8 +43,11 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
 }
 
 // Inline part editing on the assembly page. Removing only moves a part to "Removed"; nothing is deleted.
-function PartsEditor({assembly,assets,onOpen,onSaved,notify}:{assembly:Assembly;assets:Asset[];onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;notify:(m:string)=>void}){
+function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly:Assembly;assets:Asset[];onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;onPreview:(a:Assembly|null)=>void;notify:(m:string)=>void}){
  const [query,setQuery]=useState(''),[busy,setBusy]=useState(false);
+ const colorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+ // Recolor the preview instantly while picking; save once the picker settles.
+ const setColor=(c:Part,color:string)=>{const next={...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,color}:x)};onPreview(next);clearTimeout(colorTimer.current);colorTimer.current=setTimeout(()=>save(next,`${name(c.assetId)} color saved.`).finally(()=>onPreview(null)),600);};
  const removed=assembly.removed||[];
  const save=async(next:Assembly,message:string)=>{
   setBusy(true);
@@ -61,6 +67,7 @@ function PartsEditor({assembly,assets,onOpen,onSaved,notify}:{assembly:Assembly;
   <div className="asset-pills">
    {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
     <button className={pill(c.assetId)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span><small>{asset?.status}{asset&&!asset.designFile?' · Missing design':''}</small></button>
+    <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} defaultValue={c.color||DEFAULT_PART_COLOR} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
     <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
     <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>
    </div>;})}

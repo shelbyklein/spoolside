@@ -107,11 +107,11 @@ export class Assets {
     const seen=new Set();
     const components=input.components.map(c=>{
       if(!this.get(c.assetId) || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
-      seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity};
+      seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity,...(/^#[0-9a-f]{6}$/i.test(c.color||"")?{color:c.color.toLowerCase()}:{})};
     });
     // Removed parts are kept (not deleted) so they can be restored later.
     const removed=(Array.isArray(input.removed)?input.removed:[]).filter(c=>this.get(c.assetId) && !seen.has(c.assetId)).slice(0,100)
-      .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1}))
+      .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1,...(/^#[0-9a-f]{6}$/i.test(c.color||"")?{color:c.color.toLowerCase()}:{})}))
       .filter((c,i,all)=>all.findIndex(x=>x.assetId===c.assetId)===i);
     if(!components.length && !removed.length) throw Error("Select assembly components");
     const body={name,sku,type,components,removed};

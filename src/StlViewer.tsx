@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { DEFAULT_PART_COLOR } from "./colors";
 
 // Lazy-loaded three.js viewer: drag to rotate, pinch/scroll to zoom.
-export default function StlViewer({ url, urls }: { url?: string; urls?: string[] }) {
+export default function StlViewer({ url, urls, colors }: { url?: string; urls?: string[]; colors?: string[] }) {
   const sourceKey=JSON.stringify(urls || (url?[url]:[]));
   const host = useRef<HTMLDivElement>(null);
+  const meshMaterials = useRef<import("three").MeshStandardMaterial[]>([]);
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
   const [error, setError] = useState("");
   useEffect(() => {
     setError("");
@@ -64,10 +68,11 @@ export default function StlViewer({ url, urls }: { url?: string; urls?: string[]
           const geometry=new STLLoader().parse(buffer);
           geometries.push(geometry);
           geometry.computeVertexNormals();
-          const material=new THREE.MeshStandardMaterial({color:0x5aa9a3,roughness:0.55,metalness:0.05});
+          const material=new THREE.MeshStandardMaterial({color:colorsRef.current?.[materials.length]||DEFAULT_PART_COLOR,roughness:0.55,metalness:0.05});
           materials.push(material);
           group.add(new THREE.Mesh(geometry,material));
         }
+        meshMaterials.current=materials as import("three").MeshStandardMaterial[];
         const bounds=new THREE.Box3().setFromObject(group);
         const center=bounds.getCenter(new THREE.Vector3());
         group.children.forEach(mesh=>mesh.position.sub(center));
@@ -86,5 +91,8 @@ export default function StlViewer({ url, urls }: { url?: string; urls?: string[]
       cleanup();
     };
   }, [sourceKey]);
+  useEffect(() => {
+    meshMaterials.current.forEach((m, i) => m.color.set(colors?.[i] || DEFAULT_PART_COLOR));
+  }, [JSON.stringify(colors)]);
   return <div className="stl-viewer" ref={host}>{error && <p>{error}</p>}</div>;
 }
