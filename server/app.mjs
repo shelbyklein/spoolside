@@ -71,7 +71,7 @@ export function createApp({
     app.get("/" + file, (_req,res) => res.sendFile(path.join(dist,file)));
   }
   // Only app pages are allowed as post-login destinations (no open redirects).
-  const APP_PAGE = /^\/(overview|printers|orders|library|queue|filament|settings)(\/[0-9a-f-]{36})?\/?$/;
+  const APP_PAGE = /^\/(?:library\/assemblies\/?$)|^\/(overview|printers|orders|library|queue|filament|settings)(\/[0-9a-f-]{36})?\/?$/;
   const safeNext = (value) => (typeof value === "string" && APP_PAGE.test(value) ? value : "");
   const loginPage = (error = false, next = "") =>
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Spoolside</h1>${error ? '<p role="alert" class="error">Incorrect PIN, or too many attempts.</p>' : ""}<form action="/login" method="post">${next ? `<input type="hidden" name="next" value="${next}">` : ""}<label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></main></body></html>`;
