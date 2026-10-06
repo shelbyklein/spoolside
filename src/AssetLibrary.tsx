@@ -68,7 +68,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const groups = useMemo(() => {
     const map = new Map<string, Asset[]>();
     for (const a of visible) map.set(`${a.type}|${groupOf(a)}`, [...(map.get(`${a.type}|${groupOf(a)}`) || []), a]);
-    return [...map];
+    return [...map]
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      .map(([key, list]): [string, Asset[]] => [key, list.sort((a, b) => Number(b.status === "Current") - Number(a.status === "Current"))]);
   }, [visible]);
   const open = assets?.find((a) => a.id === openId) || null;
   const save = async (a: Asset, patch: Partial<Asset>) => {
