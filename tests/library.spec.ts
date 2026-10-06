@@ -29,3 +29,21 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  await expect(page.locator('.assembly-parts .part-row.removed')).toHaveCount(0);await expect(page.locator('.assembly-detail-columns')).toBeVisible();
  await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await page.getByRole('button',{name:'← Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);await page.goBack();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();
 });
+
+test('sliced prints are a library section with editable per-plate asset coverage',async({page})=>{
+ const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Current',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
+ let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
+ await page.route('**/api/**',async route=>{
+ const url=new URL(route.request().url()).pathname;
+ if(url==='/api/assets')return route.fulfill({json:[asset]});
+ if(url==='/api/library')return route.fulfill({json:[file]});
+ if(url==='/api/library/slice'){
+ const body=route.request().postDataJSON();expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
+ file={...file,plates:[{...file.plates[0],coverage:[{assetId:'case-13',hash:'current'}]}]};return route.fulfill({json:file});
+ }
+ return route.fulfill({json:[]});
+ });
+ await page.goto('/library/sliced');await expect(page.getByRole('tab',{name:'Sliced prints'})).toHaveAttribute('aria-selected','true');
+ await page.getByRole('button',{name:'Edit assets'}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
+ await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');await page.reload();await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');
+});

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Pause, Play, Square, Upload, Trash2, FileBox } from "lucide-react";
+import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
-export type Plate = { index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
+export type Plate = { coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
 export type LibraryFile = { id: string; name: string; size: number; plates: Plate[]; created: string };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
@@ -19,7 +20,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function useLibrary() {
   const [files, setFiles] = useState<LibraryFile[] | null>(null);
-  const refresh = () => api<LibraryFile[]>("/api/library").then(setFiles).catch(() => setFiles([]));
+  const refresh = () => api<LibraryFile[]>("/api/library").then(value => setFiles(Array.isArray(value) ? value : [])).catch(() => setFiles([]));
   useEffect(() => {
     refresh();
   }, []);
@@ -146,7 +147,9 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
   );
 }
 
-export function PrintLibrary({ notify }: { notify: (m: string) => void }) {
+export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: string) => void; title?: string }) {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
   const { files, refresh } = useLibrary();
   const [uploading, setUploading] = useState(false);
   const upload = async (list: FileList | null) => {
@@ -173,7 +176,7 @@ export function PrintLibrary({ notify }: { notify: (m: string) => void }) {
   return (
     <section className="panel print-library" aria-label="Print library">
       <div className="section-top">
-        <h2>Print library</h2>
+        <h2>{title}</h2>
         <label className="secondary upload-button">
           <Upload size={16} /> {uploading ? "Uploading…" : "Upload .3mf"}
           <input type="file" accept=".3mf" multiple hidden disabled={uploading} onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
@@ -182,7 +185,8 @@ export function PrintLibrary({ notify }: { notify: (m: string) => void }) {
       {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files exported from Bambu Studio (Export plate sliced file).</p></div>}
       <ul className="library-list">
         {files?.map((f) => (
-          <li key={f.id}>
+          <li key={f.id} className="sliced-file-row">
+            <div className="sliced-file-heading">
             <FileBox size={20} />
             <span className="library-name">
               <strong>{f.name}</strong>
@@ -194,9 +198,32 @@ export function PrintLibrary({ notify }: { notify: (m: string) => void }) {
               {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
             </span>
             <button className="icon-button" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={16} /></button>
+            </div>
+            {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: (m:string) => void}) {
+  const [editing, setEditing] = useState(false), [ids, setIds] = useState<string[]>([]), [query, setQuery] = useState(""), [busy, setBusy] = useState(false);
+  const coverage = plate.coverage || [];
+  const save = async () => {
+    setBusy(true);
+    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plate: plate.index, assetIds: ids})}); onSaved(); setEditing(false); notify("Plate assets saved"); }
+    catch(e) { notify((e as Error).message); } finally { setBusy(false); }
+  };
+  return <div className="plate-assets">
+    <div className="section-top"><strong>Plate {plate.index} · Assets</strong><button className="text-button" onClick={() => {setIds(coverage.map(c => c.assetId));setEditing(!editing);setQuery("");}}> {editing ? "Cancel" : "Edit assets"}</button></div>
+    {!editing && <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>}
+    {editing && <>
+      <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
+      <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search v3 parts" value={query} onChange={e => setQuery(e.target.value)} />
+      <div className="plate-options">{assets.filter(a => a.hasStl && a.generation === 3 && a.status !== "Retired" && !ids.includes(a.id) && a.name.toLowerCase().includes(query.toLowerCase())).slice(0,12).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
+      <p className="plate-meta">Choose every part this plate prints. Saving confirms it was sliced from the current STL versions.</p>
+      <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
+    </>}
+  </div>;
 }

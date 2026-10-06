@@ -1,0 +1,11 @@
+# Order sliced-file readiness
+User requests a badge in PlayCase orders (including Overview) indicating availability of printer-ready sliced v3 files. Existing sliced library lacks asset identity; add explicit plate-to-asset coverage recording current STL hashes. Match case by exact normalized phone, faceplates by style and Standard/Plus assembly; require active assembly components, current Gen 3 STL and valid plate coverage matching current hash. Unknown/ambiguous requirements are Needs review, never ready. Editable designs do not gate printing. Color/material/bed checks remain in existing start flow. No starts, Woo writes, guessed sliced names or automatic asset links.
+Linear current Codex executor; use existing project execution mode. Readiness: summary, evidence, UI flow (order badge -> detail reasons; Printers Print library -> plate asset coverage), success, tasks/tests/rollback covered. Additive table rollback keeps library/asset files and existing data. Implement now per direct request.
+- [x] Coverage persistence and validation, stale hash tests.
+- [x] Order requirements/readiness tests and badge in shared row.
+- [x] Coverage UI, browser checks, live render, deployment, docs and push.
+
+## Work preparation and delivery
+Scope includes the user-requested separate Sliced prints library section at /library/sliced, retaining the existing printer library and uploader. Assembly parts confirmation defaults false; changing membership or quantity resets it. Display-only changes preserve confirmation. No existing private files or order data migrated or deleted.
+
+Linear execution continued in this session; no subagents launched. Local build passes, 37 server tests and 9 browser tests pass. Live Beelink rebuild completed; authenticated iPhone viewport verified all 360 orders have derived badges, empty sliced library, no page errors or horizontal overflow. Screenshots: handoff/spoolside-order-readiness-iphone.png, handoff/spoolside-order-readiness-reasons.png, handoff/spoolside-sliced-library-iphone.png. All existing files are unlinked; real readiness requires uploads and honest plate coverage/assembly confirmation. Rollback source commit only, preserving additive coverage metadata.

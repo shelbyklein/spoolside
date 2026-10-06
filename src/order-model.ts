@@ -29,6 +29,7 @@ export type OrderItem = {
   parts?: { name: string; image: string }[];
 };
 export type Order = {
+  printReadiness?: {status: "ready" | "missing" | "review"; reasons: string[]; required: number};
   id: string;
   number: string;
   placed: string;

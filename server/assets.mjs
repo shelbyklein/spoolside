@@ -163,7 +163,11 @@ export class Assets {
       .map(c=>({assetId:c.assetId,quantity:Number.isInteger(c.quantity)&&c.quantity>0&&c.quantity<=100?c.quantity:1,...extras(c)}))
       .filter((c,i,all)=>all.findIndex(x=>x.assetId===c.assetId)===i);
     if(!components.length && !removed.length) throw Error("Select assembly components");
-    const body={name,sku,type,components,removed};
+    const prior=this.assemblies().find(a=>a.id===id);
+    const signature=c=>JSON.stringify(c.map(x=>[x.assetId,x.quantity]).sort());
+    const unchanged=prior && signature(prior.components)===signature(components);
+    const partsConfirmed=input.partsConfirmed===true && (!prior || unchanged || input.confirmParts===true);
+    const body={name,sku,type,components,removed,partsConfirmed};
     this.db.prepare("INSERT INTO assemblies VALUES(?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body").run(id,JSON.stringify(body));
     return {id,...body};
   }

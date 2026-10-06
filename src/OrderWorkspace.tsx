@@ -28,7 +28,7 @@ export function OrderRow({ order }: { order: Order }) {
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
       </span>
-      <OrderContents order={order} />
+      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "V3 files ready" : order.printReadiness.status === "missing" ? "V3 sliced files missing" : "V3 files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}</div>
       <StatusTag order={order} />
       <span className="ship-slot"><ShipButton order={order} /></span>
     </article>

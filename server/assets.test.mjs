@@ -167,3 +167,16 @@ test("categories are seeded once, sort existing items, and survive re-import", a
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('print parts confirmation survives display changes and resets when parts or quantities change',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-confirm-'));const assets=new Assets(':memory:',dir);
+ try {
+ const a=assets.add({name:'Top',type:'Faceplate',source:'top.stl'},stl());
+ const asm=assets.saveAssembly({name:'Classic',type:'Faceplate',components:[{assetId:a.id,quantity:1}],partsConfirmed:true});
+ assert.equal(asm.partsConfirmed,true);
+ assert.equal(assets.saveAssembly({...asm,components:[{...asm.components[0],color:'#ffffff'}]},asm.id).partsConfirmed,true);
+ const changed=assets.saveAssembly({...asm,components:[{assetId:a.id,quantity:2}]},asm.id);
+ assert.equal(changed.partsConfirmed,false);
+ assert.equal(assets.saveAssembly({...changed,partsConfirmed:true,confirmParts:true},asm.id).partsConfirmed,true);
+ }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

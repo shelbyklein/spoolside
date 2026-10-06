@@ -2155,3 +2155,15 @@ footer .tiny-dot {
 .assembly-parts .part-row input[type=number] { min-height: 32px; }
 .assembly-parts .part-row .icon-button { min-width: 32px; min-height: 32px; }
 .part-chip { justify-content: flex-start; }
+
+.library-list li.sliced-file-row { display: block; }
+.sliced-file-heading { display: flex; align-items: center; gap: 12px; }
+.plate-assets { margin: 12px 0; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.plate-assets .section-top { padding: 0; margin-bottom: 8px; }
+.plate-options { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.order-content-readiness { min-width: 0; }
+.print-readiness { margin-top: 6px; font-size: 11px; }
+.print-readiness summary { cursor: pointer; display: inline-block; padding: 4px 8px; border-radius: 20px; background: #fff1d4; color: #6b4800; font-weight: 700; }
+.print-readiness.ready summary { background: #d8f2e5; color: #176440; }
+.print-readiness > div { padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+.print-readiness ul { padding-left: 16px; margin: 0 0 8px; }

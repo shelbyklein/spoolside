@@ -73,6 +73,19 @@ export class Library {
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
   }
+  setCoverage(id, plateIndex, ids, assets) {
+    const file = this.get(id);
+    if (!file || !file.plates.some(p => p.index === plateIndex)) throw Error("Choose a sliced plate");
+    if (!Array.isArray(ids) || ids.length > 100 || new Set(ids).size !== ids.length) throw Error("Choose unique assets");
+    const coverage = ids.map(assetId => {
+      const a = assets?.get(assetId);
+      if (!a || !a.hasStl || a.generation !== 3) throw Error("Choose v3 STL assets");
+      return {assetId, hash: a.hash};
+    });
+    const plates = file.plates.map(p => p.index === plateIndex ? {...p, coverage} : p);
+    this.db.prepare("UPDATE library SET plates=? WHERE id=?").run(JSON.stringify(plates), id);
+    return this.get(id);
+  }
   list() {
     return this.db
       .prepare("SELECT id, name, size, plates, created FROM library ORDER BY name COLLATE NOCASE")

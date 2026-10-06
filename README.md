@@ -93,3 +93,9 @@ Each assembly now has a detail URL at `/library/assemblies/<UUID>` with rotatabl
 Assembly cards and detail pages include interactive combined previews. The viewer preserves exported STL coordinates and centers the group as a whole. The initial faceplate previews show their recorded Top and Bottom; shared hardware is not yet included. Card viewers mount near the viewport and release resources offscreen.
 
 Assembly card grid is three columns on desktop. Assembly detail uses two columns: interactive combined preview and a component list of pills, without per-component thumbnails. Shared-parts membership and quantities remain pending user confirmation.
+
+### Sliced prints and order readiness
+
+Library → Sliced prints stores printer-ready sliced `.3mf` files (unsliced projects are rejected). Use Edit assets on each plate to identify all v3 STL assets it prints. Saving records those STL revisions; upload a newly sliced file when an STL changes. Reconfirm coverage only if the sliced file actually uses the current revisions. Existing files remain available in Printers → Print library.
+
+Order badges check exact phone case metadata and Standard/Plus faceplate assemblies, all active parts, Current v3 STL status and matching sliced-file coverage. Confirm each assembly's complete v3 parts list in Edit assembly after reviewing it. Changing components or quantities resets this confirmation. Missing designs do not block printing. Unknown requirements and stale slices need review. This checks file availability, not stock, print quantities, material, color or printer compatibility; the print-start flow still checks plate clearance and AMS settings.

@@ -3,9 +3,9 @@ import {DEFAULT_PART_COLOR} from './colors';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import type {Asset} from './AssetLibrary';
 type Part={assetId:string;quantity:number;color?:string;positions?:number[][]};
-type Assembly={id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
+type Assembly={partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
-const empty=()=>({id:'',name:'',sku:'',type:'Case',components:[] as Assembly['components']});
+const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false,components:[] as Assembly['components']});
 export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
  const [selectedId,setSelectedId]=useState<string|null>(assemblyFromPath);
  const [liveColors,setLiveColors]=useState<Assembly|null>(null);
@@ -15,7 +15,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const load=()=>fetch('/api/assemblies',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Could not load assemblies');setItems(await r.json());setError('');}).catch(e=>setError(e.message)).finally(()=>setLoading(false));
  useEffect(()=>{load();},[]);
  const save=async()=>{if(!draft)return;setBusy(true);setError('');try{
- const r=await fetch('/api/assemblies'+(draft.id?'/'+draft.id:''),{method:draft.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});const result=await r.json();if(!r.ok)throw Error(result.error || 'Could not save assembly');setItems(prior=>[...prior.filter(a=>a.id!==result.id),result].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})));setDraft(null);notify('Assembly saved');
+ const r=await fetch('/api/assemblies'+(draft.id?'/'+draft.id:''),{method:draft.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...draft,confirmParts:true})});const result=await r.json();if(!r.ok)throw Error(result.error || 'Could not save assembly');setItems(prior=>[...prior.filter(a=>a.id!==result.id),result].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})));setDraft(null);notify('Assembly saved');
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const selected=items.find(a=>a.id===selectedId);
  return <section aria-label="Assemblies">
@@ -33,6 +33,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
    <label>Name<input required maxLength={100} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
    <label>SKU (optional)<input maxLength={100} value={draft.sku} onChange={e=>setDraft({...draft,sku:e.target.value})}/></label>
    <label>Assembly type<select value={draft.type} onChange={e=>setDraft({...draft,type:e.target.value})}>{['Case','Faceplate','Sleeve'].map(t=><option key={t}>{t}</option>)}</select></label>
+   <label className="check-row"><input type="checkbox" checked={draft.partsConfirmed || false} onChange={e=>setDraft({...draft,partsConfirmed:e.target.checked})}/> Complete v3 print parts list</label>
    <h4>Components</h4>
    {draft.components.map(c=><div className="assembly-component" key={c.assetId}><span>{assets.find(a=>a.id===c.assetId)?.name || 'Missing asset'}</span><label>Quantity<input type="number" required min={1} max={100} value={c.quantity} onChange={e=>setDraft({...draft,components:draft.components.map(x=>x.assetId===c.assetId?{...x,quantity:Number(e.target.value)}:x)})}/></label><button type="button" className="text-button" onClick={()=>setDraft({...draft,components:draft.components.filter(x=>x.assetId!==c.assetId)})}>Remove</button></div>)}
    <label>Find components<input value={assetSearch} onChange={e=>setAssetSearch(e.target.value)} placeholder="Search STL name"/></label>

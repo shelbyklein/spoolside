@@ -1,3 +1,4 @@
+import { PrintLibrary } from "./PrintControls";
 import { Assemblies } from "./Assemblies";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus } from "lucide-react";
@@ -36,20 +37,21 @@ const groupOf = (a: Asset) =>
       ? a.fit.style + (a.type === "Sleeve" ? " sleeves" : "")
       : a.type === "Phone Base" ? "Phone Bases" : "Parts";
 
+const sectionFromPath = () => window.location.pathname.startsWith("/library/sliced") ? "Sliced prints" : window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets";
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
 export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const assemblyReturnPath=useRef(window.location.pathname);
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [designs, setDesigns] = useState<{id:string;name:string;source:string}[]>([]),
-    [section, setSectionState] = useState(window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets"),
+    [section, setSectionState] = useState(sectionFromPath),
     [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("Active"),
     [search, setSearch] = useState(""),
     [uploading, setUploading] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
-  const setSection = (value:string) => {setSectionState(value);const path=value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
+  const setSection = (value:string) => {setSectionState(value);const path=value === "Sliced prints" ? "/library/sliced" : value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
   // An open model has its own address: /library/<asset id>.
   const setOpenId = (id: string | null) => {
     const path = id ? `/library/${id}` : (section === "Assemblies" ? assemblyReturnPath.current : "/library");
@@ -58,7 +60,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     setOpenState(id);
   };
   useEffect(() => {
-    const onPop = () => {setOpenState(assetFromPath());setSectionState(window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets");};
+    const onPop = () => {setOpenState(assetFromPath());setSectionState(sectionFromPath());};
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -101,8 +103,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   return (
     <section className="asset-library">
       <div className="segmented library-sections" role="tablist" aria-label="Library section">
-        {["Assets","Assemblies"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
+        {["Assets","Assemblies","Sliced prints"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
       </div>
+      {section === "Sliced prints" && <PrintLibrary title="Sliced prints" notify={notify}/>}
       {section === "Assemblies" && colored && <Assemblies assets={colored} onOpen={setOpenId} notify={notify}/>}
       {section === "Assets" && <>
       <div className="asset-toolbar">
