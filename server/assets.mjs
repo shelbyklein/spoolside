@@ -129,7 +129,7 @@ export class Assets {
   // Small part thumbnails, keyed to the STL hash so a replaced model gets a fresh image.
   assetThumbFile(id, hash) {
     if (!/^[0-9a-f-]{36}$/.test(id)) throw Object.assign(Error("Unknown asset"), { status: 404 });
-    return path.join(this.dir, `thumb-${id}-${String(hash).slice(0, 12)}.png`);
+    return path.join(this.dir, `thumb4-${id}-${String(hash).slice(0, 12)}.png`);
   }
   setAssetThumb(id, png) {
     const asset = this.get(id);
@@ -140,7 +140,7 @@ export class Assets {
     return this.get(id);
   }
   removeAssetThumbs(id) {
-    for (const f of fs.readdirSync(this.dir)) if (f.startsWith(`thumb-${id}-`)) fs.rmSync(path.join(this.dir, f), { force: true });
+    for (const f of fs.readdirSync(this.dir)) if (/^thumb\d*-/.test(f) && f.includes(`-${id}-`)) fs.rmSync(path.join(this.dir, f), { force: true });
   }
   list() {
     return this.db.prepare("SELECT * FROM assets").all().map((r) => this.row(r))

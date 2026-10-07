@@ -23,7 +23,7 @@ let renderer: import("three").WebGLRenderer | null = null;
 let chain: Promise<unknown> = Promise.resolve();
 const pending = new Map<string, Promise<boolean>>();
 
-async function render(upload: (png: Blob) => Promise<Response>, parts: SnapshotPart[], size = 600) {
+async function render(upload: (png: Blob) => Promise<Response>, parts: SnapshotPart[], size = 600, fitWhole = false) {
   const THREE = await import("three");
   const { STLLoader } = await import("three/examples/jsm/loaders/STLLoader.js");
   const width = size, height = size;
@@ -56,7 +56,11 @@ async function render(upload: (png: Blob) => Promise<Response>, parts: SnapshotP
   scene.add(group);
   const r = new THREE.Box3().setFromObject(group).getBoundingSphere(new THREE.Sphere()).radius || 50;
   const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 5000);
-  camera.position.set(r * 1.2, r * 1.5, r * 2.2);
+  // Part thumbnails pull back until the whole bounding sphere fits, so long flat parts aren't cropped.
+  const view = new THREE.Vector3(1.2, 1.5, 2.2);
+  if (fitWhole) view.normalize().multiplyScalar((r / Math.sin((camera.fov * Math.PI) / 360)) * 1.04);
+  else view.multiplyScalar(r);
+  camera.position.copy(view);
   camera.lookAt(0, 0, 0);
   renderer.render(scene, camera);
   const blob = await new Promise<Blob | null>((done) => renderer!.domElement.toBlob(done, "image/png"));
@@ -79,7 +83,7 @@ export function requestSnapshot(assemblyId: string, key: string, parts: Snapshot
 export function requestPartThumb(asset: Asset) {
   const id = `part:${asset.id}:${asset.hash}`;
   if (!pending.has(id)) {
-    const job = chain.then(() => render((png) => fetch(`/api/assets/${asset.id}/thumb`, { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }), [{ asset }], 240)).catch(() => false);
+    const job = chain.then(() => render((png) => fetch(`/api/assets/${asset.id}/thumb`, { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }), [{ asset }], 480, true)).catch(() => false);
     chain = job;
     pending.set(id, job);
   }

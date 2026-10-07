@@ -149,11 +149,23 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}
       {view === "cards" ? (
-        <div className="group-cards">
-          {groups.map(([key, list]) => (
-            <GroupCard key={key} title={key.split("|")[1]} assets={list} onOpen={setOpenId} />
+        <>
+          {groups.some(([key]) => !key.startsWith("Part|")) && (
+            <div className="group-cards">
+              {groups.filter(([key]) => !key.startsWith("Part|")).map(([key, list]) => (
+                <GroupCard key={key} title={key.split("|")[1]} assets={list} onOpen={setOpenId} />
+              ))}
+            </div>
+          )}
+          {groups.filter(([key]) => key.startsWith("Part|")).map(([key, list]) => (
+            <section className="part-card-section" key={key} aria-label="Parts">
+              <h3>Parts</h3>
+              <div className="part-cards">
+                {list.map((a) => <PartCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />)}
+              </div>
+            </section>
           ))}
-        </div>
+        </>
       ) : (
         groups.map(([key, list]) => (
           <div className="asset-group" key={key}>
@@ -408,5 +420,18 @@ function PartThumb({ asset }: { asset: Asset }) {
     <span ref={ref} className="part-thumb" aria-hidden="true">
       {asset.type === "Phone" ? <Smartphone size={18} /> : ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
     </span>
+  );
+}
+
+// Parts get their own layout: one card each with a square STL thumbnail.
+function PartCard({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
+  return (
+    <button className="part-card" onClick={onOpen} aria-label={`${asset.name}, ${asset.status}${needsDesign(asset) ? ", missing design" : ""}`}>
+      <PartThumb asset={asset} />
+      <span className="part-card-foot">
+        <strong>{asset.name}</strong>
+        <StatusIcons status={asset.status} missingDesign={needsDesign(asset)} />
+      </span>
+    </button>
   );
 }

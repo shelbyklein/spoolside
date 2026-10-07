@@ -2327,3 +2327,16 @@ footer .tiny-dot {
 .phone-actions .primary { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; text-decoration: none; }
 .phone-actions img { width: 1px; height: 1px; opacity: 0; position: absolute; }
 .part-thumb svg { color: var(--navy); }
+/* Parts: a card per part with a square thumbnail. */
+.part-card-section { margin-top: 22px; }
+.part-card-section h3 { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+.part-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1300px) { .part-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .part-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .part-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+.part-card { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; transition: border-color 0.15s, box-shadow 0.15s; }
+.part-card:hover { border-color: #b9d3cf; box-shadow: 0 6px 18px #10284014; }
+.part-card .part-thumb { width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 10px; background: #eef4f3; }
+.part-card-foot { display: flex; align-items: center; gap: 8px; padding: 10px 2px 2px; }
+.part-card-foot strong { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-card-foot .status-icons { margin-left: 0; }
