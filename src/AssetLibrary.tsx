@@ -213,12 +213,14 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                 if(!r.ok){notify("Could not save design link");return;}const updated=await r.json();setAssets(list=>list?.map(a=>a.id===updated.id?updated:a)||null);
               }}><option value="">Missing design</option>{designs.map(d=><option key={d.id} value={d.id}>{d.source}</option>)}</select>
             </label>
-            {open.designFile && <a className="secondary download-stl" href={`/api/designfiles/${open.designFile.id}/download`}>Download design</a>}
             </>}
+            <div className="status-row">
+            {open.type !== "Phone" && open.designFile && <a className="secondary download-design" href={`/api/designfiles/${open.designFile.id}/download`}><Download size={16} /> Download design</a>}
             <div className="status-picker" role="radiogroup" aria-label="Status">
               {STATUSES.map((s) => (
                 <button key={s} role="radio" aria-checked={open.status === s} aria-label={s} title={s} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <CircleCheck size={20} /> : <Clock size={20} />}</button>
               ))}
+            </div>
             </div>
             <label className="asset-note">
               Note

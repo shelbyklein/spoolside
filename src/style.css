@@ -2340,3 +2340,6 @@ footer .tiny-dot {
 .part-card-foot { display: flex; align-items: center; gap: 8px; padding: 10px 2px 2px; }
 .part-card-foot strong { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part-card-foot .status-icons { margin-left: 0; }
+.status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+.status-row .status-picker { margin: 0; }
+.download-design { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; text-decoration: none; color: var(--navy); }
