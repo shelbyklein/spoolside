@@ -132,7 +132,8 @@ export default function StlViewer({ url, urls, colors, positions, editable, sele
         // Center the assembly once, from where parts start, so moving a part doesn't shift the view.
         const bounds = new THREE.Box3();
         geometries.forEach((g, i) => {
-          for (const [x, y, z] of placements(latest.current.positions?.[i])) bounds.union(g.boundingBox!.clone().translate(new THREE.Vector3(x, y, z)));
+          for (const [x, y, z, turn = 0] of placements(latest.current.positions?.[i]))
+            bounds.union(g.boundingBox!.clone().applyMatrix4(new THREE.Matrix4().makeRotationZ((turn * Math.PI) / 180).setPosition(x, y, z)));
         });
         const center = bounds.getCenter(new THREE.Vector3());
         const r = bounds.getBoundingSphere(new THREE.Sphere()).radius || 50;
