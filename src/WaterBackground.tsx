@@ -66,7 +66,7 @@ export function WaterBackground() {
       gl.uniform2f(u.resolution, canvas.width, canvas.height);
       gl.uniform2f(u.drift, state.x, state.y);
       gl.uniform1f(u.time, elapsed);
-      gl.uniform1f(u.scale, 1.05 + state.tide);
+      gl.uniform1f(u.scale, 1.45 + state.tide);
       gl.uniform1f(u.sunlight, 0.8);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };

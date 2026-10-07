@@ -2259,3 +2259,13 @@ footer .tiny-dot {
 .assembly-tile.drop-target { box-shadow: 0 0 0 2px var(--teal); transform: scale(1.02); }
 .arrange-buttons { display: flex; gap: 6px; }
 .arrange-buttons button { flex: 1; min-height: 36px; padding: 0; }
+/* The spool drifts gently on the water. */
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .sidebar-bottom > img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
+}
+@keyframes spool-float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(3px, -6px) rotate(1.2deg); }
+  50% { transform: translate(-2px, -2px) rotate(-0.6deg); }
+  75% { transform: translate(-4px, -7px) rotate(-1.4deg); }
+}

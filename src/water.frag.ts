@@ -15,7 +15,11 @@ float caustic(vec2 p,float t){vec2 cell=floor(p),f=fract(p);float first=9.,secon
 for(int y=-1;y<=1;y++){for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 rnd=hash2(cell+g);vec2 point=.5+.39*sin(6.2831*rnd+t*.32+vec2(.0,1.7));vec2 v=g+point-f;float d=dot(v,v);if(d<first){second=first;first=d;}else if(d<second){second=d;}}}
 float edge=sqrt(second)-sqrt(first);return pow(1.-smoothstep(.015,.18,edge),2.4);}
 void main(){
- vec2 uv=gl_FragCoord.xy/resolution;vec2 world=(gl_FragCoord.xy-.5*resolution)/min(resolution.x,resolution.y);
+ vec2 uv=gl_FragCoord.xy/resolution;vec2 screen=(gl_FragCoord.xy-.5*resolution)/min(resolution.x,resolution.y);
+ // Lay the water flat like the pool under the spool: viewed from about 27 degrees up, so the
+ // surface is foreshortened vertically, and farther water (toward the top) recedes.
+ float recede=1./(1.-.16*screen.y);
+ vec2 world=vec2(screen.x,screen.y*2.2)*recede;
  world+=drift*.14;
  vec2 deep=world*5.2/scale;float t=time;
  vec2 warp=vec2(fbm(deep*.7+vec2(t*.10,-t*.07)),fbm(deep*.7+vec2(5.2-t*.06,t*.09)))-.5;
