@@ -556,7 +556,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome machines={machines} orders={overviewOrders} spools={spools} loading={remote && live.loading} openPrinter={setSelected} go={(t) => { setSelected(null); setTab(t); }} />
+          <WaterHome machines={machines} orders={overviewOrders} spools={spools} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">

@@ -2352,8 +2352,21 @@ footer .tiny-dot {
 .water-home { position: fixed; inset: 0 0 69px; z-index: 5; overflow: hidden; background: linear-gradient(160deg, #06404d, #022a36); color: #fff; }
 .home-water { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .home-content { position: relative; height: 100%; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 28px) 18px 24px; display: flex; flex-direction: column; gap: 12px; }
-.home-mark { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 10px; text-align: center; text-shadow: 0 2px 8px rgba(0, 20, 28, 0.55); }
-.home-mark img { width: 132px; height: auto; margin-bottom: 6px; filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
+.home-mark { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 310px; margin: -28px -18px 6px; padding: 28px 18px 18px; text-align: center; text-shadow: 0 2px 8px rgba(0, 20, 28, 0.55); }
+.home-mark > :not(.pool-cases) { position: relative; z-index: 1; }
+/* Open orders drifting across the pool as little PlayCases. Tap one to open that order. */
+.pool-cases { position: absolute; inset: 0; overflow: hidden; }
+.pool-case { position: absolute; top: var(--lane); left: 0; width: var(--size); height: var(--size); padding: 0; border: 0; background: none; animation: pool-drift var(--drift) linear var(--start) infinite var(--dir); }
+.pool-case > span { display: block; width: 100%; height: 100%; animation: pool-bob var(--bob) ease-in-out infinite alternate; }
+.pool-case > span::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -6%; height: 22%; border-radius: 50%; background: radial-gradient(closest-side, rgba(190, 245, 240, 0.35), transparent); filter: blur(2px); }
+.pool-case img { position: relative; width: 100%; height: 100%; object-fit: contain; transform: rotate(var(--tilt)); filter: drop-shadow(0 6px 6px rgba(0, 18, 26, 0.45)); }
+@keyframes pool-drift { from { transform: translateX(-70px); } to { transform: translateX(calc(100vw + 10px)); } }
+@keyframes pool-bob { from { transform: translateY(-3px) rotate(-3deg); } to { transform: translateY(3px) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .pool-case { animation-play-state: paused; }
+  .pool-case > span { animation: none; }
+}
+.home-mark > img { width: 132px; height: auto; margin-bottom: 6px; filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
 .home-mark h1 { margin: 0; color: #fff; font-family: Manrope, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
 .home-mark .brand-dot { color: #ff5a4f; }
 .home-mark p { margin: 0; color: rgba(255, 255, 255, 0.82); font-size: 14px; font-weight: 600; }
@@ -2376,7 +2389,7 @@ footer .tiny-dot {
 .home-quiet { margin: 0; color: rgba(255, 255, 255, 0.75); font-size: 13px; }
 .home-card:active, .home-printer:active { opacity: 0.8; }
 @media (prefers-reduced-motion: no-preference) {
-  .home-mark img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
+  .home-mark > img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
   .home-mark, .home-card { animation: home-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .home-content > :nth-child(2) { animation-delay: 0.06s; }
   .home-content > :nth-child(3) { animation-delay: 0.12s; }
