@@ -2,6 +2,7 @@ import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
+import { Splash, shouldShowSplash } from "./Splash";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -142,6 +143,10 @@ function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
+  const [splash, setSplash] = useState(shouldShowSplash);
+  useEffect(() => {
+    if (!splash) document.documentElement.classList.add("ready");
+  }, [splash]);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
   const [wideScreen, setWideScreen] = useState(() => matchMedia("(min-width: 761px)").matches);
   useEffect(() => {
@@ -511,6 +516,7 @@ function App() {
   );
   return (
     <div className="app">
+      {splash && <Splash onDone={() => setSplash(false)} />}
       <aside className="sidebar">
         {wideScreen && <WaterBackground />}
         <a className="brand" href="/" aria-label="Spoolside home">

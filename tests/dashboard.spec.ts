@@ -106,3 +106,19 @@ test("each page has its own URL and back navigation works", async ({ page }) => 
   await page.goto("/filament");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
 });
+
+test('phones open on a water splash once per launch; desktop skips it', async ({ browser }) => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await phone.goto('/');
+  await expect(phone.locator('.splash')).toBeVisible();
+  await expect(phone.locator('.splash canvas')).toBeVisible();
+  await expect(phone.locator('.splash')).toHaveCount(0, { timeout: 5000 });
+  await phone.reload();
+  await expect(phone.getByRole('navigation', { name: 'Main navigation' })).toBeAttached();
+  await expect(phone.locator('.splash')).toHaveCount(0);
+  const desk = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  await desk.goto('/');
+  await expect(desk.getByRole('navigation', { name: 'Main navigation' })).toBeAttached();
+  await expect(desk.locator('.splash')).toHaveCount(0);
+  await phone.close(); await desk.close();
+});
