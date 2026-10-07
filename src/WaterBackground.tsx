@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { WATER_FRAGMENT } from "./water.frag";
 
-// Animated pool water for the desktop sidebar: WebGL caustics, GSAP-eased pointer parallax
-// and a slow tide. Still frame with reduced motion; CSS gradient if WebGL is unavailable.
+// Animated pool water for the desktop sidebar: WebGL caustics and a slow GSAP tide.
+// The pointer doesn't move it. Still frame with reduced motion; CSS gradient if WebGL is unavailable.
 export function WaterBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -46,15 +46,7 @@ export function WaterBackground() {
     resize();
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-    const state = { x: 0, y: 0, tide: 0 };
-    const xTo = gsap.quickTo(state, "x", { duration: 1.8, ease: "power2.out" });
-    const yTo = gsap.quickTo(state, "y", { duration: 1.8, ease: "power2.out" });
-    const onMove = (e: PointerEvent) => {
-      if (reduce.matches) return;
-      xTo((e.clientX / innerWidth - 0.5) * 2);
-      yTo((0.5 - e.clientY / innerHeight) * 2);
-    };
-    addEventListener("pointermove", onMove, { passive: true });
+    const state = { tide: 0 };
     const tide = gsap.to(state, { tide: 0.16, duration: 12, ease: "sine.inOut", repeat: -1, yoyo: true });
 
     let elapsed = 0, last = performance.now();
@@ -64,7 +56,7 @@ export function WaterBackground() {
       if (document.hidden) return;
       if (!reduce.matches) elapsed += delta * 0.55;
       gl.uniform2f(u.resolution, canvas.width, canvas.height);
-      gl.uniform2f(u.drift, state.x, state.y);
+      gl.uniform2f(u.drift, 0, 0);
       gl.uniform1f(u.time, elapsed);
       gl.uniform1f(u.scale, 1.45 + state.tide);
       gl.uniform1f(u.sunlight, 0.8);
@@ -77,7 +69,6 @@ export function WaterBackground() {
     return () => {
       gsap.ticker.remove(draw);
       tide.kill();
-      removeEventListener("pointermove", onMove);
       observer.disconnect();
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
