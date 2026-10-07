@@ -2,7 +2,7 @@ import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
-import { Splash, shouldShowSplash } from "./Splash";
+import { WaterHome } from "./WaterHome";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -137,16 +137,13 @@ function tabFromPath() {
   const segment = window.location.pathname.split("/")[1] || "";
   const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
   if (match) return match.name;
-  return new URLSearchParams(window.location.search).get("view") === "orders" || window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview";
+  return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
 }
 function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
-  const [splash, setSplash] = useState(shouldShowSplash);
-  useEffect(() => {
-    if (!splash) document.documentElement.classList.add("ready");
-  }, [splash]);
+  useEffect(() => document.documentElement.classList.add("ready"), []);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
   const [wideScreen, setWideScreen] = useState(() => matchMedia("(min-width: 761px)").matches);
   useEffect(() => {
@@ -516,7 +513,6 @@ function App() {
   );
   return (
     <div className="app">
-      {splash && <Splash onDone={() => setSplash(false)} />}
       <aside className="sidebar">
         {wideScreen && <WaterBackground />}
         <a className="brand" href="/" aria-label="Spoolside home">
@@ -559,6 +555,9 @@ function App() {
         </div>
       </aside>
       <main>
+        {!wideScreen && tab === "Overview" ? (
+          <WaterHome machines={machines} orders={overviewOrders} spools={spools} loading={remote && live.loading} openPrinter={setSelected} go={(t) => { setSelected(null); setTab(t); }} />
+        ) : (
         <div className="main-content">
           <div className="page-heading">
             <div>
@@ -926,6 +925,7 @@ function App() {
             </span>
           </footer>
         </div>
+        )}
       </main>
       {current && (
         <div className="detail-overlay" onClick={() => setSelected(null)}>

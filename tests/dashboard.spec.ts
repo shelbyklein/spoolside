@@ -80,7 +80,9 @@ test("desktop and mobile rendered layouts", async ({ page }) => {
       .click();
     await page.evaluate(() => document.fonts.ready);
     await expect(
-      page.getByRole("heading", { name: "Your printers" }),
+      name === "mobile"
+        ? page.getByRole("region", { name: "Spoolside home" })
+        : page.getByRole("heading", { name: "Your printers" }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -107,18 +109,24 @@ test("each page has its own URL and back navigation works", async ({ page }) => 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
 });
 
-test('phones open on a water splash once per launch; desktop skips it', async ({ browser }) => {
+test('phones open on the water home; it shows the farm and links into it', async ({ browser }) => {
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await phone.goto('/');
-  await expect(phone.locator('.splash')).toBeVisible();
-  await expect(phone.locator('.splash canvas')).toBeVisible();
-  await expect(phone.locator('.splash')).toHaveCount(0, { timeout: 5000 });
-  await phone.reload();
-  await expect(phone.getByRole('navigation', { name: 'Main navigation' })).toBeAttached();
-  await expect(phone.locator('.splash')).toHaveCount(0);
+  const home = phone.getByRole('region', { name: 'Spoolside home' });
+  await expect(home).toBeVisible();
+  await expect(home.locator('canvas')).toBeAttached();
+  await expect(home.getByRole('button', { name: 'Mini One, Printing' })).toBeVisible();
+  await home.getByRole('button', { name: 'Mini Three, Ready' }).click();
+  await expect(phone.getByRole('dialog', { name: 'Mini Three details' })).toBeVisible();
+  await phone.keyboard.press('Escape');
+  await home.getByRole('button', { name: /^Orders/ }).click();
+  await expect(phone).toHaveURL(/\/orders$/);
+  await expect(home).toHaveCount(0);
+  await phone.getByRole('button', { name: 'Overview' }).click();
+  await expect(phone.getByRole('region', { name: 'Spoolside home' })).toBeVisible();
   const desk = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await desk.goto('/');
   await expect(desk.getByRole('navigation', { name: 'Main navigation' })).toBeAttached();
-  await expect(desk.locator('.splash')).toHaveCount(0);
+  await expect(desk.getByRole('region', { name: 'Spoolside home' })).toHaveCount(0);
   await phone.close(); await desk.close();
 });

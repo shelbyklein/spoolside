@@ -18,28 +18,35 @@ test('hosted mobile uses active source orders and server saves without browser s
     return route.fulfill({response});
   });
   await page.goto('https://spoolside.shelbyklein.com/');
+  const home=page.getByRole('region',{name:'Spoolside home'});
+  await expect(home.getByRole('button',{name:'AMS 2, Ready'})).toBeVisible();
+  await expect(home.getByRole('button',{name:/^Orders/})).toContainText('2');
+  await home.getByRole('button',{name:/^Orders/}).click();
   await expect(page.getByLabel('Filter orders')).toHaveValue('Open orders');
   await expect(page.getByText('2 of 3 orders')).toBeVisible();
+  await page.setViewportSize({width:1440,height:926});
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   const overview=page.getByRole('region',{name:'PlayCase orders overview'});
   await expect(overview.getByRole('article',{name:'Order #1',exact:true})).toContainText('Processing');
   await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
   await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
-  const first=overview.getByRole('article',{name:'Order #1',exact:true});
-  for (const width of [1440, 428]) {
-    await page.setViewportSize({width,height:926});
+  const rowLayout=async (first: import('@playwright/test').Locator)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
     const id=await first.locator('.order-id').boundingBox();
     expect(Math.abs(ship!.y-id!.y)).toBeLessThan(20);
     expect(content!.y).toBeGreaterThan(ship!.y);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  }
+  };
+  const first=overview.getByRole('article',{name:'Order #1',exact:true});
+  await rowLayout(first);
   await first.getByText('V3 sliced files missing',{exact:true}).click();
   await expect(first.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
   await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
   await overview.getByRole('button',{name:'View orders'}).click();
+  await page.setViewportSize({width:428,height:926});
+  await rowLayout(page.getByRole('article',{name:'Order #1',exact:true}));
   await page.getByLabel('Filter orders').selectOption('Shipped');
   await expect(page.getByText('#2',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Refresh orders'}).click();
