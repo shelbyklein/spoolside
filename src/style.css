@@ -2293,3 +2293,12 @@ footer .tiny-dot {
 .part-pieces input { width: 64px; min-height: 36px; padding: 0 8px; border: 1px solid #d4dfe0; border-radius: 7px; }
 .part-options-foot { display: flex; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .text-button.danger { color: #a3341f; }
+/* Assembly page: parts as a plain list, one divided row each. */
+.assembly-parts .asset-pills { gap: 0; }
+.assembly-parts .part-row:not(.removed) { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.assembly-parts .part-row:not(.removed):last-child { border-bottom: 0; }
+.part-name { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; padding: 0 4px; border-radius: 6px; color: var(--navy); font-size: 14px; font-weight: 600; text-align: left; }
+.part-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-name:hover { background: #f1f7f5; }
+.part-name .copy-count { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 500; }
+.assembly-parts .part-name { justify-content: flex-start; width: 100%; }

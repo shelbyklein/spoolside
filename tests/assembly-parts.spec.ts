@@ -12,7 +12,7 @@ test('pill opens part options; copies add and move',async({page})=>{
  await page.goto('/library/assemblies/33333333-3333-4333-8333-333333333333');
  await expect(page.getByRole('button',{name:'Edit assembly'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Position parts'})).toHaveCount(0);
- await page.locator('.part-chip',{hasText:'AB Buttons'}).click();
+ await page.locator('.part-name',{hasText:'AB Buttons'}).click();
  await expect(page.getByRole('option',{name:/Copy 2/})).toBeVisible();
  await page.getByRole('button',{name:'+ Add copy'}).click();
  await expect(page.getByRole('option',{name:/Copy 3/})).toHaveAttribute('aria-selected','true');
@@ -21,5 +21,5 @@ test('pill opens part options; copies add and move',async({page})=>{
  await page.waitForTimeout(900);
  await expect.poll(()=>puts.at(-1)?.components[0].positions[2]).toEqual([10.5,0,0]);
  await page.getByRole('button',{name:'← Parts'}).click();
- await expect(page.locator('.part-chip',{hasText:'d-pad'})).toBeVisible();
+ await expect(page.locator('.part-name',{hasText:'d-pad'})).toBeVisible();
 });
