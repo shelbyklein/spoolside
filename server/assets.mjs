@@ -64,8 +64,9 @@ function extras(c) {
   const out = {};
   if (/^#[0-9a-f]{6}$/i.test(c.color || "")) out.color = c.color.toLowerCase();
   if (Array.isArray(c.positions) && c.positions.length) {
-    if (c.positions.length > 20 || !c.positions.every((p) => Array.isArray(p) && p.length === 3 && p.every((n) => Number.isFinite(n) && Math.abs(n) <= 500)))
-      throw Error("Positions must be up to 20 x, y, z offsets in mm");
+    // Each position is x, y, z in mm, plus an optional turn in degrees around the vertical axis.
+    if (c.positions.length > 20 || !c.positions.every((p) => Array.isArray(p) && (p.length === 3 || p.length === 4) && p.every((n) => Number.isFinite(n) && Math.abs(n) <= 500)))
+      throw Error("Positions must be up to 20 x, y, z offsets in mm, with an optional rotation");
     out.positions = c.positions.map((p) => p.map((n) => Math.round(n * 100) / 100));
   }
   return out;

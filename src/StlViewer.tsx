@@ -80,7 +80,7 @@ export default function StlViewer({ url, urls, colors, positions, editable, sele
         const mesh = transform.object as import("three").Mesh | undefined;
         if (!e.value && mesh && scene.current) {
           const p = mesh.position.clone().add(scene.current.center);
-          latest.current.onMove?.(mesh.userData.ref, [p.x, p.y, p.z].map((n) => Math.round(n * 100) / 100));
+          latest.current.onMove?.(mesh.userData.ref, [...[p.x, p.y, p.z].map((n) => Math.round(n * 100) / 100), Math.round(((mesh.rotation.z * 180) / Math.PI) * 100) / 100]);
         }
       });
       // A click (not a drag) selects the part under the pointer.
@@ -160,9 +160,10 @@ export default function StlViewer({ url, urls, colors, positions, editable, sele
     s.meshes.forEach((m) => s.group.remove(m));
     s.meshes = [];
     s.geometries.forEach((g, part) => {
-      placements(positions?.[part]).forEach(([x, y, z], instance) => {
+      placements(positions?.[part]).forEach(([x, y, z, turn = 0], instance) => {
         const mesh = new s.THREE.Mesh(g, s.materials[part]);
         mesh.position.set(x - s.center.x, y - s.center.y, z - s.center.z);
+        mesh.rotation.z = (turn * Math.PI) / 180;
         mesh.userData.ref = { part, instance };
         s.group.add(mesh);
         s.meshes.push(mesh);

@@ -105,7 +105,7 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
  const copies=shown.positions?.length?shown.positions:[[0,0,0]];
  const index=Math.min(pick.instance,copies.length-1),current=copies[index];
  const name=asset?.name||'Missing asset';
- const addCopy=()=>{const next=[...copies.map(p=>[...p]),[current[0]+10,current[1],current[2]]];onCopies(next,`Added a copy of ${name}.`);onPick({assetId:part.assetId,instance:next.length-1});};
+ const addCopy=()=>{const next=[...copies.map(p=>[...p]),[current[0]+10,current[1],current[2],...current.slice(3)]];onCopies(next,`Added a copy of ${name}.`);onPick({assetId:part.assetId,instance:next.length-1});};
  const removeCopy=(i:number)=>{const next=copies.filter((_,k)=>k!==i);onCopies(next.length>1?next:next.length?next:[],`Removed a copy of ${name}.`);onPick({assetId:part.assetId,instance:Math.max(0,Math.min(index,next.length-1))});};
  return <section className="group-card assembly-parts part-options" aria-busy={busy}>
   <button className="text-button" onClick={()=>onPick(null)}>← Parts</button>
@@ -116,7 +116,7 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
   <h4>Copies</h4>
   <div className="copy-list" role="listbox" aria-label={`Copies of ${name}`}>
    {copies.map((p,i)=><div key={i} className={`copy-row${i===index?' selected':''}`}>
-    <button className="text-button" role="option" aria-selected={i===index} onClick={()=>onPick({assetId:part.assetId,instance:i})}>Copy {i+1}<small>{p.map(n=>n.toFixed(1)).join(', ')} mm</small></button>
+    <button className="text-button" role="option" aria-selected={i===index} onClick={()=>onPick({assetId:part.assetId,instance:i})}>Copy {i+1}<small>{p.slice(0,3).map(n=>n.toFixed(1)).join(', ')} mm{p[3]?` · ${p[3].toFixed(1)}°`:''}</small></button>
     {copies.length>1&&<button className="icon-button" aria-label={`Remove copy ${i+1}`} disabled={busy} onClick={()=>removeCopy(i)}>×</button>}
    </div>)}
    <button className="text-button" disabled={busy||copies.length>=20} onClick={addCopy}>+ Add copy</button>
@@ -129,7 +129,13 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
    <output>{current[i].toFixed(2)}</output>
    <button className="secondary" aria-label={`Move ${axis} up ${step} mm`} onClick={()=>move({assetId:part.assetId,instance:index},current.map((n,k)=>k===i?n+step:n))}>+</button>
   </div>)}
-  <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label>
+  <div className="nudge-row">
+   <span title="Turn around the vertical axis">⟳</span>
+   <button className="secondary" aria-label={`Rotate ${step*10}° clockwise`} onClick={()=>move({assetId:part.assetId,instance:index},[current[0],current[1],current[2],(current[3]||0)-step*10])}>−</button>
+   <output>{(current[3]||0).toFixed(1)}°</output>
+   <button className="secondary" aria-label={`Rotate ${step*10}° counterclockwise`} onClick={()=>move({assetId:part.assetId,instance:index},[current[0],current[1],current[2],(current[3]||0)+step*10])}>+</button>
+  </div>
+  <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm · {n*10}°</option>)}</select></label>
   <label className="part-pieces">Pieces<input aria-label={`Quantity of ${name}`} type="number" min={1} max={100} value={part.quantity} disabled={busy} onChange={e=>onQty(Number(e.target.value))}/></label>
   <div className="part-options-foot">
    {asset&&<button className="text-button" onClick={()=>onOpen(part.assetId)}>Part details</button>}
@@ -143,7 +149,7 @@ function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:As
  let timer:ReturnType<typeof setTimeout>|undefined;
  let latest=assembly;
  return (p:PartPick,position:number[])=>{
-  latest={...latest,components:latest.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);list[p.instance]=position.map(n=>Math.round(n*100)/100);return {...c,positions:list};})};
+  latest={...latest,components:latest.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);const prev=list[p.instance]||[];list[p.instance]=[...position.slice(0,3).map(n=>Math.round(n*100)/100),...(position.length>3?(position[3]?[Math.round(position[3]*100)/100]:[]):prev.slice(3))];return {...c,positions:list};})};
   const next=latest;onPreview(next);clearTimeout(timer);
   timer=setTimeout(async()=>{
    const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});

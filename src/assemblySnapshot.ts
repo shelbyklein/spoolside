@@ -41,9 +41,10 @@ async function render(assemblyId: string, key: string, parts: SnapshotPart[]) {
     geometry.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({ color: p.color || p.asset.categoryColor || DEFAULT_PART_COLOR, roughness: 0.55, metalness: 0.05 });
     disposable.push(geometry, material);
-    for (const [x, y, z] of p.positions?.length ? p.positions : [[0, 0, 0]]) {
+    for (const [x, y, z, turn = 0] of p.positions?.length ? p.positions : [[0, 0, 0]]) {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(x, y, z);
+      mesh.rotation.z = (turn * Math.PI) / 180;
       group.add(mesh);
     }
   }
