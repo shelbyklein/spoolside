@@ -24,11 +24,11 @@ void main(){
  float c1=caustic(p,t);float c2=caustic(p*1.07+vec2(4.1,-3.7)+drift*.10,t+2.3);
  float focus=pow(c1*c2,.7);float light=c1*.32+c2*.18+focus*.95;
  float swell=fbm(world*2.2+vec2(t*.04,-t*.03));
- vec3 color=mix(vec3(.0,.60,.73),vec3(.04,.82,.85),swell*.8+.15);
- color+=vec3(.015,.10,.09)*sin(world.y*.8+world.x*.5+t*.07);
- color=mix(color,vec3(.72,.99,.98),clamp(light*sunlight,0.,.90));
+ vec3 color=mix(vec3(.0,.17,.26),vec3(.01,.32,.40),swell*.8+.15);
+ color+=vec3(.006,.04,.04)*sin(world.y*.8+world.x*.5+t*.07);
+ color=mix(color,vec3(.16,.62,.66),clamp(light*sunlight,0.,.75));
  float haze=pow(max(0.,1.-length((uv-vec2(.22,.82))*vec2(.8,.7))),3.);
- color+=vec3(.05,.08,.07)*haze;
+ color+=vec3(.02,.05,.05)*haze;
  float grain=hash(gl_FragCoord.xy+fract(time*.13)*91.7)-.5;color+=grain*.014;
  gl_FragColor=vec4(color,1.);
 }

@@ -18,6 +18,7 @@ export type Asset = {
   triangles: number;
   bytes: number;
   updated: string;
+  hash?: string;
   designFile?: {id:string;name:string;source:string}|null;
   category?: string;
   categoryColor?: string;

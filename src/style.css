@@ -2218,20 +2218,44 @@ footer .tiny-dot {
  .material-offer .offer-delivery{grid-column:2;grid-row:3;}
  .material-offer .offer-buy{grid-column:3;grid-row:3;}
 }
-/* Desktop sidebar over animated pool water; navy text reads on the turquoise. */
+/* Desktop sidebar over deep animated pool water; white text with high contrast. */
 @media (min-width: 761px) {
-  .sidebar { background: radial-gradient(ellipse at 30% 20%, #76eff3, transparent 65%), linear-gradient(150deg, #1bdce5, #00a8ca); color: #06374b; overflow: hidden; }
+  .sidebar { background: radial-gradient(ellipse at 30% 20%, #0b5560, transparent 65%), linear-gradient(150deg, #06404d, #022a36); color: #fff; overflow: hidden; }
   .sidebar > :not(.sidebar-water) { position: relative; z-index: 1; }
   .sidebar-water { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .sidebar .brand { color: #06374b; }
-  .sidebar .brand-dot { color: #e83738; }
-  .sidebar .nav-item, .sidebar-bottom button, .sidebar .version, .sidebar .brand { text-shadow: 0 0 6px rgba(225, 255, 255, 0.95), 0 0 2px rgba(225, 255, 255, 0.9); }
-  .sidebar .nav-item { color: #06374b; font-weight: 600; }
-  .sidebar .nav-item svg { filter: drop-shadow(0 0 3px rgba(225, 255, 255, 0.95)); }
-  .sidebar .nav-item:hover { background: rgba(255, 255, 255, 0.32); color: #06374b; }
-  .sidebar .nav-item.selected { background: rgba(255, 255, 255, 0.62); color: #06374b; box-shadow: 0 4px 16px rgba(0, 87, 106, 0.12); backdrop-filter: blur(8px); }
-  .sidebar .nav-item small { background: rgba(6, 55, 75, 0.12); color: #06374b; }
-  .sidebar-bottom > img { filter: drop-shadow(0 16px 18px rgba(0, 70, 90, 0.28)); }
-  .sidebar-bottom button { color: #06374b; font-weight: 600; border-top-color: rgba(6, 55, 75, 0.16); }
-  .sidebar .version { color: #06374b; }
+  .sidebar .nav-item, .sidebar-bottom button, .sidebar .version, .sidebar .brand { text-shadow: 0 1px 3px rgba(0, 20, 28, 0.6); }
+  .sidebar .brand { color: #fff; }
+  .sidebar .brand-dot { color: #ff5a4f; }
+  .sidebar .nav-item { color: rgba(255, 255, 255, 0.86); font-weight: 600; }
+  .sidebar .nav-item:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+  .sidebar .nav-item.selected { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); backdrop-filter: blur(8px); }
+  .sidebar .nav-item small { background: rgba(255, 255, 255, 0.16); color: #fff; }
+  .sidebar-bottom > img { filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
+  .sidebar-bottom button { color: rgba(255, 255, 255, 0.86); border-top-color: rgba(255, 255, 255, 0.14); }
+  .sidebar .version { color: rgba(255, 255, 255, 0.62); }
 }
+.assembly-snapshot { display: grid; place-items: center; width: 100%; height: 180px; margin: 12px 0; padding: 0; border-radius: 12px; background: #eef4f3; overflow: hidden; color: var(--muted); font-size: 12px; }
+.assembly-snapshot img { width: 100%; height: 100%; object-fit: contain; }
+.assembly-snapshot:hover { box-shadow: inset 0 0 0 2px #b9d3cf; }
+/* Assembly list: five square tiles per row, arranged by you. */
+.assembly-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 1300px) { .assembly-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .assembly-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .assembly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+.assembly-tile { padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: #fff; transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s; }
+.assembly-tile .assembly-snapshot { height: auto; aspect-ratio: 1 / 1; margin: 0 0 10px; }
+.assembly-tile h3 { margin: 0; font-size: 14px; line-height: 1.3; }
+.assembly-tile h3 a { color: inherit; text-decoration: none; }
+.assembly-tile h3 a:hover { text-decoration: underline; }
+.assembly-tile > p { margin: 3px 0 6px; font-size: 11px; color: var(--muted); }
+.tile-parts summary { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 12px; font-weight: 600; color: var(--teal); cursor: pointer; list-style: none; }
+.tile-parts summary::-webkit-details-marker { display: none; }
+.tile-parts summary::before { content: "›"; display: inline-block; font-size: 15px; transition: transform 0.15s; }
+.tile-parts[open] summary::before { transform: rotate(90deg); }
+.tile-parts summary span { padding: 1px 6px; border-radius: 5px; background: #eef3f2; color: var(--muted); font-size: 10px; }
+.tile-parts .text-button { margin-top: 6px; }
+.assembly-grid.arranging .assembly-tile { cursor: grab; box-shadow: 0 0 0 2px #cfe5e1; }
+.assembly-tile.dragging { opacity: 0.4; }
+.assembly-tile.drop-target { box-shadow: 0 0 0 2px var(--teal); transform: scale(1.02); }
+.arrange-buttons { display: flex; gap: 6px; }
+.arrange-buttons button { flex: 1; min-height: 36px; padding: 0; }

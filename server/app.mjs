@@ -230,6 +230,9 @@ export function createApp({
   app.get("/api/assemblies", (_req,res)=>assets ? res.json(assets.assemblies()) : res.status(503).json({error:"Library unavailable"}));
   app.post("/api/assemblies", (req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.saveAssembly(req.body));}catch(e){fail(res,e);}});
   app.put("/api/assemblies/:id",(req,res)=>{try{if(!assets?.assemblies().some(a=>a.id===req.params.id))return res.status(404).json({error:"Assembly not found"});res.json(assets.saveAssembly(req.body,req.params.id));}catch(e){fail(res,e);}});
+  app.put("/api/assembly-order",(req,res)=>{try{res.json(assets.orderAssemblies(req.body?.ids));}catch(e){fail(res,e);}});
+  app.get("/api/assemblies/:id/thumb",(req,res)=>{try{const f=assets.assemblyThumbFile(req.params.id);if(!fs.existsSync(f))return res.status(404).json({error:"No preview yet"});res.set("Cache-Control","private, max-age=31536000, immutable").type("png").sendFile(f);}catch(e){fail(res,e);}});
+  app.put("/api/assemblies/:id/thumb",express.raw({type:"image/png",limit:"1500kb"}),(req,res)=>{try{res.json(assets.setAssemblyThumb(req.params.id,req.get("x-thumb-key"),req.body));}catch(e){fail(res,e);}});
   app.delete("/api/assemblies/:id",(req,res)=>{assets?.deleteAssembly(req.params.id);res.json({ok:true});});
   app.post("/api/assets/phone-bases",(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addPhoneBase(req.body,req.body.designId));}catch(e){fail(res,e);}});
   app.get("/api/assets", (_req, res) => res.json(assets?.list() || []));

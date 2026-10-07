@@ -67,7 +67,7 @@ export function WaterBackground() {
       gl.uniform2f(u.drift, state.x, state.y);
       gl.uniform1f(u.time, elapsed);
       gl.uniform1f(u.scale, 1.05 + state.tide);
-      gl.uniform1f(u.sunlight, 0.5);
+      gl.uniform1f(u.sunlight, 0.8);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     // 30 fps is plenty for slow water and keeps the sidebar cheap.

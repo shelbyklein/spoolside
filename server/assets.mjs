@@ -147,7 +147,35 @@ export class Assets {
     return this.get(assetId);
   }
   assemblies() {
-    return this.db.prepare("SELECT id,body FROM assemblies").all().map(r=>({id:r.id,...JSON.parse(r.body)})).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    this.db.exec("CREATE TABLE IF NOT EXISTS assembly_thumbs (id TEXT PRIMARY KEY, key TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS assembly_order (id TEXT PRIMARY KEY, pos INTEGER NOT NULL)");
+    const keys=new Map(this.db.prepare("SELECT id,key FROM assembly_thumbs").all().map(r=>[r.id,r.key]));
+    const pos=new Map(this.db.prepare("SELECT id,pos FROM assembly_order").all().map(r=>[r.id,r.pos]));
+    // Your arranged order first; anything not yet placed follows by name.
+    return this.db.prepare("SELECT id,body FROM assemblies").all().map(r=>({id:r.id,...JSON.parse(r.body),thumbKey:keys.get(r.id)||null}))
+      .sort((a,b)=>(pos.get(a.id)??1e9)-(pos.get(b.id)??1e9) || a.name.localeCompare(b.name,undefined,{numeric:true}));
+  }
+  orderAssemblies(ids) {
+    const known=new Set(this.assemblies().map(a=>a.id));
+    if(!Array.isArray(ids) || ids.length>1000 || new Set(ids).size!==ids.length || !ids.every(id=>known.has(id))) throw Error("Invalid assembly order");
+    this.db.exec("BEGIN");
+    try { this.db.exec("DELETE FROM assembly_order"); ids.forEach((id,i)=>this.db.prepare("INSERT INTO assembly_order VALUES(?,?)").run(id,i)); this.db.exec("COMMIT"); }
+    catch(e) { this.db.exec("ROLLBACK"); throw e; }
+    return this.assemblies();
+  }
+  // Snapshot of the assembled preview for list cards. The key is a client-computed
+  // fingerprint of parts, positions, colors and STL hashes; a stale key means re-render.
+  assemblyThumbFile(id) {
+    if (!/^[0-9a-f-]{36}$/.test(id)) throw Object.assign(Error("Unknown assembly"), { status: 404 });
+    return path.join(this.dir, `assembly-${id}.png`);
+  }
+  setAssemblyThumb(id, key, png) {
+    if (!this.db.prepare("SELECT 1 FROM assemblies WHERE id=?").get(id)) throw Object.assign(Error("Unknown assembly"), { status: 404 });
+    if (!/^[0-9a-z]{1,40}$/.test(String(key))) throw Error("Invalid preview key");
+    if (!Buffer.isBuffer(png) || png.length > 1_500_000 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw Error("Preview must be a PNG under 1.5 MB");
+    fs.writeFileSync(this.assemblyThumbFile(id), png, { mode: 0o600 });
+    this.db.prepare("INSERT INTO assembly_thumbs VALUES(?,?) ON CONFLICT(id) DO UPDATE SET key=excluded.key").run(id, String(key));
+    return { id, thumbKey: String(key) };
   }
   saveAssembly(input, id = randomUUID()) {
     const name=text(input.name,100),sku=text(input.sku,100),type=input.type;
@@ -171,7 +199,12 @@ export class Assets {
     this.db.prepare("INSERT INTO assemblies VALUES(?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body").run(id,JSON.stringify(body));
     return {id,...body};
   }
-  deleteAssembly(id) {this.db.prepare("DELETE FROM assemblies WHERE id=?").run(id);}
+  deleteAssembly(id) {
+    this.db.prepare("DELETE FROM assemblies WHERE id=?").run(id);
+    this.db.exec("CREATE TABLE IF NOT EXISTS assembly_thumbs (id TEXT PRIMARY KEY, key TEXT NOT NULL)");
+    this.db.prepare("DELETE FROM assembly_thumbs WHERE id=?").run(id);
+    if (/^[0-9a-f-]{36}$/.test(id)) fs.rmSync(this.assemblyThumbFile(id), { force: true });
+  }
   get(id) {
     const r = this.db.prepare("SELECT * FROM assets WHERE id=?").get(String(id));
     return r ? this.row(r) : null;

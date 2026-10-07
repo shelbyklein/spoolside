@@ -180,3 +180,42 @@ test('print parts confirmation survives display changes and resets when parts or
  assert.equal(assets.saveAssembly({...changed,partsConfirmed:true,confirmParts:true},asm.id).partsConfirmed,true);
  }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test("assembly snapshots are stored with a key and removed with the assembly", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-thumb-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const part = assets.add({ name: "DS – Top", type: "Faceplate", source: "t.stl" }, stl());
+    const a = assets.saveAssembly({ name: "DS", type: "Faceplate", components: [{ assetId: part.id, quantity: 1 }] });
+    assert.equal(assets.assemblies()[0].thumbKey, null);
+    const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(16)]);
+    assert.throws(() => assets.setAssemblyThumb(a.id, "k1", Buffer.from("nope")), /PNG/);
+    assert.throws(() => assets.setAssemblyThumb(a.id, "../x", png), /key/);
+    assets.setAssemblyThumb(a.id, "abc123", png);
+    assert.equal(assets.assemblies()[0].thumbKey, "abc123");
+    assets.deleteAssembly(a.id);
+    assert.equal(fs.existsSync(assets.assemblyThumbFile(a.id)), false);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("assemblies keep the arranged order, with new ones after by name", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-order-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const part = assets.add({ name: "P", type: "Part", source: "p.stl" }, stl());
+    const mk = (name) => assets.saveAssembly({ name, type: "Faceplate", components: [{ assetId: part.id, quantity: 1 }] });
+    const [a, b, c] = [mk("A"), mk("B"), mk("C")];
+    assets.orderAssemblies([c.id, a.id]);
+    assert.deepEqual(assets.assemblies().map((x) => x.name), ["C", "A", "B"]);
+    assert.throws(() => assets.orderAssemblies([c.id, c.id]), /order/);
+    assert.throws(() => assets.orderAssemblies(["nope"]), /order/);
+    assets.saveAssembly({ name: "0 first by name", type: "Faceplate", components: [{ assetId: part.id, quantity: 1 }] });
+    assert.deepEqual(assets.assemblies().map((x) => x.name), ["C", "A", "0 first by name", "B"]);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -1,9 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
+import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
 type Part={assetId:string;quantity:number;color?:string;positions?:number[][]};
-type Assembly={partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
+type Assembly={thumbKey?:string|null;partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false,components:[] as Assembly['components']});
 export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
@@ -12,10 +13,16 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const navigate=(id:string|null)=>{window.history.pushState(null,'',id?'/library/assemblies/'+id:'/library/assemblies');setSelectedId(id);setDraft(null);};
  useEffect(()=>{const pop=()=>{setSelectedId(assemblyFromPath());setDraft(null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
  const [items,setItems]=useState<Assembly[]>([]),[draft,setDraft]=useState<ReturnType<typeof empty>|null>(null),[search,setSearch]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[assetSearch,setAssetSearch]=useState('');
+ const [arranging,setArranging]=useState(false);
+ const reorder=async(ids:string[])=>{
+  setItems(prior=>ids.map(id=>prior.find(a=>a.id===id)!).concat(prior.filter(a=>!ids.includes(a.id))));
+  const r=await fetch('/api/assembly-order',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
+  if(!r.ok)notify('Could not save the order');
+ };
  const load=()=>fetch('/api/assemblies',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Could not load assemblies');setItems(await r.json());setError('');}).catch(e=>setError(e.message)).finally(()=>setLoading(false));
  useEffect(()=>{load();},[]);
  const save=async()=>{if(!draft)return;setBusy(true);setError('');try{
- const r=await fetch('/api/assemblies'+(draft.id?'/'+draft.id:''),{method:draft.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...draft,confirmParts:true})});const result=await r.json();if(!r.ok)throw Error(result.error || 'Could not save assembly');setItems(prior=>[...prior.filter(a=>a.id!==result.id),result].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})));setDraft(null);notify('Assembly saved');
+ const r=await fetch('/api/assemblies'+(draft.id?'/'+draft.id:''),{method:draft.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...draft,confirmParts:true})});const result=await r.json();if(!r.ok)throw Error(result.error || 'Could not save assembly');setItems(prior=>prior.some(a=>a.id===result.id)?prior.map(a=>a.id===result.id?{...a,...result}:a):[...prior,result]);setDraft(null);notify('Assembly saved');
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const selected=items.find(a=>a.id===selectedId);
  return <section aria-label="Assemblies">
@@ -24,9 +31,9 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found.</p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
-  <div className="asset-toolbar"><label className="search-field"><input aria-label="Search assemblies" placeholder="Search assembly or SKU" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="secondary" onClick={()=>{setDraft(empty());setAssetSearch('');}}>Add assembly</button></div>
+  <div className="asset-toolbar"><label className="search-field"><input aria-label="Search assemblies" placeholder="Search assembly or SKU" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className={arranging?'primary':'secondary'} disabled={!!search} title={search?'Clear search to arrange':undefined} onClick={()=>setArranging(!arranging)}>{arranging?'Done arranging':'Arrange'}</button><button className="secondary" onClick={()=>{setDraft(empty());setAssetSearch('');}}>Add assembly</button></div>
 
-  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<div className="group-cards assembly-cards">{items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase())).map(a=><section key={a.id} className="group-card"><h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();navigate(a.id);}}>{a.name}</a></h3><p>{a.type}{a.sku?` · ${a.sku}`:''}</p><AssemblyPreview parts={a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];})}/><div className="part-chips-list">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpen(c.assetId)}>{asset?.name || 'Missing asset'}{c.quantity>1?` × ${c.quantity}`:''}</button>;})}</div><button className="text-button" onClick={()=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></section>)}</div>}
+  {loading?<p>Loading assemblies…</p>:!items.length?<div className="empty"><p>No assemblies yet.</p></div>:<AssemblyGrid items={items} search={search} assets={assets} arranging={arranging} onReorder={reorder} onOpenAssembly={navigate} onOpenAsset={onOpen} onEdit={a=>{setDraft({...a,components:a.components.map(c=>({...c}))});setAssetSearch('');}} onThumb={(id,key)=>setItems(prior=>prior.map(x=>x.id===id?{...x,thumbKey:key}:x))}/>}
   </>}
   {draft && <form className="panel assembly-editor" onSubmit={e=>{e.preventDefault();save();}}>
    <h3>{draft.id?'Edit assembly':'New assembly'}</h3>
@@ -148,4 +155,44 @@ function chipStyle(color?:string){
  if(!color)return undefined;
  const [r,g,b]=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
  return {background:color,color:(0.299*r+0.587*g+0.114*b)>150?'#102d44':'#fff'};
+}
+
+// Static image of the assembled parts for list cards; renders once when missing or outdated.
+function AssemblySnapshot({assembly,parts,onSaved,onOpen}:{assembly:Assembly;parts:SnapshotPart[];onSaved:(key:string)=>void;onOpen:()=>void}){
+ const key=snapshotKey(parts),fresh=assembly.thumbKey===key,ref=useRef<HTMLButtonElement>(null),[failed,setFailed]=useState(false);
+ useEffect(()=>{
+  if(fresh||failed||!ref.current||!parts.length)return;
+  const io=new IntersectionObserver(([e])=>{if(!e.isIntersecting)return;io.disconnect();requestSnapshot(assembly.id,key,parts).then(ok=>ok?onSaved(key):setFailed(true));},{rootMargin:'300px'});
+  io.observe(ref.current);return()=>io.disconnect();
+ },[key,fresh,failed]);
+ return <button ref={ref} className="assembly-snapshot" onClick={onOpen} aria-label={`Open ${assembly.name}`}>
+  {fresh?<img src={`/api/assemblies/${assembly.id}/thumb?k=${key}`} alt="" loading="lazy"/>:<span>{!parts.length?'No STL preview':failed?'Preview unavailable':'Rendering preview…'}</span>}
+ </button>;
+}
+
+// Assembly cards in your order: square snapshot, name, and parts tucked in a disclosure.
+// Arrange mode: drag a card onto another, or use the arrow buttons (works on touch too).
+function AssemblyGrid({items,search,assets,arranging,onReorder,onOpenAssembly,onOpenAsset,onEdit,onThumb}:{items:Assembly[];search:string;assets:Asset[];arranging:boolean;onReorder:(ids:string[])=>void;onOpenAssembly:(id:string)=>void;onOpenAsset:(id:string)=>void;onEdit:(a:Assembly)=>void;onThumb:(id:string,key:string)=>void}){
+ const [dragging,setDragging]=useState<string|null>(null),[over,setOver]=useState<string|null>(null);
+ const shown=items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase()));
+ const ids=items.map(a=>a.id);
+ const move=(id:string,to:number)=>{const next=ids.filter(x=>x!==id);next.splice(Math.max(0,Math.min(to,next.length)),0,id);onReorder(next);};
+ return <div className={`assembly-grid${arranging?' arranging':''}`}>{shown.map(a=>{
+  const i=ids.indexOf(a.id);
+  const parts=a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
+  return <section key={a.id} className={`assembly-tile${dragging===a.id?' dragging':''}${over===a.id&&dragging!==a.id?' drop-target':''}`}
+   draggable={arranging} onDragStart={e=>{setDragging(a.id);e.dataTransfer.effectAllowed='move';}} onDragEnd={()=>{setDragging(null);setOver(null);}}
+   onDragOver={e=>{if(!dragging)return;e.preventDefault();setOver(a.id);}} onDrop={e=>{e.preventDefault();if(dragging&&dragging!==a.id)move(dragging,ids.indexOf(a.id));setDragging(null);setOver(null);}}>
+   <AssemblySnapshot assembly={a} parts={parts} onSaved={key=>onThumb(a.id,key)} onOpen={()=>!arranging&&onOpenAssembly(a.id)}/>
+   <h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();if(!arranging)onOpenAssembly(a.id);}}>{a.name}</a></h3>
+   <p>{a.type}{a.sku?` · ${a.sku}`:''}</p>
+   {arranging?<div className="arrange-buttons">
+    <button className="secondary" aria-label={`Move ${a.name} earlier`} disabled={i===0} onClick={()=>move(a.id,i-1)}>←</button>
+    <button className="secondary" aria-label={`Move ${a.name} later`} disabled={i===ids.length-1} onClick={()=>move(a.id,i+1)}>→</button>
+   </div>:<details className="tile-parts">
+    <summary>Parts <span>{a.components.reduce((n,c)=>n+c.quantity,0)}</span></summary>
+    <div className="part-chips-list">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpenAsset(c.assetId)}>{asset?.name || 'Missing asset'}{c.quantity>1?` × ${c.quantity}`:''}</button>;})}</div>
+    <button className="text-button" onClick={()=>onEdit(a)}>Edit assembly</button>
+   </details>}
+  </section>;})}</div>;
 }
