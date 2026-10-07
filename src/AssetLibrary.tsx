@@ -3,14 +3,14 @@ import { Assemblies } from "./Assemblies";
 import { requestPartThumb } from "./assemblySnapshot";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX } from "lucide-react";
+import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
 export type Asset = {
   id: string;
   name: string;
-  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone Base";
+  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone";
   generation: number;
   status: Status;
   note: string;
@@ -30,16 +30,19 @@ export type Asset = {
 };
 type Status = "Up to date" | "Stale";
 const STATUSES: Status[] = ["Up to date", "Stale"];
-const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone Base"] as const;
+const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 
-// Groups cases by phone generation and faceplates by style.
+// Groups cases and phone references by phone generation, faceplates by style.
 const groupOf = (a: Asset) =>
-  a.type === "Case"
-    ? a.fit.phone.match(/^iPhone (\d+)/)?.[1] ? `iPhone ${a.fit.phone.match(/^iPhone (\d+)/)![1]}` : a.fit.phone.split(" ")[0]
+  a.type === "Case" || a.type === "Phone"
+    ? a.fit.phone.match(/^iPhone (\d+)/)?.[1] ? `iPhone ${a.fit.phone.match(/^iPhone (\d+)/)![1]}` : a.fit.phone.startsWith("iPhone") ? "Other iPhones" : a.fit.phone.split(" ")[0]
     : (a.type === "Faceplate" || a.type === "Sleeve")
       ? a.fit.style + (a.type === "Sleeve" ? " sleeves" : "")
-      : a.type === "Phone Base" ? "Phone Bases" : "Parts";
+      : "Parts";
+
+// Phone references are view-only, so they never need a design file.
+const needsDesign = (a: Asset) => !a.designFile && a.type !== "Phone";
 
 const sectionFromPath = () => window.location.pathname.startsWith("/library/sliced") ? "Sliced prints" : window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets";
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
@@ -86,7 +89,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       (assets || []).filter(
         (a) =>
           (type === "All" || a.type === type) &&
-          (status === "All" || (status === "Missing design" ? !a.designFile : a.status === status)) &&
+          (status === "All" || (status === "Missing design" ? needsDesign(a) : a.status === status)) &&
           `${a.name} ${a.note} ${a.fit.phone} ${a.fit.style}`.toLowerCase().includes(search.toLowerCase()),
       ),
     [assets, type, status, search],
@@ -163,7 +166,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                       <strong>{a.name}</strong>
                       <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
                     </span>
-                    <StatusIcons status={a.status} missingDesign={!a.designFile} />
+                    <StatusIcons status={a.status} missingDesign={needsDesign(a)} />
                   </button>
                 </li>
               ))}
@@ -185,6 +188,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
               <StlViewer url={`/api/assets/${open.id}/stl`} colors={[categories.find((c) => c.id === open.category)?.color || ""]} />
             </Suspense>}
+            {open.type !== "Phone" && <>
             <label className="design-picker">Category
               <select aria-label="Category" value={open.category || ""} onChange={(e) => save(open, { category: e.target.value })}>
                 <option value="">No category</option>
@@ -198,6 +202,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               }}><option value="">Missing design</option>{designs.map(d=><option key={d.id} value={d.id}>{d.source}</option>)}</select>
             </label>
             {open.designFile && <a className="secondary download-stl" href={`/api/designfiles/${open.designFile.id}/download`}>Download design</a>}
+            </>}
             <div className="status-picker" role="radiogroup" aria-label="Status">
               {STATUSES.map((s) => (
                 <button key={s} role="radio" aria-checked={open.status === s} aria-label={s} title={s} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <CircleCheck size={20} /> : <Clock size={20} />}</button>
@@ -214,6 +219,16 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               <div><dt>Updated</dt><dd>{new Date(open.updated).toLocaleDateString()}</dd></div>
             </dl>
             {open.hasStl !== false && <a className="secondary download-stl" href={`/api/assets/${open.id}/stl`} download={`${open.name}.stl`}><Download size={16} /> Download STL</a>}
+            {open.type === "Phone" && (
+              <div className="phone-actions">
+                {/* rel="ar" with an image child opens Apple's AR Quick Look on iPhone and iPad. */}
+                <a className="primary" rel="ar" href={`/api/assets/${open.id}/usdz#allowsContentScaling=0`}>
+                  <img src="/icon-192.png" alt="" width={1} height={1} /> <Smartphone size={16} /> View in 3D / AR
+                </a>
+                <a className="secondary download-stl" href={`/api/assets/${open.id}/usdz?download=1`}><Download size={16} /> Download USDZ</a>
+                <p className="plate-meta">3D / AR viewing opens on iPhone or iPad.</p>
+              </div>
+            )}
             <button className="secondary danger delete-asset" onClick={async () => {
               if (!window.confirm(`Delete ${open.name} from the library? The original file in Dropbox is not touched, and the folder import won't bring it back.`)) return;
               const r = await fetch(`/api/assets/${open.id}`, { method: "DELETE" });
@@ -246,10 +261,10 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
       <h3>{title}</h3>
       <div className="asset-pills">
         {assets.map((a) => (
-          <button key={a.id} className={`asset-pill with-thumb ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}${!a.designFile ? ", missing design" : ""}`} onClick={() => onOpen(a.id)}>
+          <button key={a.id} className={`asset-pill with-thumb ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}${needsDesign(a) ? ", missing design" : ""}`} onClick={() => onOpen(a.id)}>
             <PartThumb asset={a} />
             <span>{cardLabel(a)}</span>
-            <StatusIcons status={a.status} missingDesign={!a.designFile} />
+            <StatusIcons status={a.status} missingDesign={needsDesign(a)} />
           </button>
         ))}
       </div>
@@ -391,7 +406,7 @@ function PartThumb({ asset }: { asset: Asset }) {
   }, [ready, failed, asset.id, asset.hash]);
   return (
     <span ref={ref} className="part-thumb" aria-hidden="true">
-      {ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
+      {asset.type === "Phone" ? <Smartphone size={18} /> : ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
     </span>
   );
 }

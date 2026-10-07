@@ -2323,3 +2323,7 @@ footer .tiny-dot {
 .status-choice.up-to-date.selected { color: #0b6b63; background: #e4f2ef; border-color: #0b6b63; }
 .status-choice.stale.selected { color: #b5650d; background: #fdf1e3; border-color: #b5650d; }
 .status-choice:hover { color: var(--navy); }
+.phone-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 14px; }
+.phone-actions .primary { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; text-decoration: none; }
+.phone-actions img { width: 1px; height: 1px; opacity: 0; position: absolute; }
+.part-thumb svg { color: var(--navy); }

@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone Base"];
+export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone"];
 export const STATUSES = ["Up to date", "Stale"];
 // Two statuses only. Older names map in: Current is up to date, everything else is stale.
 export const normalizeStatus = (s) => (s === "Up to date" || s === "Current" ? "Up to date" : "Stale");
@@ -54,7 +54,7 @@ function clean(input, prior = {}) {
     category: text(input.category ?? prior.category, 40),
   };
   if (!out.name) throw Error("Name is required");
-  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part or Phone Base");
+  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part or Phone");
   if (!STATUSES.includes(out.status)) throw Error("Unknown status");
   if (![3, 4].includes(out.generation)) throw Error("Generation must be 3 or 4");
   return out;
@@ -98,7 +98,7 @@ export class Assets {
       const n = a.name.toLowerCase();
       const category = /membrane/.test(n) ? "membranes"
         : /button|abxy|d-pad|paddle|trigger|start/.test(n) ? "buttons"
-        : ["Case", "Faceplate", "Sleeve", "Phone Base"].includes(a.type) ? "body"
+        : ["Case", "Faceplate", "Sleeve"].includes(a.type) ? "body"
         : "hardware";
       this.db.prepare("UPDATE assets SET body=? WHERE id=?").run(JSON.stringify({ ...clean({}, a), category }), a.id);
     }
@@ -156,13 +156,22 @@ export class Assets {
     this.db.prepare("INSERT INTO designfiles VALUES(?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET name=excluded.name,hash=excluded.hash,bytes=excluded.bytes").run(id,source,name,createHash("sha256").update(buf).digest("hex"),buf.length);
     return this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);
   }
-  addPhoneBase(meta, designId) {
-    const design=this.designFile(designId).meta;
-    const body=clean({...meta,type:"Phone Base"});
-    const existing=this.list().find(a=>a.source===body.source),id=existing?.id || randomUUID();
-    this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,hash=excluded.hash,bytes=excluded.bytes,updated=excluded.updated").run(id,JSON.stringify(existing?clean({...body,status:existing.status,note:existing.note},existing):body),design.hash,0,"[]",design.bytes,new Date().toISOString());
-    return this.linkDesign(id,designId);
+  // Phone references: an Apple .usdz model per phone, for viewing (AR Quick Look on iPhone) and download.
+  phoneFile(id) {
+    if (!/^[0-9a-f-]{36}$/.test(id)) throw Object.assign(Error("Unknown asset"), { status: 404 });
+    return path.join(this.dir, `phone-${id}.usdz`);
   }
+  addPhone(meta, buf) {
+    if (!Buffer.isBuffer(buf) || buf.length < 4 || buf.length > 60 * 1024 * 1024 || buf.readUInt32LE(0) !== 0x04034b50) throw Error("Choose a .usdz model under 60 MB");
+    const body = clean({ ...meta, type: "Phone", status: meta.status || "Up to date" });
+    if (body.source && this.db.prepare("SELECT 1 FROM deleted_sources WHERE source=?").get(body.source)) throw Object.assign(Error("Deleted in Spoolside; not re-imported"), { status: 409 });
+    const existing = body.source && this.list().find((a) => a.source === body.source), id = existing?.id || randomUUID();
+    fs.writeFileSync(this.phoneFile(id), buf, { mode: 0o600 });
+    this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body, hash=excluded.hash, bytes=excluded.bytes, updated=excluded.updated")
+      .run(id, JSON.stringify(existing ? clean({ ...body, name: existing.name, status: existing.status, note: existing.note }, existing) : body), createHash("sha256").update(buf).digest("hex"), 0, "[]", buf.length, new Date().toISOString());
+    return this.get(id);
+  }
+
   linkDesign(assetId,designId) {
     if(!this.get(assetId))throw Error("Unknown asset");
     if(designId===null)this.db.prepare("DELETE FROM design_links WHERE asset=?").run(assetId);
@@ -267,6 +276,7 @@ export class Assets {
     this.db.prepare("DELETE FROM design_links WHERE asset=?").run(String(id));
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });
+    fs.rmSync(this.phoneFile(id), { force: true });
     this.removeAssetThumbs(id);
   }
   close() {

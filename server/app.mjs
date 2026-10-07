@@ -234,7 +234,18 @@ export function createApp({
   app.get("/api/assemblies/:id/thumb",(req,res)=>{try{const f=assets.assemblyThumbFile(req.params.id);if(!fs.existsSync(f))return res.status(404).json({error:"No preview yet"});res.set("Cache-Control","private, max-age=31536000, immutable").type("png").sendFile(f);}catch(e){fail(res,e);}});
   app.put("/api/assemblies/:id/thumb",express.raw({type:"image/png",limit:"1500kb"}),(req,res)=>{try{res.json(assets.setAssemblyThumb(req.params.id,req.get("x-thumb-key"),req.body));}catch(e){fail(res,e);}});
   app.delete("/api/assemblies/:id",(req,res)=>{assets?.deleteAssembly(req.params.id);res.json({ok:true});});
-  app.post("/api/assets/phone-bases",(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addPhoneBase(req.body,req.body.designId));}catch(e){fail(res,e);}});
+  app.post("/api/assets/phones", express.raw({ type: "application/octet-stream", limit: "60mb" }), (req, res) => {
+    try { if (!assets) return res.sendStatus(503); res.json(assets.addPhone(JSON.parse(decodeURIComponent(String(req.get("x-asset") || "{}"))), req.body)); } catch (e) { fail(res, e); }
+  });
+  app.get("/api/assets/:id/usdz", (req, res) => {
+    try {
+      const a = assets?.get(req.params.id);
+      if (a?.type !== "Phone") return res.status(404).json({ error: "No phone model" });
+      res.set("Cache-Control", "private, max-age=86400").type("model/vnd.usdz+zip");
+      if (req.query.download) res.attachment(`${a.name}.usdz`);
+      res.sendFile(assets.phoneFile(a.id));
+    } catch (e) { fail(res, e); }
+  });
   app.get("/api/assets", (_req, res) => res.json(assets?.list() || []));
   app.get("/api/assets/:id/stl", (req, res) => {
     try {

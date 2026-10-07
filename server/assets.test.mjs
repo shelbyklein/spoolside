@@ -81,11 +81,28 @@ test('design auto linking only accepts unique exact source names; sleeve imports
  assert.equal(classify('Faceplate Sleeves/ds plus sleeve.stl').fit.size,'Plus');assert.equal(classify('Faceplate Sleeves/red.stl').status,'Stale');
 });
 
-test('phone base design-only assets preserve IDs and do not expose an STL',()=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-phone-base-'));const assets=new Assets(':memory:',dir);
- try {const design=assets.addDesign({source:'Phone Bases/16.c4d',name:'16.c4d'},Buffer.from('project'));const meta={name:'iPhone 16',source:'Phone Bases/16.c4d',status:'Needs check'};
- const a=assets.addPhoneBase(meta,design.id);assert.equal(a.type,'Phone Base');assert.equal(a.hasStl,false);assert.equal(a.complete,true);assets.update(a.id,{status:'Current'});const next=assets.addPhoneBase(meta,design.id);assert.equal(next.id,a.id);assert.equal(next.status,'Up to date');assert.equal(assets.list().length,1);
- }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
+test("phone references store a usdz, keep their ID on re-import, and never expose an STL", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-phone-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const usdz = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(32)]);
+    const meta = { name: "iPhone 16", source: "Phones/iPhone/16/iphone-16-black-sim.usdz", fit: { phone: "iPhone 16" } };
+    const a = assets.addPhone(meta, usdz);
+    assert.equal(a.type, "Phone");
+    assert.equal(a.hasStl, false);
+    assert.equal(a.status, "Up to date");
+    assert.ok(fs.existsSync(assets.phoneFile(a.id)));
+    assert.throws(() => assets.addPhone(meta, Buffer.from("not a zip")), /usdz/);
+    assets.update(a.id, { name: "iPhone 16 (black)" });
+    assert.equal(assets.addPhone(meta, usdz).id, a.id);
+    assert.equal(assets.get(a.id).name, "iPhone 16 (black)");
+    assets.remove(a.id);
+    assert.equal(fs.existsSync(assets.phoneFile(a.id)), false);
+    assert.throws(() => assets.addPhone(meta, usdz), /Deleted/);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("removing an assembly part keeps it restorable and never deletes the asset", () => {
