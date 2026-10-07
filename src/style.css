@@ -2302,3 +2302,7 @@ footer .tiny-dot {
 .part-name:hover { background: #f1f7f5; }
 .part-name .copy-count { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 500; }
 .assembly-parts .part-name { justify-content: flex-start; width: 100%; }
+.app-crash { display: grid; place-content: center; gap: 12px; min-height: 100vh; padding: 24px; text-align: center; color: var(--navy); }
+.app-crash h1 { margin: 0; font-size: 24px; }
+.app-crash p { margin: 0; color: var(--muted); }
+.app-crash .primary { justify-self: center; min-height: 44px; padding: 0 22px; }

@@ -2,6 +2,7 @@ import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
+import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -1029,6 +1030,8 @@ function App() {
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>,
 );
