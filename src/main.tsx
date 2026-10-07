@@ -558,6 +558,8 @@ function App() {
               <h1>{tab}</h1>
             </div>
             <div className="page-actions">
+              {/* Pages put their own header controls here (Library's section tabs). */}
+              <div id="page-heading-slot" className="page-heading-slot" />
               {remote && tab !== "Library" && (
                 <button
                   className={`secondary icon-only${refreshing ? " spinning" : ""}`}

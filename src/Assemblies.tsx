@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
@@ -10,6 +10,9 @@ const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false
 export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
  const [selectedId,setSelectedId]=useState<string|null>(assemblyFromPath);
  const [liveColors,setLiveColors]=useState<Assembly|null>(null);
+ // The part (and copy) being positioned; its options replace the parts list.
+ const [pick,setPick]=useState<PartPick|null>(null);
+ useEffect(()=>setPick(null),[selectedId]);
  const navigate=(id:string|null)=>{window.history.pushState(null,'',id?'/library/assemblies/'+id:'/library/assemblies');setSelectedId(id);setDraft(null);};
  useEffect(()=>{const pop=()=>{setSelectedId(assemblyFromPath());setDraft(null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
  const [items,setItems]=useState<Assembly[]>([]),[draft,setDraft]=useState<ReturnType<typeof empty>|null>(null),[search,setSearch]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[assetSearch,setAssetSearch]=useState('');
@@ -25,10 +28,12 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const r=await fetch('/api/assemblies'+(draft.id?'/'+draft.id:''),{method:draft.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...draft,confirmParts:true})});const result=await r.json();if(!r.ok)throw Error(result.error || 'Could not save assembly');setItems(prior=>prior.some(a=>a.id===result.id)?prior.map(a=>a.id===result.id?{...a,...result}:a):[...prior,result]);setDraft(null);notify('Assembly saved');
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const selected=items.find(a=>a.id===selectedId);
+ const savedAssembly=(a:Assembly)=>setItems(prior=>prior.map(x=>x.id===a.id?a:x));
+ // One mover per saved version, so a drag's pending save survives redraws.
+ const move=useMemo(()=>selected?mover(selected,setLiveColors,savedAssembly,notify):()=>{},[selected]);
  return <section aria-label="Assemblies">
- {selectedId && <button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button>}
- {selected && <section className="assembly-detail"><div className="assembly-heading"><div><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div><button className="secondary" onClick={()=>{setDraft({...selected,components:selected.components.map(c=>({...c}))});setAssetSearch('');}}>Edit assembly</button></div><div className="assembly-detail-columns"><PositionTool assembly={liveColors?.id===selected.id?liveColors:selected} assets={assets} onPreview={setLiveColors} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} notify={notify}/><PartsEditor assembly={selected} assets={assets} onOpen={onOpen} onSaved={saved=>setItems(prior=>prior.map(x=>x.id===saved.id?saved:x))} onPreview={setLiveColors} notify={notify}/></div></section>}
- {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found.</p>}
+  {selected && (()=>{const shown=liveColors?.id===selected.id?liveColors:selected;return <section className="assembly-detail"><div className="assembly-heading"><div className="assembly-title"><button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div></div><div className="assembly-detail-columns"><PositionTool assembly={shown} assets={assets} pick={pick} onPick={setPick} move={move}/><PartsEditor assembly={selected} shown={shown} assets={assets} pick={pick} onPick={setPick} move={move} onOpen={onOpen} onSaved={savedAssembly} onPreview={setLiveColors} notify={notify}/></div></section>;})()}
+ {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found. <button className="text-button" onClick={()=>navigate(null)}>← Assemblies</button></p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
   <div className="asset-toolbar"><label className="search-field"><input aria-label="Search assemblies" placeholder="Search assembly or SKU" value={search} onChange={e=>setSearch(e.target.value)}/></label><button className={arranging?'primary':'secondary'} disabled={!!search} title={search?'Clear search to arrange':undefined} onClick={()=>setArranging(!arranging)}>{arranging?'Done arranging':'Arrange'}</button><button className="secondary" onClick={()=>{setDraft(empty());setAssetSearch('');}}>Add assembly</button></div>
@@ -51,8 +56,8 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
 }
 
 // Inline part editing on the assembly page. Removing only moves a part to "Removed"; nothing is deleted.
-function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly:Assembly;assets:Asset[];onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;onPreview:(a:Assembly|null)=>void;notify:(m:string)=>void}){
- const [query,setQuery]=useState(''),[busy,setBusy]=useState(false),[editing,setEditing]=useState<string|null>(null);
+function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPreview,notify}:{assembly:Assembly;shown:Assembly;assets:Asset[];pick:PartPick|null;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;onPreview:(a:Assembly|null)=>void;notify:(m:string)=>void}){
+ const [query,setQuery]=useState(''),[busy,setBusy]=useState(false);
  const colorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  // Recolor the preview instantly while picking; save once the picker settles.
  const setColor=(c:Part,color:string)=>{const next={...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,color}:x)};onPreview(next);clearTimeout(colorTimer.current);colorTimer.current=setTimeout(()=>save(next,`${name(c.assetId)} color saved.`).finally(()=>onPreview(null)),600);};
@@ -70,17 +75,20 @@ function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly
  const used=new Set(assembly.components.map(c=>c.assetId));
  const matches=query.trim()?assets.filter(a=>a.status!=='Retired'&&!used.has(a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];
  const pill=(id:string)=>`asset-pill ${assets.find(a=>a.id===id)?.status.toLowerCase().replace(/\s+/g,'-')||''}`;
+ const picked=pick&&assembly.components.find(c=>c.assetId===pick.assetId);
+ if(pick&&picked)return <PartOptions part={picked} shown={shown.components.find(c=>c.assetId===pick.assetId)||picked} asset={assets.find(a=>a.id===pick.assetId)} pick={pick} busy={busy} onPick={onPick} move={move} onOpen={onOpen}
+  onColor={color=>setColor(picked,color)} onQty={q=>setQty(picked,q)} onRemove={()=>{onPick(null);remove(picked);}}
+  onCopies={(positions,message)=>save({...assembly,components:assembly.components.map(x=>x.assetId===picked.assetId?{...x,positions}:x)},message)}/>;
  return <section className="group-card assembly-parts" aria-busy={busy}>
   <h3>Parts</h3>
+  <p className="plate-meta">Click a part, here or in the preview, to position it.</p>
   <div className="asset-pills">
    {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
-    <button className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpen(c.assetId)}><span>{asset?.name||'Missing asset'}</span></button>
+    <button className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onPick({assetId:c.assetId,instance:0})}><span>{asset?.name||'Missing asset'}</span>{(c.positions?.length||0)>1&&<small className="copy-count">×{c.positions!.length}</small>}</button>
     <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} key={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||'default'} defaultValue={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||DEFAULT_PART_COLOR} title={c.color?'Custom color for this assembly':'Category color'} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
     {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>||<span className="reset-color" aria-hidden="true"/>}
     <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
-    <button className="text-button positions-toggle" aria-expanded={editing===c.assetId} onClick={()=>setEditing(editing===c.assetId?null:c.assetId)}>{c.positions?.length?`${c.positions.length} position${c.positions.length===1?'':'s'}`:'Position'}</button>
     <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>
-    {editing===c.assetId&&<PositionsEditor part={c} busy={busy} onSave={positions=>save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,positions}:x)},'Positions saved.')}/>}
    </div>;})}
    {!assembly.components.length&&<p className="plate-meta">No parts. Add one below or restore a removed part.</p>}
   </div>
@@ -90,63 +98,67 @@ function PartsEditor({assembly,assets,onOpen,onSaved,onPreview,notify}:{assembly
  </section>;
 }
 
-// Display-only copies of a part, as mm offsets from where its STL sits (x, y, z).
-function PositionsEditor({part,busy,onSave}:{part:Part;busy:boolean;onSave:(p:number[][])=>void}){
- const [rows,setRows]=useState<string[][]>(()=>(part.positions||[]).map(p=>p.map(String)));
- const parsed=rows.map(r=>r.map(Number));
- const valid=parsed.every(r=>r.every(n=>Number.isFinite(n)));
- return <div className="positions-editor">
-  <p className="plate-meta">Show this part at several spots in the preview. Offsets are in mm from where the STL sits. Leave empty to show it once.</p>
-  {rows.map((r,i)=><div className="position-row" key={i}>
-   {['x','y','z'].map((axis,j)=><label key={axis}>{axis}<input type="number" step="0.1" value={r[j]} onChange={e=>setRows(rows.map((x,k)=>k===i?x.map((v,m)=>m===j?e.target.value:v):x))}/></label>)}
-   <button type="button" className="icon-button" aria-label={`Remove position ${i+1}`} onClick={()=>setRows(rows.filter((_,k)=>k!==i))}>×</button>
-  </div>)}
-  <div className="position-actions">
-   <button type="button" className="text-button" disabled={rows.length>=20} onClick={()=>setRows([...rows,['0','0','0']])}>+ Add position</button>
-   <button type="button" className="secondary" disabled={busy||!valid} onClick={()=>onSave(parsed)}>Save positions</button>
+// One part's options, in place of the parts list: its copies (display-only duplicates, as mm
+// offsets from where its STL sits), moving the selected copy, color, pieces and removal.
+function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQty,onRemove,onCopies}:{part:Part;shown:Part;asset?:Asset;pick:PartPick;busy:boolean;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onColor:(c:string)=>void;onQty:(q:number)=>void;onRemove:()=>void;onCopies:(p:number[][],message:string)=>void}){
+ const [step,setStep]=useState(0.5);
+ const copies=shown.positions?.length?shown.positions:[[0,0,0]];
+ const index=Math.min(pick.instance,copies.length-1),current=copies[index];
+ const name=asset?.name||'Missing asset';
+ const addCopy=()=>{const next=[...copies.map(p=>[...p]),[current[0]+10,current[1],current[2]]];onCopies(next,`Added a copy of ${name}.`);onPick({assetId:part.assetId,instance:next.length-1});};
+ const removeCopy=(i:number)=>{const next=copies.filter((_,k)=>k!==i);onCopies(next.length>1?next:next.length?next:[],`Removed a copy of ${name}.`);onPick({assetId:part.assetId,instance:Math.max(0,Math.min(index,next.length-1))});};
+ return <section className="group-card assembly-parts part-options" aria-busy={busy}>
+  <button className="text-button" onClick={()=>onPick(null)}>← Parts</button>
+  <div className="part-options-head">
+   <span className="part-chip" style={chipStyle(asset?.categoryColor)}><span>{name}</span></span>
+   <input type="color" className="part-color" aria-label={`Color of ${name}`} key={part.color||asset?.categoryColor||'default'} defaultValue={part.color||asset?.categoryColor||DEFAULT_PART_COLOR} disabled={busy} onChange={e=>onColor(e.target.value)}/>
   </div>
- </div>;
+  <h4>Copies</h4>
+  <div className="copy-list" role="listbox" aria-label={`Copies of ${name}`}>
+   {copies.map((p,i)=><div key={i} className={`copy-row${i===index?' selected':''}`}>
+    <button className="text-button" role="option" aria-selected={i===index} onClick={()=>onPick({assetId:part.assetId,instance:i})}>Copy {i+1}<small>{p.map(n=>n.toFixed(1)).join(', ')} mm</small></button>
+    {copies.length>1&&<button className="icon-button" aria-label={`Remove copy ${i+1}`} disabled={busy} onClick={()=>removeCopy(i)}>×</button>}
+   </div>)}
+   <button className="text-button" disabled={busy||copies.length>=20} onClick={addCopy}>+ Add copy</button>
+  </div>
+  <h4>Move copy {index+1}</h4>
+  <p className="plate-meta">Drag its arrows in the preview, or nudge it here.</p>
+  {['X','Y','Z'].map((axis,i)=><div className="nudge-row" key={axis}>
+   <span>{axis}</span>
+   <button className="secondary" aria-label={`Move ${axis} down ${step} mm`} onClick={()=>move({assetId:part.assetId,instance:index},current.map((n,k)=>k===i?n-step:n))}>−</button>
+   <output>{current[i].toFixed(2)}</output>
+   <button className="secondary" aria-label={`Move ${axis} up ${step} mm`} onClick={()=>move({assetId:part.assetId,instance:index},current.map((n,k)=>k===i?n+step:n))}>+</button>
+  </div>)}
+  <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label>
+  <label className="part-pieces">Pieces<input aria-label={`Quantity of ${name}`} type="number" min={1} max={100} value={part.quantity} disabled={busy} onChange={e=>onQty(Number(e.target.value))}/></label>
+  <div className="part-options-foot">
+   {asset&&<button className="text-button" onClick={()=>onOpen(part.assetId)}>Part details</button>}
+   <button className="text-button danger" disabled={busy} onClick={onRemove}>Remove from assembly</button>
+  </div>
+ </section>;
 }
 
-// Preview plus hands-on positioning: click a part, drag its arrows, or nudge it in mm.
-function PositionTool({assembly,assets,onPreview,onSaved,notify}:{assembly:Assembly;assets:Asset[];onPreview:(a:Assembly|null)=>void;onSaved:(a:Assembly)=>void;notify:(m:string)=>void}){
- const [editing,setEditing]=useState(false),[pick,setPick]=useState<PartPick|null>(null),[step,setStep]=useState(0.5);
- const timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
- const parts=assembly.components.flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
- const comp=pick?assembly.components.find(c=>c.assetId===pick.assetId):undefined;
- const spots=comp?(comp.positions?.length?comp.positions:[[0,0,0]]):[];
- const current=pick?spots[pick.instance]:undefined;
- // Show the move instantly; save once you pause.
- const move=(p:PartPick,position:number[])=>{
-  const next={...assembly,components:assembly.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);list[p.instance]=position.map(n=>Math.round(n*100)/100);return {...c,positions:list};})};
-  onPreview(next);
-  clearTimeout(timer.current);
-  timer.current=setTimeout(async()=>{
+// Saves a moved copy: shown at once, saved once you pause.
+function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:Assembly)=>void,notify:(m:string)=>void){
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ let latest=assembly;
+ return (p:PartPick,position:number[])=>{
+  latest={...latest,components:latest.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);list[p.instance]=position.map(n=>Math.round(n*100)/100);return {...c,positions:list};})};
+  const next=latest;onPreview(next);clearTimeout(timer);
+  timer=setTimeout(async()=>{
    const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
    const body=await r.json().catch(()=>({}));
    if(!r.ok){notify(body.error||'Could not save position');return;}
    onSaved(body);onPreview(null);
   },700);
  };
- const nudge=(axis:number,dir:number)=>{if(!pick||!current)return;move(pick,current.map((n,i)=>i===axis?n+dir*step:n));};
- const name=pick?assets.find(a=>a.id===pick.assetId)?.name:'';
+}
+
+// The preview: click a part to select it (its options open in the parts panel) and drag its arrows.
+function PositionTool({assembly,assets,pick,onPick,move}:{assembly:Assembly;assets:Asset[];pick:PartPick|null;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void}){
+ const parts=assembly.components.flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
  return <div className="position-tool">
-  <AssemblyPreview parts={parts} editing={editing?{selected:pick,onSelect:setPick,onMove:move}:undefined}/>
-  <div className="position-bar">
-   <button className={editing?'primary':'secondary'} onClick={()=>{setEditing(!editing);setPick(null);}}>{editing?'Done positioning':'Position parts'}</button>
-   {editing&&!pick&&<span className="plate-meta">Click a part in the preview to select it.</span>}
-  </div>
-  {editing&&pick&&current&&<div className="nudge-panel" aria-label={`Position of ${name}`}>
-   <strong>{name}{spots.length>1?` · copy ${pick.instance+1} of ${spots.length}`:''}</strong>
-   <p className="plate-meta">Drag the arrows in the preview, or nudge below. Offsets are mm from where the STL sits.</p>
-   {['X','Y','Z'].map((axis,i)=><div className="nudge-row" key={axis}>
-    <span>{axis}</span>
-    <button className="secondary" aria-label={`Move ${axis} down ${step} mm`} onClick={()=>nudge(i,-1)}>−</button>
-    <output>{current[i].toFixed(2)}</output>
-    <button className="secondary" aria-label={`Move ${axis} up ${step} mm`} onClick={()=>nudge(i,1)}>+</button>
-   </div>)}
-   <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label>
-  </div>}
+  <AssemblyPreview parts={parts} editing={{selected:pick,onSelect:onPick,onMove:move}}/>
  </div>;
 }
 

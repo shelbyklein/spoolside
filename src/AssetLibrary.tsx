@@ -1,6 +1,7 @@
 import { PrintLibrary } from "./PrintControls";
 import { Assemblies } from "./Assemblies";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
@@ -52,6 +53,8 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     [search, setSearch] = useState(""),
     [uploading, setUploading] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
+  const [headingSlot, setHeadingSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setHeadingSlot(document.getElementById("page-heading-slot")), []);
   const setSection = (value:string) => {setSectionState(value);const path=value === "Sliced prints" ? "/library/sliced" : value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
   // An open model has its own address: /library/<asset id>.
   const setOpenId = (id: string | null) => {
@@ -101,11 +104,13 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     if (!r.ok) return notify(body.error || "Couldn't save");
     setAssets((list) => list?.map((x) => (x.id === a.id ? body : x)) || null);
   };
+  const sectionTabs = <div className="segmented library-sections" role="tablist" aria-label="Library section">
+    {["Assets","Assemblies","Sliced prints"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
+  </div>;
   return (
     <section className="asset-library">
-      <div className="segmented library-sections" role="tablist" aria-label="Library section">
-        {["Assets","Assemblies","Sliced prints"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
-      </div>
+      {/* The section tabs sit on the right of the page title, in the header's slot. */}
+      {headingSlot ? createPortal(sectionTabs, headingSlot) : sectionTabs}
       {section === "Sliced prints" && <PrintLibrary title="Sliced prints" notify={notify}/>}
       {section === "Assemblies" && colored && <Assemblies assets={colored} onOpen={setOpenId} notify={notify}/>}
       {section === "Assets" && <>
