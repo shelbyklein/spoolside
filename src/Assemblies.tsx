@@ -49,7 +49,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
    <h4>Components</h4>
    {draft.components.map(c=><div className="assembly-component" key={c.assetId}><span>{assets.find(a=>a.id===c.assetId)?.name || 'Missing asset'}</span><label>Quantity<input type="number" required min={1} max={100} value={c.quantity} onChange={e=>setDraft({...draft,components:draft.components.map(x=>x.assetId===c.assetId?{...x,quantity:Number(e.target.value)}:x)})}/></label><button type="button" className="text-button" onClick={()=>setDraft({...draft,components:draft.components.filter(x=>x.assetId!==c.assetId)})}>Remove</button></div>)}
    <label>Find components<input value={assetSearch} onChange={e=>setAssetSearch(e.target.value)} placeholder="Search STL name"/></label>
-   <div className="assembly-options">{assets.filter(a=>a.status!=='Retired'&&!draft.components.some(c=>c.assetId===a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(assetSearch.toLowerCase())).map(a=><button type="button" className="asset-pill" key={a.id} onClick={()=>setDraft({...draft,components:[...draft.components,{assetId:a.id,quantity:1}]})}><span>{a.name}</span><small>{a.type}</small></button>)}</div>
+   <div className="assembly-options">{assets.filter(a=>!draft.components.some(c=>c.assetId===a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(assetSearch.toLowerCase())).map(a=><button type="button" className="asset-pill" key={a.id} onClick={()=>setDraft({...draft,components:[...draft.components,{assetId:a.id,quantity:1}]})}><span>{a.name}</span><small>{a.type}</small></button>)}</div>
    <button className="primary" type="submit" disabled={busy || !draft.components.length}>{busy?'Saving…':'Save assembly'}</button> <button className="text-button" type="button" disabled={busy} onClick={()=>setDraft(null)}>Cancel</button>
   </form>}
  </section>;
@@ -73,7 +73,7 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
  const add=(id:string)=>{setQuery('');save({...assembly,components:[...assembly.components,{assetId:id,quantity:1}],removed:removed.filter(x=>x.assetId!==id)},`Added ${name(id)}.`);};
  const setQty=(c:{assetId:string},q:number)=>q>=1&&q<=100&&save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,quantity:q}:x)},'Quantity updated.');
  const used=new Set(assembly.components.map(c=>c.assetId));
- const matches=query.trim()?assets.filter(a=>a.status!=='Retired'&&!used.has(a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];
+ const matches=query.trim()?assets.filter(a=>!used.has(a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];
  const pill=(id:string)=>`asset-pill ${assets.find(a=>a.id===id)?.status.toLowerCase().replace(/\s+/g,'-')||''}`;
  const picked=pick&&assembly.components.find(c=>c.assetId===pick.assetId);
  if(pick&&picked)return <PartOptions part={picked} shown={shown.components.find(c=>c.assetId===pick.assetId)||picked} asset={assets.find(a=>a.id===pick.assetId)} pick={pick} busy={busy} onPick={onPick} move={move} onOpen={onOpen}

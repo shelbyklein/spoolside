@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('pill opens part options; copies add and move',async({page})=>{
  await page.setViewportSize({width:1440,height:1000});
- const a1={id:'22222222-2222-4222-8222-222222222222',name:'AB Buttons',type:'Buttons',status:'Current',fit:{style:'',phone:'',size:'',piece:''},designFile:null,source:'b.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''};
+ const a1={id:'22222222-2222-4222-8222-222222222222',name:'AB Buttons',type:'Buttons',status:'Up to date',fit:{style:'',phone:'',size:'',piece:''},designFile:null,source:'b.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''};
  const a2={...a1,id:'44444444-4444-4444-8444-444444444444',name:'d-pad',source:'d.stl'};
  let asm:any={id:'33333333-3333-4333-8333-333333333333',name:'Handheld',type:'Faceplate',sku:'',components:[{assetId:a1.id,quantity:2,positions:[[0,0,0],[12,0,0]]},{assetId:a2.id,quantity:1}]};
  const puts:any[]=[];

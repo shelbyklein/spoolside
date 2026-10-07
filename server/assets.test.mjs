@@ -24,14 +24,15 @@ test("re-importing a source keeps the reviewed status and note", () => {
   const assets = new Assets(":memory:", dir);
   try {
     const a = assets.add({ name: "DS – Top", type: "Faceplate", status: "Current", source: "Faceplates/DS/DS - Top.stl", fit: { style: "DS" } }, stl());
-    assets.update(a.id, { status: "Retired", note: "Old" });
+    assets.update(a.id, { status: "Stale", note: "Old" });
     const again = assets.add({ name: "DS – Top", type: "Faceplate", status: "Current", source: "Faceplates/DS/DS - Top.stl", fit: { style: "DS" } }, stl());
     assert.equal(again.id, a.id);
-    assert.equal(again.status, "Retired");
+    assert.equal(again.status, "Stale");
     assert.equal(again.note, "Old");
     assets.update(a.id, { name: "DS Top (renamed)" });
     assert.equal(assets.add({ name: "DS – Top", type: "Faceplate", source: "Faceplates/DS/DS - Top.stl", fit: { style: "DS" } }, stl()).name, "DS Top (renamed)");
-    assert.throws(() => assets.update(a.id, { status: "Maybe" }), /status/);
+    assert.equal(assets.update(a.id, { status: "Current" }).status, "Up to date");
+    assert.equal(assets.update(a.id, { status: "Needs check" }).status, "Stale");
     assert.equal(assets.list().length, 1);
     assets.remove(a.id);
     assert.deepEqual(fs.readdirSync(dir), []);
@@ -43,20 +44,20 @@ test("re-importing a source keeps the reviewed status and note", () => {
 
 test("import rules follow the confirmed Gen 3 decisions", () => {
   assert.equal(classify("Cases/15/Handheld - Bottom - Chamfer.stl"), null);
-  assert.equal(classify("Cases/16/iPhone 16 Pro Case.stl").status, "Retired");
+  assert.equal(classify("Cases/16/iPhone 16 Pro Case.stl"), null);
   assert.equal(classify("Cases/16/iPhone 16 Pro Phone Case.stl").fit.phone, "iPhone 16 Pro");
-  assert.equal(classify("Faceplates/SNES/SNES - Top.stl").status, "Retired");
+  assert.equal(classify("Faceplates/SNES/SNES - Top.stl"), null);
   assert.deepEqual(classify("Faceplates/SNES/Ridges/SNES - Top.stl").fit, { style: "Classic", size: "Standard", piece: "Top" });
   assert.equal(classify("Faceplates/DS/Plus/DS Plus - Bottom.stl").fit.size, "Plus");
-  assert.equal(classify("Faceplates/MAME/MAME - Top.stl").status, "Experimental");
-  assert.equal(classify("Parts/2026/Faceplate Trigger Touch Points 5.6.stl").status, "Retired");
-  assert.equal(classify("Parts/2026/start select membrane v2.stl").status, "Retired");
+  assert.equal(classify("Faceplates/MAME/MAME - Top.stl").status, "Stale");
+  assert.equal(classify("Parts/2026/Faceplate Trigger Touch Points 5.6.stl"), null);
+  assert.equal(classify("Parts/2026/start select membrane v2.stl"), null);
   assert.equal(classify("Parts/2026/abxy outie.stl").fit.style, "Classic");
   assert.equal(classify("Parts/2026/Orca/Insert.3mf"), null);
   assert.equal(classify("Parts/2026/dpad.stl"), null);
   assert.equal(classify("Parts/2026/dpad membrane soft.stl").name, "D-pad Membrane (Soft)");
-  assert.deepEqual([classify("Parts/2026/Triggers 2026.stl").name, classify("Parts/2026/Triggers 2026.stl").status], ["Paddle", "Current"]);
-  assert.deepEqual([classify("Parts/2026/DS Trigger.stl").name, classify("Parts/2026/DS Trigger.stl").status], ["DS Faceplate Bridge", "Current"]);
+  assert.deepEqual([classify("Parts/2026/Triggers 2026.stl").name, classify("Parts/2026/Triggers 2026.stl").status], ["Paddle", "Up to date"]);
+  assert.deepEqual([classify("Parts/2026/DS Trigger.stl").name, classify("Parts/2026/DS Trigger.stl").status], ["DS Faceplate Bridge", "Up to date"]);
 });
 
 test('sleeves and assemblies preserve asset references; design is required for completeness',()=>{
@@ -77,13 +78,13 @@ test('design auto linking only accepts unique exact source names; sleeve imports
  const asset={source:'Cases/16/iPhone 16 Pro Phone Case.stl',type:'Case'};const design={id:'a',name:'Iphone 16 Pro Case.c4d',source:'Cases/16/Iphone 16 Pro Case.c4d'};
  assert.equal(exactDesign(asset,[design]).id,'a');assert.equal(exactDesign(asset,[design,{...design,id:'b',source:'Cases/Iphone 16 Pro Case.c4d'}]),null);
  assert.equal(exactDesign({type:'Part',source:'Parts/2026/Triggers 2026.stl'},[{name:'Parts 2026.c4d',source:'Parts/Parts 2026.c4d'}]),null);
- assert.equal(classify('Faceplate Sleeves/ds plus sleeve.stl').fit.size,'Plus');assert.equal(classify('Faceplate Sleeves/red.stl').status,'Needs check');
+ assert.equal(classify('Faceplate Sleeves/ds plus sleeve.stl').fit.size,'Plus');assert.equal(classify('Faceplate Sleeves/red.stl').status,'Stale');
 });
 
 test('phone base design-only assets preserve IDs and do not expose an STL',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-phone-base-'));const assets=new Assets(':memory:',dir);
  try {const design=assets.addDesign({source:'Phone Bases/16.c4d',name:'16.c4d'},Buffer.from('project'));const meta={name:'iPhone 16',source:'Phone Bases/16.c4d',status:'Needs check'};
- const a=assets.addPhoneBase(meta,design.id);assert.equal(a.type,'Phone Base');assert.equal(a.hasStl,false);assert.equal(a.complete,true);assets.update(a.id,{status:'Current'});const next=assets.addPhoneBase(meta,design.id);assert.equal(next.id,a.id);assert.equal(next.status,'Current');assert.equal(assets.list().length,1);
+ const a=assets.addPhoneBase(meta,design.id);assert.equal(a.type,'Phone Base');assert.equal(a.hasStl,false);assert.equal(a.complete,true);assets.update(a.id,{status:'Current'});const next=assets.addPhoneBase(meta,design.id);assert.equal(next.id,a.id);assert.equal(next.status,'Up to date');assert.equal(assets.list().length,1);
  }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('assemblies save quantities across reload; sleeve and missing-design filters stay separate from status',async({page})=>{
- const assets=[{id:'11111111-1111-4111-8111-111111111111',name:'DS Sleeve',type:'Sleeve',status:'Needs check',fit:{style:'DS',size:'Standard',phone:'',piece:'Sleeve'},designFile:null,source:'sleeves/ds.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''},{id:'22222222-2222-4222-8222-222222222222',name:'DS Top',type:'Faceplate',status:'Current',fit:{style:'DS',phone:'',size:'Standard',piece:'Top'},designFile:{id:'design',name:'DS.c4d',source:'DS.c4d'},source:'faceplate/ds.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''}];
+ const assets=[{id:'11111111-1111-4111-8111-111111111111',name:'DS Sleeve',type:'Sleeve',status:'Stale',fit:{style:'DS',size:'Standard',phone:'',piece:'Sleeve'},designFile:null,source:'sleeves/ds.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''},{id:'22222222-2222-4222-8222-222222222222',name:'DS Top',type:'Faceplate',status:'Up to date',fit:{style:'DS',phone:'',size:'Standard',piece:'Top'},designFile:{id:'design',name:'DS.c4d',source:'DS.c4d'},source:'faceplate/ds.stl',generation:3,note:'',dims:[1,2,3],triangles:1,bytes:134,updated:''}];
  let assemblies:any[]=[];
  await page.route('**/api/**',async route=>{
  const pathname=new URL(route.request().url()).pathname;
@@ -10,7 +10,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  if(pathname==='/api/assemblies'){if(route.request().method()==='POST'){assemblies.push({...route.request().postDataJSON(),id:'33333333-3333-4333-8333-333333333333'});return route.fulfill({json:assemblies[0]});}return route.fulfill({json:assemblies});}
  return route.fulfill({json:{}});
  });
- await page.goto('/library');await page.getByRole('tab',{name:'Sleeves',exact:true}).click();await expect(page.getByRole('button',{name:'DS Sleeve, Needs check',exact:true})).toBeVisible();
+ await page.goto('/library');await page.getByRole('tab',{name:'Sleeves',exact:true}).click();await expect(page.getByRole('button',{name:'DS Sleeve, Stale',exact:true})).toBeVisible();
  await page.getByLabel('Filter status').selectOption('Missing design');await expect(page.getByText('Missing design',{exact:false}).last()).toBeVisible();
  await page.getByRole('tab',{name:'Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);
  await page.getByRole('button',{name:'Add assembly'}).click();const form=page.locator('.assembly-editor');await form.getByLabel('Name',{exact:true}).fill('DS package');await form.getByLabel('SKU (optional)',{exact:true}).fill('DS');
@@ -31,7 +31,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
 });
 
 test('sliced prints are a library section with editable per-plate asset coverage',async({page})=>{
- const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Current',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
+ const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Up to date',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
  let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;

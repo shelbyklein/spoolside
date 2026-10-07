@@ -5,7 +5,7 @@ import {Library} from './library.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-const asset=(id,type,fit={})=>({id,name:id,type,fit,generation:3,status:'Current',hasStl:true,hash:'v1'});
+const asset=(id,type,fit={})=>({id,name:id,type,fit,generation:3,status:'Up to date',hasStl:true,hash:'v1'});
 const assets=[asset('case','Case',{phone:'iPhone 13'}),asset('top','Faceplate',{style:'Classic',size:'Standard'}),asset('buttons','Part')];
 const assembly={id:'classic',type:'Faceplate',name:'Classic',partsConfirmed:true,components:[{assetId:'top',quantity:1},{assetId:'buttons',quantity:4}]};
 const order={items:[{name:'PlayCase kit',phone:'iPhone 13',parts:[{name:'Classic Faceplate'}]}]};
@@ -15,7 +15,7 @@ test('readiness requires current slices for every active assembly part; changed 
  assert.equal(orderReadiness(order,assets,[assembly],[]).status,'missing');
  assert.equal(orderReadiness(order,assets.map(a=>a.id==='buttons'?{...a,hash:'v2'}:a),[assembly],files).status,'review');
  assert.equal(orderReadiness(order,assets,[{...assembly,partsConfirmed:false}],files).status,'review');
- assert.equal(orderReadiness(order,assets.map(a=>a.id==='case'?{...a,status:'Needs update'}:a),[assembly],files).status,'review');
+ assert.equal(orderReadiness(order,assets.map(a=>a.id==='case'?{...a,status:'Stale'}:a),[assembly],files).status,'review');
 });
 test('unknown, ambiguous, and additional order lines cannot report ready',()=>{
  assert.equal(orderReadiness({...order,items:[...order.items,{name:'Unknown'}]},assets,[assembly],files).status,'review');

@@ -3,13 +3,13 @@ export function orderReadiness(order, assets, assemblies, files) {
   const review = [], missing = [], required = new Map();
   const requireAsset = a => {
     required.set(a.id, a);
-    if (a.generation !== 3 || a.status !== 'Current' || !a.hasStl) review.push(`${a.name}: needs current v3 STL`);
+    if (a.generation !== 3 || a.status !== 'Up to date' || !a.hasStl) review.push(`${a.name}: needs an up-to-date v3 STL`);
   };
   if (order.sourceReview) review.push('Store items changed: review requirements');
   if (!order.items?.length) review.push('No order items');
   for (const item of order.items || []) {
     if (!item.phone) { review.push(`${item.name}: phone model or requirements unknown`); continue; }
-    const cases = assets.filter(a => a.type === 'Case' && a.generation === 3 && a.status !== 'Retired' && norm(a.fit.phone) === norm(item.phone));
+    const cases = assets.filter(a => a.type === 'Case' && a.generation === 3 && norm(a.fit.phone) === norm(item.phone));
     if (cases.length !== 1) review.push(`${item.phone}: case missing or ambiguous`);
     else requireAsset(cases[0]);
     const size = /plus|pro max/i.test(item.phone) ? 'Plus' : 'Standard';

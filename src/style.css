@@ -2306,3 +2306,5 @@ footer .tiny-dot {
 .app-crash h1 { margin: 0; font-size: 24px; }
 .app-crash p { margin: 0; color: var(--muted); }
 .app-crash .primary { justify-self: center; min-height: 44px; padding: 0 22px; }
+/* Two statuses: up to date (green) and stale (amber). */
+.asset-status.stale, .asset-pill.stale { background: #fdf1e3; color: #8a4d08; }

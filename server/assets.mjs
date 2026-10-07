@@ -4,7 +4,9 @@ import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone Base"];
-export const STATUSES = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
+export const STATUSES = ["Up to date", "Stale"];
+// Two statuses only. Older names map in: Current is up to date, everything else is stale.
+export const normalizeStatus = (s) => (s === "Up to date" || s === "Current" ? "Up to date" : "Stale");
 const text = (v, max) => String(v ?? "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
 
 // Binary or ASCII STL check plus bounding box, so bad uploads are rejected early.
@@ -40,7 +42,7 @@ function clean(input, prior = {}) {
     name: text(input.name ?? prior.name, 100),
     type: input.type ?? prior.type,
     generation: Number(input.generation ?? prior.generation ?? 3),
-    status: input.status ?? prior.status ?? "Needs check",
+    status: normalizeStatus(input.status ?? prior.status),
     note: text(input.note ?? prior.note, 500),
     fit: {
       phone: text(fit.phone, 60),
@@ -80,6 +82,10 @@ export class Assets {
     this.db.exec("CREATE TABLE IF NOT EXISTS assemblies (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL)");
+    for (const r of this.db.prepare("SELECT id, body FROM assets").all()) {
+      const body = JSON.parse(r.body);
+      if (!STATUSES.includes(body.status)) this.db.prepare("UPDATE assets SET body=? WHERE id=?").run(JSON.stringify({ ...body, status: normalizeStatus(body.status) }), r.id);
+    }
     this.seedCategories();
   }
   // First run only: create starter categories and sort existing items into them by name/type.

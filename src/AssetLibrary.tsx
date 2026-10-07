@@ -26,8 +26,8 @@ export type Asset = {
   complete?: boolean;
   hasStl?: boolean;
 };
-type Status = "Current" | "Needs update" | "Needs check" | "Experimental" | "Retired";
-const STATUSES: Status[] = ["Current", "Needs update", "Needs check", "Experimental", "Retired"];
+type Status = "Up to date" | "Stale";
+const STATUSES: Status[] = ["Up to date", "Stale"];
 const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone Base"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 
@@ -49,7 +49,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     [section, setSectionState] = useState(sectionFromPath),
     [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
-    [status, setStatus] = useState("Active"),
+    [status, setStatus] = useState("All"),
     [search, setSearch] = useState(""),
     [uploading, setUploading] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
@@ -79,13 +79,12 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     load();
     fetch("/api/designfiles").then(r=>{if(!r.ok)throw Error();return r.json();}).then(setDesigns).catch(()=>notify("Could not load design files"));
   }, []);
-  const needs = assets?.filter((a) => a.status === "Needs check").length || 0;
   const visible = useMemo(
     () =>
       (assets || []).filter(
         (a) =>
           (type === "All" || a.type === type) &&
-          (status === "All" || (status === "Missing design" ? !a.designFile && a.status !== "Retired" : status === "Active" ? a.status !== "Retired" : a.status === status)) &&
+          (status === "All" || (status === "Missing design" ? !a.designFile : a.status === status)) &&
           `${a.name} ${a.note} ${a.fit.phone} ${a.fit.style}`.toLowerCase().includes(search.toLowerCase()),
       ),
     [assets, type, status, search],
@@ -95,7 +94,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     for (const a of visible) map.set(`${a.type}|${groupOf(a)}`, [...(map.get(`${a.type}|${groupOf(a)}`) || []), a]);
     return [...map]
       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-      .map(([key, list]): [string, Asset[]] => [key, list.sort((a, b) => Number(b.status === "Current") - Number(a.status === "Current"))]);
+      .map(([key, list]): [string, Asset[]] => [key, list.sort((a, b) => Number(b.status === "Up to date") - Number(a.status === "Up to date"))]);
   }, [visible]);
   const open = assets?.find((a) => a.id === openId) || null;
   const save = async (a: Asset, patch: Partial<Asset>) => {
@@ -127,10 +126,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           <input aria-label="Search assets" placeholder="Search phone, style or part" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
         <select aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="Active">Not retired</option>
-          <option>Missing design</option>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
           <option value="All">All statuses</option>
+          {STATUSES.map((s) => <option key={s}>{s}</option>)}
+          <option>Missing design</option>
         </select>
         <div className="segmented view-toggle" role="radiogroup" aria-label="View">
           {(["cards", "list"] as const).map((v) => (
@@ -144,11 +142,6 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       </div>
       {managing && <CategoryManager categories={categories} assets={assets || []} onChange={() => { loadCategories(); load(); }} onClose={() => setManaging(false)} notify={notify} />}
       {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
-      {needs > 0 && status !== "Needs check" && (
-        <button className="needs-check-banner" onClick={() => { setStatus("Needs check"); setType("All"); }}>
-          {needs} {needs === 1 ? "asset needs" : "assets need"} a check
-        </button>
-      )}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}
       {view === "cards" ? (
         <div className="group-cards">
@@ -272,7 +265,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
     [style, setStyle] = useState("Handheld"),
     [size, setSize] = useState("Standard"),
     [piece, setPiece] = useState("Top"),
-    [status, setStatus] = useState<Status>("Current"),
+    [status, setStatus] = useState<Status>("Up to date"),
     [category, setCategory] = useState(""),
     [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {

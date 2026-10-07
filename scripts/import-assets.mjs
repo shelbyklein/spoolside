@@ -18,8 +18,14 @@ const walk = (dir) =>
 const STYLES = { Handheld: "Handheld", DS: "DS", SNES: "Classic", "3DS": "3DS", N64: "N64", MAME: "MAME", Keyboard: "Keyboard" };
 const SOLD = ["Handheld", "DS", "Classic"];
 
-// Returns asset metadata for one file, or null to skip it.
+// Returns asset metadata for one file, or null to skip it. Retired files are skipped;
+// statuses collapse to Up to date (was Current) or Stale.
 export function classify(rel) {
+  const asset = classifyDetail(rel);
+  if (!asset || asset.status === "Retired") return null;
+  return { ...asset, status: asset.status === "Current" ? "Up to date" : "Stale" };
+}
+function classifyDetail(rel) {
   const parts = rel.split("/");
   const file = parts.at(-1).replace(/\.stl$/i, "");
   const [top] = parts;

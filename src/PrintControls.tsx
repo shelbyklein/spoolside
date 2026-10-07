@@ -221,7 +221,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
     {editing && <>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
       <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search v3 parts" value={query} onChange={e => setQuery(e.target.value)} />
-      <div className="plate-options">{assets.filter(a => a.hasStl && a.generation === 3 && a.status !== "Retired" && !ids.includes(a.id) && a.name.toLowerCase().includes(query.toLowerCase())).slice(0,12).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
+      <div className="plate-options">{assets.filter(a => a.hasStl && a.generation === 3 && !ids.includes(a.id) && a.name.toLowerCase().includes(query.toLowerCase())).slice(0,12).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
       <p className="plate-meta">Choose every part this plate prints. Saving confirms it was sliced from the current STL versions.</p>
       <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
     </>}
