@@ -2218,3 +2218,20 @@ footer .tiny-dot {
  .material-offer .offer-delivery{grid-column:2;grid-row:3;}
  .material-offer .offer-buy{grid-column:3;grid-row:3;}
 }
+/* Desktop sidebar over animated pool water; navy text reads on the turquoise. */
+@media (min-width: 761px) {
+  .sidebar { background: radial-gradient(ellipse at 30% 20%, #76eff3, transparent 65%), linear-gradient(150deg, #1bdce5, #00a8ca); color: #06374b; overflow: hidden; }
+  .sidebar > :not(.sidebar-water) { position: relative; z-index: 1; }
+  .sidebar-water { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .sidebar .brand { color: #06374b; }
+  .sidebar .brand-dot { color: #e83738; }
+  .sidebar .nav-item, .sidebar-bottom button, .sidebar .version, .sidebar .brand { text-shadow: 0 0 6px rgba(225, 255, 255, 0.95), 0 0 2px rgba(225, 255, 255, 0.9); }
+  .sidebar .nav-item { color: #06374b; font-weight: 600; }
+  .sidebar .nav-item svg { filter: drop-shadow(0 0 3px rgba(225, 255, 255, 0.95)); }
+  .sidebar .nav-item:hover { background: rgba(255, 255, 255, 0.32); color: #06374b; }
+  .sidebar .nav-item.selected { background: rgba(255, 255, 255, 0.62); color: #06374b; box-shadow: 0 4px 16px rgba(0, 87, 106, 0.12); backdrop-filter: blur(8px); }
+  .sidebar .nav-item small { background: rgba(6, 55, 75, 0.12); color: #06374b; }
+  .sidebar-bottom > img { filter: drop-shadow(0 16px 18px rgba(0, 70, 90, 0.28)); }
+  .sidebar-bottom button { color: #06374b; font-weight: 600; border-top-color: rgba(6, 55, 75, 0.16); }
+  .sidebar .version { color: #06374b; }
+}

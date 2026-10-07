@@ -1,6 +1,7 @@
 import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
+import { WaterBackground } from "./WaterBackground";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -140,6 +141,14 @@ function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const opener = useRef<HTMLElement | null>(null);
+  // The water only runs where the full sidebar shows; phones get the plain tab bar.
+  const [wideScreen, setWideScreen] = useState(() => matchMedia("(min-width: 761px)").matches);
+  useEffect(() => {
+    const mq = matchMedia("(min-width: 761px)");
+    const on = () => setWideScreen(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   // Each tab has its own address (/orders, /library, …) so pages can be bookmarked and the back button works.
   const setTab = (name: string) => {
     const path = "/" + name.toLowerCase();
@@ -502,6 +511,7 @@ function App() {
   return (
     <div className="app">
       <aside className="sidebar">
+        {wideScreen && <WaterBackground />}
         <a className="brand" href="/" aria-label="Spoolside home">
           <img src="/icon-192.png" alt="" />
           <span>
