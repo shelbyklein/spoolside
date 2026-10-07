@@ -10,8 +10,8 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  if(pathname==='/api/assemblies'){if(route.request().method()==='POST'){assemblies.push({...route.request().postDataJSON(),id:'33333333-3333-4333-8333-333333333333'});return route.fulfill({json:assemblies[0]});}return route.fulfill({json:assemblies});}
  return route.fulfill({json:{}});
  });
- await page.goto('/library');await page.getByRole('tab',{name:'Sleeves',exact:true}).click();await expect(page.getByRole('button',{name:'DS Sleeve, Stale',exact:true})).toBeVisible();
- await page.getByLabel('Filter status').selectOption('Missing design');await expect(page.getByText('Missing design',{exact:false}).last()).toBeVisible();
+ await page.goto('/library');await page.getByRole('tab',{name:'Sleeves',exact:true}).click();await expect(page.getByRole('button',{name:/^DS Sleeve, Stale/})).toBeVisible();
+ await page.getByLabel('Filter status').selectOption('Missing design');await expect(page.getByRole('img',{name:'Missing design file'}).first()).toBeVisible();
  await page.getByRole('tab',{name:'Assemblies',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies$/);
  await page.getByRole('button',{name:'Add assembly'}).click();const form=page.locator('.assembly-editor');await form.getByLabel('Name',{exact:true}).fill('DS package');await form.getByLabel('SKU (optional)',{exact:true}).fill('DS');
  await form.getByRole('button',{name:'DS Top Faceplate'}).click();await form.getByLabel('Quantity',{exact:true}).fill('2');await form.getByRole('button',{name:'Save assembly'}).click();

@@ -221,3 +221,23 @@ test("assemblies keep the arranged order, with new ones after by name", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("part thumbnails are tied to the STL and cleared when it changes or is deleted", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-pthumb-"));
+  const assets = new Assets(":memory:", dir);
+  try {
+    const a = assets.add({ name: "Pin", type: "Part", source: "pin.stl" }, stl());
+    const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(16)]);
+    assert.equal(a.thumb, false);
+    assert.throws(() => assets.setAssetThumb(a.id, Buffer.from("nope")), /PNG/);
+    assert.equal(assets.setAssetThumb(a.id, png).thumb, true);
+    const changed = stl(); changed.writeFloatLE(42, 84 + 12 + 12);
+    assert.equal(assets.add({ name: "Pin", type: "Part", source: "pin.stl" }, changed).thumb, false);
+    assets.setAssetThumb(a.id, png);
+    assets.remove(a.id);
+    assert.equal(fs.readdirSync(dir).some((f) => f.startsWith("thumb-")), false);
+  } finally {
+    assets.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

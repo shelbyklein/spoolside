@@ -23,10 +23,10 @@ let renderer: import("three").WebGLRenderer | null = null;
 let chain: Promise<unknown> = Promise.resolve();
 const pending = new Map<string, Promise<boolean>>();
 
-async function render(assemblyId: string, key: string, parts: SnapshotPart[]) {
+async function render(upload: (png: Blob) => Promise<Response>, parts: SnapshotPart[], size = 600) {
   const THREE = await import("three");
   const { STLLoader } = await import("three/examples/jsm/loaders/STLLoader.js");
-  const width = 600, height = 600;
+  const width = size, height = size;
   renderer ??= new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(width, height);
   const scene = new THREE.Scene();
@@ -62,14 +62,24 @@ async function render(assemblyId: string, key: string, parts: SnapshotPart[]) {
   const blob = await new Promise<Blob | null>((done) => renderer!.domElement.toBlob(done, "image/png"));
   disposable.forEach((d) => d.dispose());
   if (!blob) return false;
-  const res = await fetch(`/api/assemblies/${assemblyId}/thumb`, { method: "PUT", headers: { "Content-Type": "image/png", "X-Thumb-Key": key }, body: blob });
-  return res.ok;
+  return (await upload(blob)).ok;
 }
 
 export function requestSnapshot(assemblyId: string, key: string, parts: SnapshotPart[]) {
   const id = `${assemblyId}:${key}`;
   if (!pending.has(id)) {
-    const job = chain.then(() => render(assemblyId, key, parts)).catch(() => false);
+    const job = chain.then(() => render((png) => fetch(`/api/assemblies/${assemblyId}/thumb`, { method: "PUT", headers: { "Content-Type": "image/png", "X-Thumb-Key": key }, body: png }), parts)).catch(() => false);
+    chain = job;
+    pending.set(id, job);
+  }
+  return pending.get(id)!;
+}
+
+// One part on its own, small, for Library pills.
+export function requestPartThumb(asset: Asset) {
+  const id = `part:${asset.id}:${asset.hash}`;
+  if (!pending.has(id)) {
+    const job = chain.then(() => render((png) => fetch(`/api/assets/${asset.id}/thumb`, { method: "PUT", headers: { "Content-Type": "image/png" }, body: png }), [{ asset }], 240)).catch(() => false);
     chain = job;
     pending.set(id, job);
   }

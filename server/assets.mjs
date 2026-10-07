@@ -124,7 +124,23 @@ export class Assets {
   }
   row(r) {
     const design = this.db.prepare("SELECT d.* FROM designfiles d JOIN design_links l ON l.design=d.id WHERE l.asset=?").get(r.id);
-    return { id: r.id, ...JSON.parse(r.body), designFile:design || null, hasStl:r.triangles > 0, complete:!!design, hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated };
+    return { id: r.id, ...JSON.parse(r.body), designFile:design || null, hasStl:r.triangles > 0, complete:!!design, hash: r.hash, triangles: r.triangles, dims: JSON.parse(r.dims), bytes: r.bytes, updated: r.updated, thumb: r.triangles > 0 && fs.existsSync(this.assetThumbFile(r.id, r.hash)) };
+  }
+  // Small part thumbnails, keyed to the STL hash so a replaced model gets a fresh image.
+  assetThumbFile(id, hash) {
+    if (!/^[0-9a-f-]{36}$/.test(id)) throw Object.assign(Error("Unknown asset"), { status: 404 });
+    return path.join(this.dir, `thumb-${id}-${String(hash).slice(0, 12)}.png`);
+  }
+  setAssetThumb(id, png) {
+    const asset = this.get(id);
+    if (!asset?.hasStl) throw Object.assign(Error("Unknown asset"), { status: 404 });
+    if (!Buffer.isBuffer(png) || png.length > 1_000_000 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw Error("Thumbnail must be a PNG under 1 MB");
+    this.removeAssetThumbs(id);
+    fs.writeFileSync(this.assetThumbFile(id, asset.hash), png, { mode: 0o600 });
+    return this.get(id);
+  }
+  removeAssetThumbs(id) {
+    for (const f of fs.readdirSync(this.dir)) if (f.startsWith(`thumb-${id}-`)) fs.rmSync(path.join(this.dir, f), { force: true });
   }
   list() {
     return this.db.prepare("SELECT * FROM assets").all().map((r) => this.row(r))
@@ -251,6 +267,7 @@ export class Assets {
     this.db.prepare("DELETE FROM design_links WHERE asset=?").run(String(id));
     this.db.prepare("DELETE FROM assets WHERE id=?").run(String(id));
     fs.rmSync(this.file(id), { force: true });
+    this.removeAssetThumbs(id);
   }
   close() {
     this.db.close();

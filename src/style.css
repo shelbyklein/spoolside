@@ -2308,3 +2308,18 @@ footer .tiny-dot {
 .app-crash .primary { justify-self: center; min-height: 44px; padding: 0 22px; }
 /* Two statuses: up to date (green) and stale (amber). */
 .asset-status.stale, .asset-pill.stale { background: #fdf1e3; color: #8a4d08; }
+.status-icons { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.status-icon { display: inline-grid; place-items: center; }
+.status-icon.up-to-date { color: #0b6b63; }
+.status-icon.stale { color: #b5650d; }
+.status-icon.missing-design { color: #a3341f; }
+.asset-pill .status-icon.up-to-date, .asset-pill .status-icon.stale { color: inherit; }
+/* Library pills with STL thumbnails. */
+.asset-pill.with-thumb { gap: 10px; min-height: 48px; padding-left: 6px; }
+.part-thumb { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.7); overflow: hidden; display: grid; place-items: center; }
+.part-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.asset-pill.with-thumb > span:not(.part-thumb):not(.status-icons) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-choice { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #fff; color: #9aa6ab; }
+.status-choice.up-to-date.selected { color: #0b6b63; background: #e4f2ef; border-color: #0b6b63; }
+.status-choice.stale.selected { color: #b5650d; background: #fdf1e3; border-color: #b5650d; }
+.status-choice:hover { color: var(--navy); }

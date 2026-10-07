@@ -1,8 +1,9 @@
 import { PrintLibrary } from "./PrintControls";
 import { Assemblies } from "./Assemblies";
+import { requestPartThumb } from "./assemblySnapshot";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus } from "lucide-react";
+import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -20,6 +21,7 @@ export type Asset = {
   bytes: number;
   updated: string;
   hash?: string;
+  thumb?: boolean;
   designFile?: {id:string;name:string;source:string}|null;
   category?: string;
   categoryColor?: string;
@@ -161,7 +163,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                       <strong>{a.name}</strong>
                       <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
                     </span>
-                    <span className={`asset-status ${slug(a.status)}`}>{a.status}{!a.designFile ? " · Missing design" : ""}</span>
+                    <StatusIcons status={a.status} missingDesign={!a.designFile} />
                   </button>
                 </li>
               ))}
@@ -198,7 +200,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             {open.designFile && <a className="secondary download-stl" href={`/api/designfiles/${open.designFile.id}/download`}>Download design</a>}
             <div className="status-picker" role="radiogroup" aria-label="Status">
               {STATUSES.map((s) => (
-                <button key={s} role="radio" aria-checked={open.status === s} className={`asset-status ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s}</button>
+                <button key={s} role="radio" aria-checked={open.status === s} aria-label={s} title={s} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <CircleCheck size={20} /> : <Clock size={20} />}</button>
               ))}
             </div>
             <label className="asset-note">
@@ -244,9 +246,10 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
       <h3>{title}</h3>
       <div className="asset-pills">
         {assets.map((a) => (
-          <button key={a.id} className={`asset-pill ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}`} onClick={() => onOpen(a.id)}>
+          <button key={a.id} className={`asset-pill with-thumb ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}${!a.designFile ? ", missing design" : ""}`} onClick={() => onOpen(a.id)}>
+            <PartThumb asset={a} />
             <span>{cardLabel(a)}</span>
-            <small>{a.status}{!a.designFile ? " · Missing design" : ""}</small>
+            <StatusIcons status={a.status} missingDesign={!a.designFile} />
           </button>
         ))}
       </div>
@@ -352,5 +355,43 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
         </form>
       </section>
     </div>
+  );
+}
+
+// Status and design-file state as small icons, labelled for hover and screen readers.
+function StatusIcons({ status, missingDesign }: { status: string; missingDesign: boolean }) {
+  const up = status === "Up to date";
+  return (
+    <span className="status-icons">
+      <span className={`status-icon ${up ? "up-to-date" : "stale"}`} title={status} role="img" aria-label={status}>
+        {up ? <CircleCheck size={15} /> : <Clock size={15} />}
+      </span>
+      {missingDesign && (
+        <span className="status-icon missing-design" title="Missing design file" role="img" aria-label="Missing design file">
+          <FileX size={15} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// STL thumbnail for a part; drawn once (when first scrolled into view) and stored on the server.
+function PartThumb({ asset }: { asset: Asset }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [ready, setReady] = useState(!!asset.thumb), [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (ready || failed || asset.hasStl === false || !ref.current) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      requestPartThumb(asset).then((ok) => (ok ? setReady(true) : setFailed(true)));
+    }, { rootMargin: "300px" });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [ready, failed, asset.id, asset.hash]);
+  return (
+    <span ref={ref} className="part-thumb" aria-hidden="true">
+      {ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
+    </span>
   );
 }
