@@ -1,5 +1,6 @@
 import mqtt from "mqtt";
 import { Client as FtpClient } from "basic-ftp";
+import tls from "node:tls";
 export function mergeTelemetry(prior, update) {
   return { ...prior, ...update };
 }
@@ -202,6 +203,42 @@ export class Printers {
     } finally {
       this.busy.delete(serial);
     }
+  }
+  // One still from the printer's camera (A1 series: JPEG frames over TLS on port 6000,
+  // pinned like MQTT). Connects only when asked; repeat requests within 3 s share a frame.
+  cameraFrame(serial) {
+    const { config } = this.printer(serial);
+    this.frames ??= new Map();
+    const cached = this.frames.get(serial);
+    if (cached && Date.now() - cached.at < 3000) return cached.frame;
+    const frame = new Promise((resolve, reject) => {
+      const auth = Buffer.alloc(80);
+      auth.writeUInt32LE(0x40, 0);
+      auth.writeUInt32LE(0x3000, 4);
+      auth.write("bblp", 16, "ascii");
+      auth.write(config.accessCode, 48, "ascii");
+      let buf = Buffer.alloc(0);
+      const socket = tls.connect({
+        host: config.ip, port: 6000, ca: config.certificate, allowPartialTrustChain: true, rejectUnauthorized: true,
+        checkServerIdentity: (_host, cert) => (cert.fingerprint256 === config.fingerprint ? undefined : new Error("Printer certificate changed")),
+      }, () => socket.write(auth));
+      const finish = (err, jpg) => { clearTimeout(timer); socket.destroy(); err ? reject(err) : resolve(jpg); };
+      const timer = setTimeout(() => finish(Object.assign(Error("Camera did not send a picture"), { status: 504 })), 10000);
+      socket.on("data", (d) => {
+        buf = Buffer.concat([buf, d]);
+        if (buf.length < 16) return;
+        const size = buf.readUInt32LE(0);
+        if (size > 5_000_000) return finish(Object.assign(Error("Unexpected camera data"), { status: 502 }));
+        if (buf.length >= 16 + size) {
+          const jpg = buf.subarray(16, 16 + size);
+          jpg[0] === 0xff && jpg[1] === 0xd8 ? finish(null, jpg) : finish(Object.assign(Error("Unexpected camera data"), { status: 502 }));
+        }
+      });
+      socket.on("error", () => finish(Object.assign(Error("Camera unavailable"), { status: 502 })));
+    });
+    this.frames.set(serial, { at: Date.now(), frame });
+    frame.catch(() => this.frames.delete(serial));
+    return frame;
   }
   snapshot() {
     return this.configs.map((c) => printerView(c, this.records.get(c.serial)));

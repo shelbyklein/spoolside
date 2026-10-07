@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw } from "lucide-react";
 import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
@@ -86,7 +86,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
     if (plate) setMapping(defaultMapping(plate, machine.trays));
   }, [fileId, plateIndex]);
   if (!files) return null;
-  if (!files.length) return <p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p>;
+  if (!files.length) return <><BedCheck machine={machine} /><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
   const start = async () => {
     if (!file || !plate) return;
     setSending(true);
@@ -137,6 +137,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
           ))}
           {!useAms && <p className="plate-meta">Prints from the external spool{machine.external ? ` (${machine.external.type})` : ""}.</p>}
           <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
+          <BedCheck machine={machine} />
           <label className="check-row"><input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} /> Build plate is clear</label>
           <button className="primary" disabled={!clear || sending || (useAms && plate.filaments.some((f) => (mapping[f.id - 1] ?? -1) < 0))} onClick={start}>
             <Play size={16} /> {sending ? "Sending to printer…" : "Start print"}
@@ -226,4 +227,20 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
       <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
     </>}
   </div>;
+}
+
+// A fresh photo from the printer's camera, to confirm the bed is empty before starting.
+function BedCheck({ machine }: { machine: Machine }) {
+  const [stamp, setStamp] = useState(() => Date.now()), [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const refresh = () => { setState("loading"); setStamp(Date.now()); };
+  return (
+    <figure className="bed-check">
+      <img key={stamp} src={`/api/printers/${machine.id}/camera.jpg?t=${stamp}`} alt={`Camera view of ${machine.name}'s bed`} onLoad={() => setState("ready")} onError={() => setState("error")} hidden={state !== "ready"} />
+      {state !== "ready" && <div className="bed-check-placeholder">{state === "loading" ? "Getting a photo of the bed…" : "Camera unavailable"}</div>}
+      <figcaption>
+        <span>{state === "ready" ? `Bed photo · ${new Date(stamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Bed photo"}</span>
+        <button type="button" className="text-button" onClick={refresh} disabled={state === "loading"}><RefreshCw size={14} /> Refresh</button>
+      </figcaption>
+    </figure>
+  );
 }

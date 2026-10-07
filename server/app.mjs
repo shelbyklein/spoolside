@@ -308,6 +308,15 @@ export function createApp({
   app.delete("/api/library/:id", (req, res) => {
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
+  app.get("/api/printers/:id/camera.jpg", async (req, res) => {
+    try {
+      if (!printers) return res.sendStatus(503);
+      const jpg = await printers.cameraFrame(req.params.id);
+      res.set("Cache-Control", "no-store").type("jpeg").send(jpg);
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.post("/api/printers/:id/print", async (req, res) => {
     try {
       const { fileId, plate, amsMapping, useAms, bedLevelling, bedClear } = req.body || {};

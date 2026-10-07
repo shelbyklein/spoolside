@@ -2343,3 +2343,8 @@ footer .tiny-dot {
 .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
 .status-row .status-picker { margin: 0; }
 .download-design { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; text-decoration: none; color: var(--navy); }
+.bed-check { margin: 6px 0 4px; }
+.bed-check img, .bed-check-placeholder { display: block; width: 100%; aspect-ratio: 14 / 9; object-fit: cover; border-radius: 10px; background: #eef4f3; }
+.bed-check-placeholder { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.bed-check figcaption { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.bed-check figcaption .text-button { display: inline-flex; align-items: center; gap: 4px; }
