@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Dispatcher } from "./dispatch.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 
-function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { outcome: "success" }, vision = true } = {}) {
+function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true } = {}) {
   let t = 1_000_000_000;
   const started = [], pushes = [];
   const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
@@ -76,14 +76,24 @@ test("non-TPU-for-AMS spools, busy printers and assembled orders are never offer
 });
 
 test("automatic printing starts only after the last print was answered and the bed looks empty", async () => {
-  const unanswered = setup({ last: { outcome: null } });
+  const unanswered = setup({ last: { ended: 1, outcome: null } });
   try {
     unanswered.d.setAuto(true);
     await unanswered.d.tick();
     assert.equal(unanswered.started.length, 0);
-    assert.match(unanswered.d.view().offers[0].autoBlocked, /Answer how the last print went/);
+    assert.equal(unanswered.d.view().offers.length, 0, "a finished print still on the bed means the printer isn't free");
+    assert.equal(unanswered.pushes.length, 0);
   } finally {
     unanswered.done();
+  }
+  const neverWatched = setup({ last: null });
+  try {
+    neverWatched.d.setAuto(true);
+    await neverWatched.d.tick();
+    assert.equal(neverWatched.started.length, 0, "no answered print yet: offer only");
+    assert.match(neverWatched.d.view().offers[0].autoBlocked, /Answer how the last print went/);
+  } finally {
+    neverWatched.done();
   }
   const busyBed = setup({ bed: { empty: false, reason: "A red case is on the plate." } });
   try {

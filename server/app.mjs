@@ -338,6 +338,8 @@ export function createApp({
     try {
       if (!watcher) return res.sendStatus(404);
       res.json(watcher.outcome(req.params.id, req.body?.success, req.body?.note));
+      // An answer means the bed was looked at: check right away whether that printer can take the next piece.
+      dispatcher?.tick();
     } catch (e) {
       fail(res, e);
     }

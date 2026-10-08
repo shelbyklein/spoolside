@@ -76,7 +76,10 @@ export class Dispatcher {
       const taken = this.watcher.inFlight();
       for (const tag of this.orderPrints.pending.values()) for (const a of tag.assetIds) taken.add(`${tag.orderId}:${a}`);
       for (const { serial, view } of this.printers.statuses()) {
-        const free = view.connected && IDLE.includes(view.rawState) && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial);
+        // Idle isn't free: a finished print is still on the bed until someone answers how it went.
+        const last = this.watcher.lastFor(serial);
+        const cleared = !last || (last.ended && last.outcome);
+        const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial);
         const offer = free ? this.candidate(view, taken) : null;
         if (!offer) { this.offers.delete(serial); if (!free) this.snoozed.delete(serial); continue; }
         taken.add(`${offer.orderId}:${offer.assetId}`);
@@ -100,8 +103,9 @@ export class Dispatcher {
     const last = this.tried.get(offer.id);
     if (last && this.now() - last.at < RETRY) return false;
     const block = (reason) => { this.tried.set(offer.id, { at: this.now(), reason }); offer.autoBlocked = reason; return false; };
+    // Offers already wait for an answer; automatic starts also need one to exist at all.
     const previous = this.watcher.lastFor(serial);
-    if (!previous || !previous.outcome) return block("Answer how the last print went first");
+    if (!previous?.outcome) return block("Answer how the last print went first");
     if (!this.bedCheck) return block("Camera checks need the vision key");
     let bed;
     try {

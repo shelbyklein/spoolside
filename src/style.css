@@ -2200,3 +2200,9 @@ footer .tiny-dot {
 .auto-print { margin: 18px 0; }
 .auto-print h2 { margin-bottom: 8px; }
 .auto-print .check-row { font-weight: 600; }
+/* Buttons on the water cards: readable light-on-dark. */
+.on-water .watch-card .secondary { border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.12); color: #fff; }
+.on-water .watch-card .secondary:hover { background: rgba(255, 255, 255, 0.2); }
+.on-water .watch-card .secondary.danger { border-color: rgba(255, 150, 130, 0.6); color: #ffd9d1; }
+.on-water .watch-card .text-button { color: rgba(255, 255, 255, 0.85); }
+.on-water .failure-note textarea { border-color: rgba(255, 255, 255, 0.3); }
