@@ -31,23 +31,23 @@ export function OrderPrintButtons({ order, onPrint, onTick }: { order: Order; on
   const plan = order.printPlan || [];
   if (!plan.length || order.commercial.toLowerCase() !== "processing") return null;
   return (
-    <div className="order-print-buttons">
-      {plan.map((g) => {
-        const needed = g.pieces.reduce((n, p) => n + p.needed, 0), done = g.pieces.reduce((n, p) => n + p.done, 0);
-        if (g.done)
-          return (
-            <button key={g.key} className="order-print done" title="Printed. Tap to mark it not printed." onClick={() => g.pieces.forEach((p) => onTick(p.assetId, 0))}>
-              <Check size={14} /> {g.label[0].toUpperCase() + g.label.slice(1)} printed
-            </button>
-          );
-        return (
-          <button key={g.key} className="order-print" disabled={!g.next || !!g.activity} title={g.next ? `${g.next.name} · ${g.next.fileName}` : "No sliced plate linked yet"} onClick={() => onPrint(g)}>
-            <Printer size={14} /> {g.activity ? `${g.label} · ${g.activity}` : groupTitle(g)}
-            {needed > 1 && <small>{done}/{needed}</small>}
-          </button>
-        );
+    <ul className="order-print-checklist" aria-label="Required prints">
+      {plan.map(g => {
+        const needed = g.pieces.reduce((n,p)=>n+p.needed,0), done = g.pieces.reduce((n,p)=>n+p.done,0);
+        const label = g.label[0].toUpperCase()+g.label.slice(1);
+        const tick = (checked: boolean) => {
+          for (const id of new Set(g.pieces.map(p=>p.assetId))) {
+            const current = plan.flatMap(x=>x.pieces).filter(p=>p.assetId===id).reduce((n,p)=>n+p.done,0);
+            const change = g.pieces.filter(p=>p.assetId===id).reduce((n,p)=>n+(checked ? p.needed-p.done : -p.done),0);
+            onTick(id,Math.max(0,current+change));
+          }
+        };
+        return <li key={g.key} className={g.done ? "print-check-row printed" : "print-check-row"}>
+          <label><input type="checkbox" aria-label={`${label} printed`} checked={g.done} disabled={!!g.activity} onChange={e=>tick(e.target.checked)} /><span>{label}</span></label>
+          {g.done ? <small>Printed</small> : g.activity ? <small>{g.activity}</small> : <button className="order-print" disabled={!g.next} title={g.next ? `${g.next.name} · ${g.next.fileName}` : "No sliced plate linked yet"} aria-label={groupTitle(g)} onClick={()=>onPrint(g)}><Printer size={14} /> Print{needed>1 && <small>{done}/{needed}</small>}</button>}
+        </li>;
       })}
-    </div>
+    </ul>
   );
 }
 

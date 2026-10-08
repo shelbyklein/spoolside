@@ -2240,3 +2240,18 @@ footer .tiny-dot {
 .category-manager li small { grid-column: 3; grid-row: 1; }
 .category-manager li > button { grid-column: 4; grid-row: 1; }
 .print-details-editor select { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--navy); }
+.order-print-checklist { display: flex; flex-direction: column; gap: 0; margin: 14px 0 0; padding: 0; list-style: none; }
+.print-check-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 6px 0; }
+.print-check-row label { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+.print-check-row input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal); }
+.print-check-row.printed label span { text-decoration: line-through; color: var(--muted); }
+.print-check-row > small { color: var(--muted); font-size: 12px; text-align: right; }
+.print-check-row .order-print { border-radius: 8px; }
+.order-ship-footer { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 12px; }
+.order-ship-footer .ship-slot { justify-content: flex-start; width: auto; }
+.overview-order-row, .overview-split .overview-order-row { grid-template-columns: 112px minmax(0,1fr) auto; }
+@media(max-width:760px) {
+  .overview-order-row, .overview-split .overview-order-row { grid-template-columns: minmax(0,1fr) auto; }
+  .overview-order-row .order-content-readiness { grid-column: 1 / -1; grid-row: 2; }
+  .overview-order-row .order-ship-footer .ship-slot { width: auto; }
+}

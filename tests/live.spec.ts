@@ -34,7 +34,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   await page.setViewportSize({width:1440,height:926});
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   const overview=page.getByRole('region',{name:'PlayCase orders overview'});
-  await expect(overview.getByRole('article',{name:'Order #1',exact:true})).toContainText('Processing');
+  await expect(overview.getByRole('article',{name:'Order #1',exact:true})).not.toContainText('Processing');
   await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
   await expect(overview.getByRole('button',{name:'Ship #1: print all required items first'})).toBeDisabled();
@@ -43,16 +43,11 @@ test('hosted mobile uses active source orders and server saves without browser s
   const rowLayout=async (first: import('@playwright/test').Locator, wide: boolean)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
-    const status=await first.locator('.production-stage').boundingBox();
     const id=await first.locator('.order-id').boundingBox();
-    if (wide) {
-      expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
-      expect(status!.x).toBeGreaterThanOrEqual(content!.x+content!.width);
-      expect(ship!.x).toBeGreaterThanOrEqual(status!.x+status!.width);
-    } else {
-      expect(Math.abs(ship!.y-id!.y)).toBeLessThan(20);
-      expect(content!.y).toBeGreaterThan(ship!.y);
-    }
+    if (wide) expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
+    else expect(content!.y).toBeGreaterThan(id!.y);
+    expect(ship!.y).toBeGreaterThan(id!.y);
+    await expect(first.locator('.production-stage')).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   };
   const first=overview.getByRole('article',{name:'Order #1',exact:true});

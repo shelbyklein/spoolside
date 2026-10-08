@@ -36,7 +36,9 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await expect(row.getByLabel('Printed & assembled, ready to pack')).toHaveCount(0);
   await expect(row.getByRole('button', { name: /print all required items first/ })).toBeDisabled();
   await expect(row.getByRole('button', { name: /Print DS faceplate/ })).toContainText('0/2');
-  await expect(row.getByRole('button', { name: 'Classic faceplate printed' })).toBeVisible();
+  await expect(row.getByRole('checkbox', { name: 'Classic faceplate printed' })).toBeChecked();
+  await expect(row.locator('.production-stage')).toHaveCount(0);
+  await row.screenshot({path:'handoff/spoolside-order-checklist.png'});
   await page.getByRole('navigation').getByRole('button', { name: /^Queue/ }).click();
   const queue = page.getByRole('region', { name: 'Order print queue' });
   await expect(queue).toContainText('Printing / awaiting result');
@@ -58,11 +60,13 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await expect(dialog).toHaveCount(0);
   expect(posts[0]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: true }]);
   await page.getByRole('navigation').getByRole('button', { name: 'Orders', exact: true }).click();
-  await row.getByRole('button', { name: 'Classic faceplate printed' }).click();
+  await row.getByRole('checkbox', { name: 'Classic faceplate printed' }).click();
   await expect.poll(() => posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);
   plan.forEach(g => { g.done = true; g.next = null; g.pieces.forEach(p => p.done = p.needed); });
   await page.reload();
   await expect(page.getByRole('link', { name: 'Ship #10181 in Pirate Ship' })).toBeVisible();
+  await expect(row.getByRole('checkbox', { name: 'Case printed' })).toBeChecked();
+  await row.screenshot({path:'handoff/spoolside-order-checklist-mobile.png'});
   await page.unrouteAll({ behavior: "wait" });
   await context.close();
 });
