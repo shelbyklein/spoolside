@@ -317,17 +317,42 @@ export function createApp({
       fail(res, e);
     }
   });
+  // Checks a start request against the file's sliced plates.
+  const checkStart = (plates, { plate, amsMapping, useAms, bedClear }) => {
+    if (bedClear !== true) throw Error("Confirm the build plate is clear");
+    const plateInfo = plates.find((p) => p.index === plate);
+    if (!plateInfo) throw Error("Choose a sliced plate");
+    const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
+    if (useAms && (!Array.isArray(amsMapping) || amsMapping.length !== slots || !amsMapping.every((m) => Number.isInteger(m) && m >= -1 && m <= 3)))
+      throw Error("Choose an AMS slot for each filament");
+  };
+  app.get("/api/printers/:id/last-print", async (req, res) => {
+    try {
+      if (!printers) return res.json(null);
+      const last = await printers.lastPrint(req.params.id);
+      res.set("Cache-Control", "no-store").json(last && { name: last.name, plates: last.plates });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/printers/:id/reprint", async (req, res) => {
+    try {
+      const { plate, amsMapping, useAms, bedLevelling } = req.body || {};
+      const last = await printers.lastPrint(req.params.id);
+      if (!last) throw Object.assign(Error("The last print isn't on the printer anymore"), { status: 404 });
+      checkStart(last.plates, req.body || {});
+      await printers.reprint(req.params.id, { plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.post("/api/printers/:id/print", async (req, res) => {
     try {
-      const { fileId, plate, amsMapping, useAms, bedLevelling, bedClear } = req.body || {};
-      if (bedClear !== true) throw Error("Confirm the build plate is clear");
+      const { fileId, plate, amsMapping, useAms, bedLevelling } = req.body || {};
       const file = library?.get(String(fileId));
       if (!file) throw Error("Choose a file from the library");
-      const plateInfo = file.plates.find((p) => p.index === plate);
-      if (!plateInfo) throw Error("Choose a sliced plate");
-      const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
-      if (useAms && (!Array.isArray(amsMapping) || amsMapping.length !== slots || !amsMapping.every((m) => Number.isInteger(m) && m >= -1 && m <= 3)))
-        throw Error("Choose an AMS slot for each filament");
+      checkStart(file.plates, req.body || {});
       await printers.startPrint(req.params.id, {
         localFile: library.file(file.id),
         name: file.name,

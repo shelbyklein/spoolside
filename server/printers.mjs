@@ -1,6 +1,8 @@
 import mqtt from "mqtt";
 import { Client as FtpClient } from "basic-ftp";
 import tls from "node:tls";
+import { Writable } from "node:stream";
+import { inspect3mf } from "./library.mjs";
 export function mergeTelemetry(prior, update) {
   return { ...prior, ...update };
 }
@@ -44,6 +46,16 @@ export function printerView(config, record, now = Date.now()) {
     stale,
     error: record?.error || null,
   };
+}
+// Finds the file a printer's last job came from: Bambu Studio keeps the file name; Spoolside uploads as spoolside_<name>.3mf.
+export function findLastFile(subtask, entries) {
+  const base = String(subtask).replace(/(\.gcode)?\.3mf$/i, "");
+  const names = [subtask, base + ".gcode.3mf", base + ".3mf", "spoolside_" + base.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60) + ".3mf"];
+  for (const n of names) {
+    const hit = entries.find((e) => e.isFile !== false && e.type !== 2 && e.name === n);
+    if (hit) return hit;
+  }
+  return null;
 }
 export class Printers {
   constructor(configs = []) {
@@ -150,7 +162,7 @@ export class Printers {
     if (!allowed.includes(view.rawState)) throw Object.assign(Error(`Can't ${action} while ${view.state.toLowerCase()}`), { status: 409 });
     await this.request(serial, { command: action, param: "" });
   }
-  async upload(config, localFile, remoteName) {
+  async ftp(config) {
     const ftp = new FtpClient(60000);
     try {
       await ftp.access({
@@ -166,7 +178,43 @@ export class Printers {
           checkServerIdentity: (_host, cert) => cert.fingerprint256 === config.fingerprint ? undefined : new Error("Printer certificate changed"),
         },
       });
+    } catch (e) {
+      ftp.close();
+      throw e;
+    }
+    return ftp;
+  }
+  async upload(config, localFile, remoteName) {
+    const ftp = await this.ftp(config);
+    try {
       await ftp.uploadFrom(localFile, "/" + remoteName);
+    } finally {
+      ftp.close();
+    }
+  }
+  // The last job's sliced file, if it's still on the SD card: its name and plates, so it can be printed again.
+  async lastPrint(serial) {
+    const { config, record } = this.printer(serial);
+    const subtask = record.data?.subtask_name;
+    if (!subtask) return null;
+    const ftp = await this.ftp(config);
+    try {
+      const entry = findLastFile(subtask, await ftp.list("/"));
+      if (!entry) return null;
+      const key = `${entry.name}:${entry.size}:${entry.rawModifiedAt}`;
+      this.lastPrints ??= new Map();
+      const cached = this.lastPrints.get(serial);
+      if (cached?.key === key) return cached.value;
+      if (entry.size > 200_000_000) return null;
+      const chunks = [];
+      await ftp.downloadTo(new Writable({ write(chunk, _enc, done) { chunks.push(chunk); done(); } }), "/" + entry.name);
+      const { plates } = inspect3mf(Buffer.concat(chunks));
+      const value = { remoteName: entry.name, subtask, name: entry.name.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " "), plates };
+      this.lastPrints.set(serial, { key, value });
+      return value;
+    } catch (e) {
+      if (/sliced/.test(e.message)) return null;
+      throw e;
     } finally {
       ftp.close();
     }
@@ -180,29 +228,46 @@ export class Printers {
     try {
       const remoteName = "spoolside_" + name.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60) + ".3mf";
       await this.upload(config, localFile, remoteName);
-      await this.request(serial, {
-        command: "project_file",
-        param: `Metadata/plate_${plate}.gcode`,
-        project_id: "0",
-        profile_id: "0",
-        task_id: "0",
-        subtask_id: "0",
-        subtask_name: name,
-        file: remoteName,
-        url: `file:///sdcard/${remoteName}`,
-        md5: "",
-        timelapse: false,
-        bed_type: "auto",
-        bed_levelling: !!bedLevelling,
-        flow_cali: false,
-        vibration_cali: false,
-        layer_inspect: false,
-        use_ams: !!useAms,
-        ams_mapping: useAms ? amsMapping : [],
-      }, 20000);
+      await this.sendProject(serial, { remoteName, name, plate, amsMapping, useAms, bedLevelling });
     } finally {
       this.busy.delete(serial);
     }
+  }
+  // Starts the last job again straight from the SD card, no upload.
+  async reprint(serial, { plate, amsMapping, useAms, bedLevelling }) {
+    const { view } = this.printer(serial);
+    if (!["IDLE", "FINISH", "FAILED"].includes(view.rawState)) throw Object.assign(Error(`Printer is ${view.state.toLowerCase()}`), { status: 409 });
+    if (this.busy.has(serial)) throw Object.assign(Error("A print is already being sent to this printer"), { status: 409 });
+    this.busy.add(serial);
+    try {
+      const last = this.lastPrints?.get(serial)?.value;
+      if (!last) throw Object.assign(Error("The last print isn't on the printer anymore"), { status: 404 });
+      await this.sendProject(serial, { remoteName: last.remoteName, name: last.subtask, plate, amsMapping, useAms, bedLevelling });
+    } finally {
+      this.busy.delete(serial);
+    }
+  }
+  sendProject(serial, { remoteName, name, plate, amsMapping, useAms, bedLevelling }) {
+    return this.request(serial, {
+      command: "project_file",
+      param: `Metadata/plate_${plate}.gcode`,
+      project_id: "0",
+      profile_id: "0",
+      task_id: "0",
+      subtask_id: "0",
+      subtask_name: name,
+      file: remoteName,
+      url: `file:///sdcard/${remoteName}`,
+      md5: "",
+      timelapse: false,
+      bed_type: "auto",
+      bed_levelling: !!bedLevelling,
+      flow_cali: false,
+      vibration_cali: false,
+      layer_inspect: false,
+      use_ams: !!useAms,
+      ams_mapping: useAms ? amsMapping : [],
+    }, 20000);
   }
   // One still from the printer's camera (A1 series: JPEG frames over TLS on port 6000,
   // pinned like MQTT). Connects only when asked; repeat requests within 3 s share a frame.
