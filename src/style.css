@@ -2136,3 +2136,19 @@ footer .tiny-dot {
 .plate-types .filter-chip small { color: var(--muted); font-weight: 500; }
 .plate-types .filter-chip.selected { border-color: var(--teal); background: #e7f3f1; color: var(--teal); }
 .plate-assets-editor .plate-options { display: flex; flex-wrap: wrap; gap: 4px 14px; max-height: 260px; overflow-y: auto; }
+/* Failed prints: a note on what went wrong. */
+.failure-note { display: flex; flex-direction: column; gap: 8px; }
+.failure-note label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.failure-note label small { color: var(--muted); font-weight: 500; }
+.failure-note textarea { width: 100%; padding: 10px 12px; border: 1px solid #d4dfe0; border-radius: 10px; font: inherit; font-size: 15px; resize: vertical; color: var(--navy); background: #fff; }
+.on-water .failure-note label small { color: rgba(255, 255, 255, 0.7); }
+.recent-prints { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; }
+.recent-prints h3 { margin: 0 0 10px; font-size: 15px; }
+.recent-prints ul { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.recent-prints li { display: flex; flex-direction: column; gap: 6px; }
+.recent-print-head { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.recent-print-head small { margin-left: auto; color: var(--muted); font-size: 12px; }
+.recent-prints li.success svg { color: var(--teal); }
+.recent-prints li.failed svg { color: #a3341f; }
+.recent-print-note { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-left: 21px; }
+.recent-print-note p { margin: 0; color: var(--navy); font-size: 13px; white-space: pre-wrap; }

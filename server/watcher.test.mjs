@@ -81,6 +81,10 @@ test("a print is watched, paused after two problem checks, and asks for its outc
     assert.ok(w.check.final);
     assert.match(s.pushes.at(-1).body, /Did it come out right/);
     assert.throws(() => s.watcher.outcome(w.id, "yes"), /Choose/);
+    assert.equal(s.watcher.outcome(w.id, false, "  Corner lifted\non the left  ").note, "Corner lifted on the left");
+    assert.equal(s.watcher.outcome(w.id, false).note, "Corner lifted on the left", "re-answering keeps the note");
+    assert.equal(s.watcher.list().recent[0].note, "Corner lifted on the left");
+    assert.equal(s.watcher.outcome(w.id, true).note, null, "a success has no failure note");
     assert.equal(s.watcher.outcome(w.id, true).outcome, "success");
     assert.equal(s.watcher.list().watches.length, 0, "answered prints leave the list");
     // The next run of the same job is compared with this one.
@@ -91,6 +95,16 @@ test("a print is watched, paused after two problem checks, and asks for its outc
     const labels = s.asked.at(-1).images.map((i) => i.label);
     assert.equal(labels.length, 3);
     assert.match(labels[1], /same job at 50% from a print that came out fine/);
+    // A failed run's note becomes a hint for the next run's checks.
+    s.state.raw = "FAILED";
+    await s.later(60000);
+    const [failed] = s.watcher.list().watches.filter((x) => x.ended && !x.outcome);
+    s.watcher.outcome(failed.id, false, "Spaghetti after the bridge layer");
+    s.state.raw = "RUNNING";
+    s.state.progress = 30;
+    await s.later(0);
+    await s.later(60000);
+    assert.match(s.asked.at(-1).context, /owner noted: "Spaghetti after the bridge layer"/);
   } finally {
     s.done();
   }
@@ -148,6 +162,7 @@ test("frame paths can't escape the watch folder; old unhelpful prints are pruned
     await s.later(15 * 24 * 60 * 60000);
     s.watcher.prune();
     assert.equal(fs.existsSync(path.join(s.dir, w.id)), false);
+    assert.equal(s.watcher.row(w.id), undefined, "no note: forgotten");
   } finally {
     s.done();
   }

@@ -5,7 +5,7 @@ import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
 import { SpoolList } from "./LoadedSpools";
-import { useWatches, WatchAttention, WatchStatus } from "./PrintWatch";
+import { useWatches, WatchAttention, WatchStatus, RecentPrints } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -884,6 +884,7 @@ function App() {
                 </button>
               )}
             {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
+            {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={watch.refresh} notify={setNotice} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
             <p className="detail-note">
               {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}

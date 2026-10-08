@@ -20,6 +20,7 @@ export class PrintWatcher {
     this.db = new DatabaseSync(dbFile);
     this.db.exec(`CREATE TABLE IF NOT EXISTS print_watches (id TEXT PRIMARY KEY, printer TEXT NOT NULL, printer_name TEXT NOT NULL, job TEXT NOT NULL, plate INTEGER NOT NULL, started INTEGER NOT NULL, ended INTEGER, ended_as TEXT, outcome TEXT, mode TEXT NOT NULL, bad INTEGER NOT NULL DEFAULT 0, alert TEXT, last_check TEXT, next_check INTEGER NOT NULL, plan INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS watch_frames (watch TEXT NOT NULL, file TEXT NOT NULL, at INTEGER NOT NULL, progress INTEGER NOT NULL, layer INTEGER, verdict TEXT, reason TEXT, PRIMARY KEY (watch, file));`);
+    if (!this.db.prepare("PRAGMA table_info(print_watches)").all().some((c) => c.name === "note")) this.db.exec("ALTER TABLE print_watches ADD COLUMN note TEXT");
     this.busy = new Set();
   }
   close() {
@@ -110,6 +111,8 @@ export class PrintWatcher {
     if (!this.vision) return this.set(watch.id, { last_check: { at: this.now(), verdict: "saved", file: frame.file }, next_check: next(interval(view.progress)) });
     if (frame.brightness < 18) return this.set(watch.id, { last_check: { at: this.now(), verdict: "dark", reason: "Too dark to see the print", file: frame.file }, next_check: next(interval(view.progress)) });
     const ref = this.reference(watch, view.progress);
+    // What went wrong on earlier failed runs of this job, in your words.
+    const lessons = this.db.prepare("SELECT note FROM print_watches WHERE job=? AND plate=? AND outcome='failed' AND note IS NOT NULL AND id<>? ORDER BY ended DESC LIMIT 2").all(watch.job, watch.plate, watch.id).map((r) => r.note);
     const images = [];
     if (watch.plan) images.push({ label: "The slicer's preview of the finished plate (not a photo).", data: fs.readFileSync(this.frameFile(watch.id, "plan.png")), type: "image/png" });
     if (ref) images.push({ label: `A photo of this same job at ${ref.progress}% from a print that came out fine.`, data: fs.readFileSync(this.frameFile(ref.watch, ref.file)), type: "image/jpeg" });
@@ -119,7 +122,7 @@ export class PrintWatcher {
       result = await this.vision({
         model: watch.bad > 0 ? MODELS.confirm : MODELS.routine,
         images,
-        context: `Job "${watch.job}" on ${watch.printer_name}. Progress ${view.progress}%${view.layer != null ? `, layer ${view.layer} of ${view.totalLayers ?? "?"}` : ""}, ${Math.round((this.now() - watch.started) / MINUTE)} minutes in.`,
+        context: `Job "${watch.job}" on ${watch.printer_name}. Progress ${view.progress}%${view.layer != null ? `, layer ${view.layer} of ${view.totalLayers ?? "?"}` : ""}, ${Math.round((this.now() - watch.started) / MINUTE)} minutes in.${lessons.length ? ` Earlier runs of this job failed; the owner noted: ${lessons.map((n) => `"${n}"`).join("; ")}.` : ""}`,
       });
     } catch (e) {
       return this.set(watch.id, { last_check: { at: this.now(), verdict: "error", reason: "Check failed: " + e.message.slice(0, 120), file: frame.file }, next_check: next(2 * MINUTE) });
@@ -157,11 +160,14 @@ export class PrintWatcher {
     });
   }
   // Your answer teaches the watcher: successful prints become references for the next run of the same job.
-  outcome(id, success) {
+  // A failed print can carry a note on what went wrong; it can be added or edited later.
+  outcome(id, success, note) {
     const watch = this.row(id);
     if (!watch || !watch.ended) throw Object.assign(Error("Unknown print"), { status: 404 });
     if (typeof success !== "boolean") throw Error("Choose success or failure");
-    this.set(id, { outcome: success ? "success" : "failed" });
+    if (note !== undefined && note !== null && typeof note !== "string") throw Error("Notes are text");
+    const text = typeof note === "string" ? note.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 500) : watch.note;
+    this.set(id, { outcome: success ? "success" : "failed", note: success ? null : text || null });
     this.prune();
     return this.view(this.row(id));
   }
@@ -182,19 +188,23 @@ export class PrintWatcher {
       if (keep.has(id)) continue;
       fs.rmSync(this.folder(id), { recursive: true, force: true });
       this.db.prepare("DELETE FROM watch_frames WHERE watch=?").run(id);
-      this.db.prepare("DELETE FROM print_watches WHERE id=?").run(id);
+      // Failure notes outlive their photos: they're the print's history.
+      if (this.row(id).note) this.set(id, { last_check: null, alert: null, plan: 0 });
+      else this.db.prepare("DELETE FROM print_watches WHERE id=?").run(id);
     }
   }
   view(w) {
     return {
       id: w.id, printer: w.printer, printerName: w.printer_name, job: w.job, started: w.started, ended: w.ended, endedAs: w.ended_as,
-      outcome: w.outcome, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
+      outcome: w.outcome, note: w.note || null, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
     };
   }
   // Active prints, plus finished ones waiting for your answer (from the last 3 days).
   list() {
     const rows = this.db.prepare("SELECT id FROM print_watches WHERE ended IS NULL OR (outcome IS NULL AND ended>?) ORDER BY started DESC").all(this.now() - 3 * 24 * 60 * MINUTE);
-    return { vision: !!this.vision, watches: rows.map((r) => this.view(this.row(r.id))) };
+    // The latest answered prints, for each printer's history.
+    const recent = this.db.prepare("SELECT id FROM print_watches WHERE outcome IS NOT NULL ORDER BY ended DESC LIMIT 30").all();
+    return { vision: !!this.vision, watches: rows.map((r) => this.view(this.row(r.id))), recent: recent.map((r) => this.view(this.row(r.id))) };
   }
 }
 

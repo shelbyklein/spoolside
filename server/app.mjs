@@ -334,7 +334,7 @@ export function createApp({
   app.post("/api/watches/:id/outcome", (req, res) => {
     try {
       if (!watcher) return res.sendStatus(404);
-      res.json(watcher.outcome(req.params.id, req.body?.success));
+      res.json(watcher.outcome(req.params.id, req.body?.success, req.body?.note));
     } catch (e) {
       fail(res, e);
     }
