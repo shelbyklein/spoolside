@@ -2352,7 +2352,7 @@ footer .tiny-dot {
 .water-home { position: fixed; inset: 0 0 69px; z-index: 5; overflow: hidden; background: linear-gradient(160deg, #06404d, #022a36); color: #fff; }
 .home-water { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .home-content { position: relative; height: 100%; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 28px) 18px 24px; display: flex; flex-direction: column; gap: 12px; }
-.home-mark { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 310px; margin: -28px -18px 6px; padding: 28px 18px 18px; text-align: center; text-shadow: 0 2px 8px rgba(0, 20, 28, 0.55); }
+.home-mark { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 310px; margin: -28px -18px 6px; padding: 28px 18px 18px; text-align: center; text-shadow: 0 2px 8px rgba(0, 20, 28, 0.55); }
 .home-mark > :not(.pool-cases) { position: relative; z-index: 1; }
 /* Open orders drifting across the pool as little PlayCases. Tap one to open that order. */
 .pool-cases { position: absolute; inset: 0; overflow: hidden; }
@@ -2370,29 +2370,24 @@ footer .tiny-dot {
 .home-mark h1 { margin: 0; color: #fff; font-family: Manrope, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
 .home-mark .brand-dot { color: #ff5a4f; }
 .home-mark p { margin: 0; color: rgba(255, 255, 255, 0.82); font-size: 14px; font-weight: 600; }
-.home-card { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 18px; background: rgba(2, 36, 46, 0.42); color: #fff; text-align: left; font: inherit; -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 10px 30px rgba(0, 12, 18, 0.25); }
-.home-card-head { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 28px; padding: 0; border: 0; background: none; color: rgba(255, 255, 255, 0.72); font: inherit; }
-.home-card-head h2 { margin: 0; color: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.home-printer { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 6px; width: 100%; min-height: 44px; padding: 8px 0; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); background: none; color: #fff; font: inherit; text-align: left; }
-.home-printer:first-of-type { border-top: 0; }
-.home-printer-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-printer-state { color: rgba(255, 255, 255, 0.78); font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Printers and orders as pills, anchored to the bottom of the pool. A printing pill fills with its progress. */
+.home-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: auto; padding-top: 8px; }
+.home-pill { --fill: 0%; display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: linear-gradient(90deg, rgba(95, 224, 195, 0.3) var(--fill), rgba(2, 36, 46, 0.42) var(--fill)); color: #fff; font: inherit; font-size: 14px; -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 6px 18px rgba(0, 12, 18, 0.22); }
+.home-pill:active { opacity: 0.8; }
+.home-pill-name { font-weight: 700; white-space: nowrap; }
+.home-pill-state { color: rgba(255, 255, 255, 0.78); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-pill.offline { opacity: 0.6; }
+.home-pill.paused { background: linear-gradient(90deg, rgba(255, 200, 87, 0.3) var(--fill), rgba(2, 36, 46, 0.42) var(--fill)); }
+.home-pill.orders svg { color: rgba(255, 255, 255, 0.85); }
 .home-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); }
 .home-dot.printing, .home-dot.preparing { background: #5fe0c3; box-shadow: 0 0 0 4px rgba(95, 224, 195, 0.18); }
 .home-dot.ready { background: #fff; }
 .home-dot.paused { background: #ffc857; }
 .home-dot.error { background: #ff5a4f; }
-.home-progress { grid-column: 2 / -1; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
-.home-progress > span { display: block; height: 100%; border-radius: inherit; background: #5fe0c3; transition: width 0.6s ease; }
-.home-stat { align-items: flex-start; text-align: left; }
-.home-stat strong { font-size: 30px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.home-quiet { margin: 0; color: rgba(255, 255, 255, 0.75); font-size: 13px; }
-.home-card:active, .home-printer:active { opacity: 0.8; }
 @media (prefers-reduced-motion: no-preference) {
   .home-mark > img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
-  .home-mark, .home-card { animation: home-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-  .home-content > :nth-child(2) { animation-delay: 0.06s; }
-  .home-content > :nth-child(3) { animation-delay: 0.12s; }
+  .home-mark, .home-pills, .watch-attention.on-water { animation: home-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .home-pills { animation-delay: 0.08s; }
 }
 @keyframes home-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 /* Print watcher: alerts and "how did it go?" cards, on the light pages and on the water. */

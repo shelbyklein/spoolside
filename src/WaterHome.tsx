@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { WaterBackground } from "./WaterBackground";
 import type { Machine } from "./live-workspace";
 import type { Order } from "./order-model";
@@ -48,7 +48,7 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
   );
 }
 
-// The phone home screen: the spool floating on the pool, with printers and orders at a glance on frosted cards.
+// The phone home screen: the spool floating on the pool, with printers and orders at a glance as pills.
 // Tap a printer for its details, or a card to open that page.
 export function WaterHome({ attention, machines, orders, loading, openPrinter, openOrder, go }: {
   machines: Machine[];
@@ -61,8 +61,7 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
 }) {
   const printing = machines.filter((m) => m.state === "Printing").length,
     ready = machines.filter((m) => m.state === "Ready").length,
-    toPrint = orders.filter((o) => o.printReadiness?.status === "ready").length,
-    toReview = orders.filter((o) => o.printReadiness && o.printReadiness.status !== "ready").length;
+    toPrint = orders.filter((o) => o.printReadiness?.status === "ready").length;
   const summary = loading
     ? "Checking the farm…"
     : [printing && `${printing} printing`, ready && `${ready} ready`, `${orders.length} open order${orders.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
@@ -79,37 +78,29 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
           <p>{summary}</p>
         </header>
         {attention}
-        <div className="home-card">
-          <button className="home-card-head" onClick={() => go("Printers")}>
-            <h2>Printers</h2>
-            <ArrowUpRight size={16} />
+        <div className="home-pills">
+          {machines.map((m) => {
+            const active = m.state === "Printing" || m.state === "Paused";
+            return (
+              <button
+                key={m.id}
+                className={`home-pill ${m.state.toLowerCase()}`}
+                onClick={() => openPrinter(m.id)}
+                aria-label={`${m.name}, ${m.state}`}
+                style={active ? ({ "--fill": `${Math.min(100, Math.max(0, m.progress))}%` } as React.CSSProperties) : undefined}
+              >
+                <span className={`home-dot ${m.state.toLowerCase()}`} />
+                <span className="home-pill-name">{m.name}</span>
+                <span className="home-pill-state">{active ? `${m.progress}%` : m.state}</span>
+              </button>
+            );
+          })}
+          <button className="home-pill orders" onClick={() => go("Orders")} aria-label={`Orders, ${loading ? "loading" : `${orders.length} open`}`}>
+            <ShoppingBag size={14} />
+            <span className="home-pill-name">{loading ? "—" : orders.length} {orders.length === 1 ? "order" : "orders"}</span>
+            {!loading && toPrint > 0 && <span className="home-pill-state">{toPrint} ready</span>}
           </button>
-          {machines.length === 0 && <p className="home-quiet">No printers connected.</p>}
-          {machines.map((m) => (
-            <button key={m.id} className="home-printer" onClick={() => openPrinter(m.id)} aria-label={`${m.name}, ${m.state}`}>
-              <span className={`home-dot ${m.state.toLowerCase()}`} />
-              <span className="home-printer-name">{m.name}</span>
-              <span className="home-printer-state">
-                {m.state === "Printing" || m.state === "Paused" ? `${m.progress}% · ${m.remaining}` : m.state}
-              </span>
-              {(m.state === "Printing" || m.state === "Paused") && (
-                <span className="home-progress">
-                  <span style={{ width: `${Math.min(100, Math.max(0, m.progress))}%` }} />
-                </span>
-              )}
-            </button>
-          ))}
         </div>
-        <button className="home-card home-stat" onClick={() => go("Orders")}>
-          <span className="home-card-head">
-            <h2>Orders</h2>
-            <ArrowUpRight size={16} />
-          </span>
-          <strong>{loading ? "—" : orders.length}</strong>
-          <span className="home-quiet">
-            {loading ? "Loading orders…" : orders.length === 0 ? "Nothing open. Enjoy the pool." : [toPrint && `${toPrint} ready to print`, toReview && `${toReview} ${toReview === 1 ? "needs" : "need"} a look`].filter(Boolean).join(" · ") || "open"}
-          </span>
-        </button>
       </div>
     </section>
   );
