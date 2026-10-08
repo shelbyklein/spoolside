@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus } from "lucide-react";
 import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
@@ -218,11 +218,11 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
           <li key={f.id} className="sliced-card">
             <div className="sliced-thumb">
               <SlicedPreview file={f} />
+              <PrintDetails file={f} onSaved={refresh} notify={notify} />
               <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>
             </div>
             <div className="sliced-body">
               <strong title={f.name}>{f.name}</strong>
-              <PrintDetails file={f} onSaved={refresh} notify={notify} />
               <small>
                 {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} pieces` : ""}`).join("  ·  ")}
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
@@ -244,7 +244,7 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
     try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
     catch(e) { notify((e as Error).message); } finally { setBusy(false); }
   };
-  return <><button className="text-button" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={13} /> Edit details</button>
+  return <><button className="icon-button sliced-edit" title="Edit details" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={15} /></button>
     {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><form className="modal plate-assets-editor print-details-editor" role="dialog" aria-modal="true" aria-label={`Print details for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && !busy && setEditing(false)} onSubmit={save}>
       <div className="section-top"><h3>Print details</h3><button type="button" className="text-button" disabled={busy} onClick={()=>setEditing(false)}>Cancel</button></div>
       <label>Print name<input autoFocus required maxLength={80} value={name} onChange={e=>setName(e.target.value)} /></label>
@@ -275,7 +275,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
   const open = () => { setIds(coverage.map(c => c.assetId)); setQuery(""); setType("All"); setEditing(true); };
   return <div className="plate-assets">
     <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
-    <button className="text-button" onClick={open}>Edit assets</button>
+    <button className="asset-add-pill" aria-label="Edit assets" title="Edit assets" onClick={open}><Plus size={15} /></button>
     {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><div className="modal plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Assets for ${file.name}`} onClick={e => e.stopPropagation()} onKeyDown={e => e.key === "Escape" && !busy && setEditing(false)}>
       <div className="section-top"><h3>{file.name}{file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}</h3><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>

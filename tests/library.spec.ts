@@ -52,6 +52,8 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
  await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
  await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');await page.reload();await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');
+ await page.locator('.sliced-card').hover();
+ await page.locator('.sliced-card').screenshot({path:'handoff/spoolside-sliced-card-icons.png'});
  await page.getByRole('button',{name:'Edit print details for 13 plate'}).click();
  const details=page.getByRole('dialog',{name:'Print details for 13 plate'});
  await details.getByLabel('Print name').fill('Touch pins');
