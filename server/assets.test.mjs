@@ -258,3 +258,14 @@ test("part thumbnails are tied to the STL and cleared when it changes or is dele
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('category printer defaults survive name and color edits', () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'category-printer-'));
+ const assets=new Assets(':memory:',dir);
+ try {
+  const c=assets.saveCategory({name:'Conductive TPU',color:'#000000',printer:'conductive'},'test-printer');
+  assert.equal(c.printer,'conductive');
+  assert.equal(assets.saveCategory({name:'Conductive PLA + TPU',color:'#222222'},c.id).printer,'conductive');
+  assert.equal(assets.saveCategory({name:'Conductive',color:'#000000',printer:null},c.id).printer,null);
+ } finally { assets.close();fs.rmSync(dir,{recursive:true,force:true}); }
+});

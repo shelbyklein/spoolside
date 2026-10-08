@@ -348,7 +348,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
   );
 }
 
-export type Category = { id: string; name: string; color: string };
+export type Category = { id: string; name: string; color: string; printer?: string | null };
 // Name and color each category; the color is the default for its items in 3D previews.
 function CategoryManager({ categories, assets, onChange, onClose, notify }: { categories: Category[]; assets: Asset[]; onChange: () => void; onClose: () => void; notify: (m: string) => void }) {
   const send = async (url: string, method: string, body?: object) => {
@@ -357,13 +357,15 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
     if (!r.ok) notify(out.error || "Couldn't save category");
     onChange();
   };
+  const [printers, setPrinters] = useState<{id:string;name:string}[]>([]);
+  useEffect(() => { fetch("/api/workspace").then(r=>r.json()).then(d=>setPrinters(d.machines || [])).catch(()=>{}); }, []);
   const [name, setName] = useState(""), [color, setColor] = useState("#5aa9a3");
   return (
     <div className="detail-overlay" onClick={onClose}>
       <section role="dialog" aria-modal="true" aria-label="Categories" className="detail-panel category-manager" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()}>
         <button autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
         <h2>Categories</h2>
-        <p className="plate-meta">Each item's category sets its color in 3D previews. A color picked on an assembly part still wins.</p>
+        <p className="plate-meta">Categories set preview colors and the default printer for linked sliced prints.</p>
         <ul>
           {categories.map((c) => {
             const count = assets.filter((a) => a.category === c.id).length;
@@ -371,6 +373,7 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
               <li key={c.id}>
                 <input type="color" aria-label={`${c.name} color`} defaultValue={c.color} onBlur={(e) => e.target.value !== c.color && send(`/api/categories/${c.id}`, "PUT", { name: c.name, color: e.target.value })} />
                 <input aria-label="Category name" defaultValue={c.name} maxLength={40} onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && send(`/api/categories/${c.id}`, "PUT", { name: e.target.value.trim(), color: c.color })} />
+                <select aria-label={`Default printer for ${c.name}`} value={c.printer || ""} onChange={e=>send(`/api/categories/${c.id}`, "PUT", {...c, printer:e.target.value || null})}><option value="">No default printer</option>{printers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 <small>{count} {count === 1 ? "item" : "items"}</small>
                 <button className="icon-button" aria-label={`Delete ${c.name}`} onClick={() => window.confirm(`Delete ${c.name}? Its ${count} items become uncategorized.`) && send(`/api/categories/${c.id}`, "DELETE")}><Trash2 size={16} /></button>
               </li>

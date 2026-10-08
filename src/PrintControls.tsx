@@ -4,7 +4,7 @@ import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
-export type LibraryFile = { id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
+export type LibraryFile = { printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
@@ -229,6 +229,7 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
                 {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} pieces` : ""}`).join("  ·  ")}
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
+              {f.preferredPrinterName && <small>{f.printerSource}: {f.preferredPrinterName}</small>}
               <button className="primary sliced-print" onClick={() => setPrinting(f)}><Play size={14} /> Print</button>
               {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
             </div>
@@ -245,22 +246,23 @@ function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify:
   useEffect(() => {
     api<{machines:Machine[]}>("/api/workspace").then(data => {
       const idle = (data.machines || []).filter(m => m.connected && !m.stale && ["IDLE","FINISH","FAILED"].includes(m.rawState || ""));
-      setMachines(idle); setSelected(idle[0]?.id || ""); setLoaded(true);
+      setMachines(idle); setSelected(file.preferredPrinter ? idle.find(m=>m.id===file.preferredPrinter)?.id || "" : idle[0]?.id || ""); setLoaded(true);
     }).catch(()=>{setError("Could not load printers");setLoaded(true);});
   }, []);
   const machine=machines.find(m=>m.id===selected);
   return <div className="modal-backdrop" onClick={onClose}><div className="order-print-dialog library-print-dialog" role="dialog" aria-modal="true" aria-label={`Print ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && onClose()}>
     <div className="section-top"><h3>Print {file.name}</h3><button className="text-button" onClick={onClose}>Close</button></div>
-    {error ? <p role="alert">{error}</p> : !loaded ? <p>Loading printers…</p> : !machines.length ? <p>No connected idle printer is available.</p> : <><label>Printer<select value={selected} onChange={e=>setSelected(e.target.value)}>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{machine && <StartPrint key={machine.id} machine={machine} notify={notify} initialFile={file.id} onSent={onClose} />}</>}
+    {error ? <p role="alert">{error}</p> : !loaded ? <p>Loading printers…</p> : !machines.length ? <p>No connected idle printer is available.</p> : <>{file.preferredPrinter && !machines.some(m=>m.id===file.preferredPrinter) && <p className="plate-meta">{file.preferredPrinterName || "The default printer"} is busy or offline. Choose another printer to continue.</p>}<label>Printer<select aria-label="Printer" value={selected} onChange={e=>setSelected(e.target.value)}><option value="" disabled>Choose a printer…</option>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{machine && <StartPrint key={machine.id} machine={machine} notify={notify} initialFile={file.id} onSent={onClose} />}</>}
   </div></div>;
 }
 
 function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
   const [editing, setEditing] = useState(false), [name, setName] = useState(file.name), [counts, setCounts] = useState<Record<number,string>>({}), [busy, setBusy] = useState(false);
-  const open = () => { setName(file.name); setCounts(Object.fromEntries(file.plates.map(p => [p.index, p.quantity == null ? "" : String(p.quantity)]))); setEditing(true); };
+  const [printers, setPrinters] = useState<Machine[]>([]), [printer, setPrinter] = useState(file.printer || "");
+  const open = () => { api<{machines:Machine[]}>("/api/workspace").then(d=>setPrinters(d.machines || [])).catch(()=>{}); setPrinter(file.printer || ""); setName(file.name); setCounts(Object.fromEntries(file.plates.map(p => [p.index, p.quantity == null ? "" : String(p.quantity)]))); setEditing(true); };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
-    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
+    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, printer: printer || null, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
     catch(e) { notify((e as Error).message); } finally { setBusy(false); }
   };
   return <><button className="icon-button sliced-edit" title="Edit details" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={15} /></button>
@@ -268,6 +270,7 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
       <div className="section-top"><h3>Print details</h3><button type="button" className="text-button" disabled={busy} onClick={()=>setEditing(false)}>Cancel</button></div>
       <label>Print name<input autoFocus required maxLength={80} value={name} onChange={e=>setName(e.target.value)} /></label>
       {file.plates.map(p=><label key={p.index}>{file.plates.length>1 ? `Plate ${p.index} · ` : ""}Pieces per print<input type="number" min={1} max={10000} step={1} placeholder="e.g. 144" value={counts[p.index] || ""} onChange={e=>setCounts({...counts,[p.index]:e.target.value})} /></label>)}
+      <label>Default printer<select aria-label="Default printer" value={printer} onChange={e=>setPrinter(e.target.value)}><option value="">Use category default</option>{printers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <p className="plate-meta">Total pieces made by this plate. Leave blank if unknown.</p>
       <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button>
     </form></div>}

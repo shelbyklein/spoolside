@@ -2235,3 +2235,8 @@ footer .tiny-dot {
 @media (hover: none) { .sliced-edit { opacity: 1; } }
 .library-print-dialog .bed-check img, .library-print-dialog .bed-check-placeholder { aspect-ratio: 14 / 9; max-height: 220px; }
 .sliced-print { min-height: 34px; font-size: 12px; margin-top: 4px; }
+.category-manager li { display: grid; grid-template-columns: 40px minmax(0,1fr) 56px 32px; }
+.category-manager li select { grid-column: 2 / -1; grid-row: 2; width: 100%; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--navy); padding: 6px; }
+.category-manager li small { grid-column: 3; grid-row: 1; }
+.category-manager li > button { grid-column: 4; grid-row: 1; }
+.print-details-editor select { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--navy); }

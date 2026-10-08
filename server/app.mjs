@@ -1,5 +1,6 @@
 import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
 import express from "express";
+import { defaultPrinter } from "./printer-default.mjs";
 import { printQueue, reservedPieces } from "./printqueue.mjs";
 import {
   randomBytes,
@@ -234,9 +235,12 @@ export function createApp({
   app.post("/api/designfiles",express.raw({type:"application/octet-stream",limit:"150mb"}),(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addDesign(JSON.parse(decodeURIComponent(String(req.get("x-design")||"{}"))),req.body));}catch(e){fail(res,e);}});
   app.get("/api/designfiles/:id/download",(req,res)=>{try{const file=assets.designFile(req.params.id);res.download(file.path,file.meta.name);}catch(e){fail(res,e);}});
   app.put("/api/assets/:id/design",(req,res)=>{try{res.json(assets.linkDesign(req.params.id,req.body.designId));}catch(e){fail(res,e);}});
+  const validatePrinter = value => {
+    if (value !== undefined && value !== null && value !== "" && !printers?.snapshot().some(p => p.id === value)) throw Error("Choose a configured printer");
+  };
   app.get("/api/categories", (_req, res) => res.json(assets?.categories() || []));
-  app.post("/api/categories", (req, res) => { try { res.json(assets.saveCategory(req.body || {})); } catch (e) { fail(res, e); } });
-  app.put("/api/categories/:id", (req, res) => { try { res.json(assets.saveCategory(req.body || {}, req.params.id)); } catch (e) { fail(res, e); } });
+  app.post("/api/categories", (req, res) => { try { validatePrinter(req.body?.printer); res.json(assets.saveCategory(req.body || {})); } catch (e) { fail(res, e); } });
+  app.put("/api/categories/:id", (req, res) => { try { validatePrinter(req.body?.printer); res.json(assets.saveCategory(req.body || {}, req.params.id)); } catch (e) { fail(res, e); } });
   app.delete("/api/categories/:id", (req, res) => { try { assets.deleteCategory(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   app.get("/api/assemblies", (_req,res)=>assets ? res.json(assets.assemblies()) : res.status(503).json({error:"Library unavailable"}));
   app.post("/api/assemblies", (req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.saveAssembly(req.body));}catch(e){fail(res,e);}});
@@ -299,7 +303,11 @@ export function createApp({
   app.post("/api/material-offers", (req,res)=>{try{res.json(materials.addOffer(req.body));}catch(e){fail(res,e);}});
   app.patch("/api/material-offers", (req,res)=>{try{res.json(req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body));}catch(e){fail(res,e);}});
   app.delete("/api/material-offers/:id", (req,res)=>{try{res.json(materials.removeOffer(req.params.id));}catch(e){fail(res,e);}});
-  app.get("/api/library", (_req, res) => res.json(library?.list() || []));
+  app.get("/api/library", (_req, res) => res.json((library?.list() || []).map(file => {
+    const preference = defaultPrinter(file, assets?.list() || [], assets?.categories() || []);
+    return {...file, ...preference, preferredPrinterName: printers?.snapshot().find(p=>p.id===preference.preferredPrinter)?.name || null};
+  })));
+
   app.post(
     "/api/library",
     express.raw({ type: "application/octet-stream", limit: "95mb" }),
@@ -323,7 +331,7 @@ export function createApp({
     }
   });
   app.patch("/api/library/:id", (req, res) => {
-    try { res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : req.body?.quantities !== undefined ? library.details(req.params.id, req.body.name, req.body.quantities) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
+    try { validatePrinter(req.body?.printer); res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : req.body?.quantities !== undefined ? library.details(req.params.id, req.body.name, req.body.quantities, req.body.printer) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
   });
   app.delete("/api/library/:id", (req, res) => {
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }

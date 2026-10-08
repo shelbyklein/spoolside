@@ -33,7 +33,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
 test('sliced prints are a library section with editable per-plate asset coverage',async({page})=>{
  const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Up to date',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
  const extra=[...Array.from({length:14},(_,i)=>({...asset,id:'c'+i,name:'Test Case '+i})),{...asset,id:'ds-top',name:'DS – Top',type:'Faceplate',fit:{phone:'',style:'DS',size:'Standard',piece:'Top'}}];
- let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
+ let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:'',preferredPrinter:'idle'};
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;
  if(url==='/api/workspace')return route.fulfill({json:{machines:[{id:'idle',name:'Membrane',connected:true,stale:false,rawState:'IDLE',state:'Ready',trays:[],external:{type:'TPU',color:'#000000'}}]}});
@@ -42,7 +42,7 @@ test('sliced prints are a library section with editable per-plate asset coverage
  if(url==='/api/library')return route.fulfill({json:[file]});
  if(url==='/api/library/slice'){
  const body=route.request().postDataJSON();
- if(body.quantities){ file={...file,name:body.name,plates:[{...file.plates[0],quantity:body.quantities[0].quantity}] as any};return route.fulfill({json:file}); }
+ if(body.quantities){ expect(body.printer).toBe("idle"); file={...file,name:body.name,plates:[{...file.plates[0],quantity:body.quantities[0].quantity}] as any};return route.fulfill({json:file}); }
  expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
  file={...file,plates:[{...file.plates[0],coverage:[{assetId:'case-13',hash:'current'}]}]};return route.fulfill({json:file});
  }
@@ -60,6 +60,7 @@ test('sliced prints are a library section with editable per-plate asset coverage
  const details=page.getByRole('dialog',{name:'Print details for 13 plate'});
  await details.getByLabel('Print name').fill('Touch pins');
  await details.getByLabel('Pieces per print').fill('144');
+ await details.getByLabel('Default printer',{exact:true}).selectOption('idle');
  await page.screenshot({path:'handoff/spoolside-print-details-editor.png',fullPage:true});
  await details.getByRole('button',{name:'Save print details'}).click();
  await expect(page.locator('.sliced-body > strong')).toHaveText('Touch pins');
@@ -73,5 +74,11 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await print.getByLabel('Build plate is clear').check();
  await print.getByRole('button',{name:'Start print',exact:true}).click();
  await expect(print).toHaveCount(0);
+ file={...file,preferredPrinter:'busy'};
+ await page.reload(); await page.getByRole('button',{name:'Print',exact:true}).click();
+ await expect(page.getByRole('dialog')).toContainText('is busy or offline');
+ await expect(page.getByRole('dialog').getByLabel('Printer',{exact:true})).toHaveValue('');
+ await expect(page.getByRole('dialog').getByRole('button',{name:'Start print',exact:true})).toHaveCount(0);
+ await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
 
 });

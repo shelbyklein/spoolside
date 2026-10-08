@@ -144,18 +144,20 @@ export class Library {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
+    if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "printer")) this.db.exec("ALTER TABLE library ADD COLUMN printer TEXT");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some((c) => c.name === "updated")) this.db.exec("ALTER TABLE library ADD COLUMN updated TEXT");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "source_name")) {
       this.db.exec("ALTER TABLE library ADD COLUMN source_name TEXT");
       this.db.exec("UPDATE library SET source_name=name");
     }
   }
-  details(id, name, quantities) {
+  details(id, name, quantities, printer) {
     const file = this.get(id);
     const clean = typeof name === "string" ? name.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) : "";
     if (!file || !clean) throw Error("Enter a print name");
     if (this.list().some(f => f.id !== id && f.name.toLowerCase() === clean.toLowerCase())) throw Error("That print name is already in use");
     if (!Array.isArray(quantities) || quantities.length !== file.plates.length || file.plates.some(p => quantities.filter(q => q.plate === p.index).length !== 1) || quantities.some(q => q.quantity !== null && (!Number.isInteger(q.quantity) || q.quantity < 1 || q.quantity > 10000))) throw Error("Choose 1–10000 pieces per plate, or leave it blank");
+    if (printer !== undefined) this.db.prepare("UPDATE library SET printer=? WHERE id=?").run(printer || null, id);
     const plates = file.plates.map(p => ({...p, quantity: quantities.find(q => q.plate === p.index).quantity}));
     this.db.prepare("UPDATE library SET name=?, plates=? WHERE id=?").run(clean, JSON.stringify(plates), id);
     return this.get(id);
@@ -175,7 +177,7 @@ export class Library {
   }
   list() {
     return this.db
-      .prepare("SELECT id, name, size, plates, created, updated, source_name FROM library ORDER BY name COLLATE NOCASE")
+      .prepare("SELECT id, name, size, plates, created, updated, source_name, printer FROM library ORDER BY name COLLATE NOCASE")
       .all()
       .map((r) => ({ ...r, plates: JSON.parse(r.plates) }));
   }

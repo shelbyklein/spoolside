@@ -82,6 +82,7 @@ export class Assets {
     this.db.exec("CREATE TABLE IF NOT EXISTS assemblies (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, body TEXT NOT NULL, hash TEXT NOT NULL, triangles INTEGER NOT NULL, dims TEXT NOT NULL, bytes INTEGER NOT NULL, updated TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL)");
+    if (!this.db.prepare("PRAGMA table_info(categories)").all().some(c => c.name === "printer")) this.db.exec("ALTER TABLE categories ADD COLUMN printer TEXT");
     for (const r of this.db.prepare("SELECT id, body FROM assets").all()) {
       const body = JSON.parse(r.body);
       if (!STATUSES.includes(body.status)) this.db.prepare("UPDATE assets SET body=? WHERE id=?").run(JSON.stringify({ ...body, status: normalizeStatus(body.status) }), r.id);
@@ -92,7 +93,7 @@ export class Assets {
   seedCategories() {
     if (this.db.prepare("SELECT COUNT(*) n FROM categories").get().n) return;
     const starters = [["body", "Body", "#5b6bb5"], ["buttons", "Buttons", "#2b2b2b"], ["membranes", "Membranes", "#5aa9a3"], ["hardware", "Hardware", "#9aa6ab"]];
-    for (const c of starters) this.db.prepare("INSERT INTO categories VALUES (?,?,?)").run(...c);
+    for (const c of starters) this.db.prepare("INSERT INTO categories (id,name,color) VALUES (?,?,?)").run(...c);
     for (const a of this.list()) {
       if (a.category) continue;
       const n = a.name.toLowerCase();
@@ -110,10 +111,11 @@ export class Assets {
     const name = text(input.name, 40), color = String(input.color || "").toLowerCase();
     if (!name || !/^#[0-9a-f]{6}$/.test(color)) throw Error("Category needs a name and a color");
     try {
-      this.db.prepare("INSERT INTO categories VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, color=excluded.color").run(id, name, color);
+      this.db.prepare("INSERT INTO categories (id,name,color) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, color=excluded.color").run(id, name, color);
     } catch {
       throw Error("A category with that name already exists");
     }
+    if (input.printer !== undefined) this.db.prepare("UPDATE categories SET printer=? WHERE id=?").run(input.printer || null, id);
     return this.db.prepare("SELECT * FROM categories WHERE id=?").get(id);
   }
   // Items in a deleted category become uncategorized; nothing else changes.
