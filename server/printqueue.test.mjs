@@ -16,3 +16,22 @@ test('active watches and pending sends block duplicate work; unresolved orders r
  assert.equal(printQueue([order('o',1,group('case')), order('x',2,group('top'))], taken).every(r=>r.blocked==='Printing / awaiting result'),true);
  assert.equal(printQueue([{id:'review',number:'#3',commercial:'processing',sourceReview:true,printPlan:[]}])[0].blocked, 'Review order requirements');
 });
+
+test('order handoffs survive restart and are removed when claimed or cancelled', async () => {
+ const {OrderPrints} = await import('./orderprints.mjs');
+ const fs = await import('node:fs');
+ const os = await import('node:os');
+ const path = await import('node:path');
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'order-handoff-'));
+ const file = path.join(dir, 'test.sqlite');
+ let prints = new OrderPrints(file);
+ try {
+  prints.sent('p1', {orderId:'o1',assetIds:['case']});
+  prints.close(); prints = new OrderPrints(file);
+  assert.equal(reservedPieces(null, prints).has('o1:case'), true);
+  assert.deepEqual(prints.claim('p1').assetIds, ['case']);
+  prints.sent('p2', {orderId:'o2',assetIds:['top']}); prints.cancel('p2');
+  prints.close(); prints = new OrderPrints(file);
+  assert.equal(prints.pending.size, 0);
+ } finally { prints.close(); fs.rmSync(dir,{recursive:true,force:true}); }
+});

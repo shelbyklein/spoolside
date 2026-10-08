@@ -183,7 +183,12 @@ export function createApp({
     const models=assets?.list() || [], assemblies=assets?.assemblies() || [], sliced=library?.list() || [];
     const printed = orderPrints?.all() || {};
     const orders = snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced),printPlan:orderPrintPlan(o,models,assemblies,sliced,printed[o.id])}));
-    return {...snapshot, orders, printQueue: printQueue(orders, reservedPieces(watcher, orderPrints))};
+    const queue = printQueue(orders, reservedPieces(watcher, orderPrints));
+    for (const order of orders) for (const group of order.printPlan) {
+      const row = queue.find(r => r.orderId === order.id && r.group?.key === group.key);
+      if (row?.blocked === "Printing / awaiting result") group.activity = row.blocked;
+    }
+    return {...snapshot, orders, printQueue: queue};
   };
   app.get("/api/workspace", (_req, res) =>
     workspace
@@ -467,7 +472,7 @@ export function createApp({
       try {
       await printers.startPrint(String(printer), { localFile: library.file(file.id), name: file.name, plate: next.plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
       } catch (error) {
-        if (orderPrints.pending.get(String(printer)) === reservation) orderPrints.pending.delete(String(printer));
+        if (orderPrints.pending.get(String(printer)) === reservation) orderPrints.cancel(String(printer));
         throw error;
       }
       res.json({ ok: true, machines: printers.snapshot() });

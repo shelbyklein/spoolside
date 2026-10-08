@@ -33,6 +33,8 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await page.goto('https://spoolside.shelbyklein.com/orders');
   const row = page.getByRole('article', { name: 'Order #10181' });
   await expect(row.getByRole('button', { name: 'Print case' })).toBeVisible();
+  await expect(row.getByLabel('Printed & assembled, ready to pack')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: /print all required items first/ })).toBeDisabled();
   await expect(row.getByRole('button', { name: /Print DS faceplate/ })).toContainText('0/2');
   await expect(row.getByRole('button', { name: 'Classic faceplate printed' })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: /^Queue/ }).click();
@@ -58,6 +60,10 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await page.getByRole('navigation').getByRole('button', { name: 'Orders', exact: true }).click();
   await row.getByRole('button', { name: 'Classic faceplate printed' }).click();
   expect(posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);
+  plan.forEach(g => { g.done = true; g.next = null; g.pieces.forEach(p => p.done = p.needed); });
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Ship #10181 in Pirate Ship' })).toBeVisible();
+  await page.unrouteAll({ behavior: "wait" });
   await context.close();
 });
 
@@ -106,5 +112,6 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await page.getByLabel('Start the next order piece on a free printer without asking').check();
   await expect(page.getByLabel('Start the next order piece on a free printer without asking')).toBeChecked();
   expect(posts[1]).toEqual(['/api/dispatch/auto', { on: true }]);
+  await page.unrouteAll({ behavior: "wait" });
   await context.close();
 });

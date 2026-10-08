@@ -30,6 +30,7 @@ export type OrderItem = {
 };
 // An order's print buttons: its case and each faceplate, the pieces in them, and the next plate to print.
 export type PrintGroup = {
+  activity?: string;
   key: string;
   label: string;
   done: boolean;

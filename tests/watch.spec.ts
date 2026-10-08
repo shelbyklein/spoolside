@@ -15,10 +15,11 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   ];
   let recent: any[] = [{ id: '44444444-4444-4444-8444-444444444444', printer: 'p1', printerName: 'Conductive', job: 'Touch Pin.gcode.3mf', started: now - 99000000, ended: now - 90000000, endedAs: 'finished', outcome: 'failed', note: null, mode: 'pause', plan: false, check: null, alert: null }];
   const posts: string[] = [];
+  let workspaceLoads = 0;
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
   await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/workspace') return route.fulfill({ json: state });
+    if (url.pathname === '/api/workspace') { workspaceLoads++; return route.fulfill({ json: state }); }
     if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: true, watches, recent } });
     if (/^\/api\/watches\/[^/]+\/[^/]+\.jpg$/.test(url.pathname)) return route.fulfill({ contentType: 'image/png', body: pixel });
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
@@ -56,7 +57,9 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await ask.getByRole('button', { name: 'Came out fine' }).click();
   await expect(ask.getByLabel(/Print notes/)).toHaveValue('Calibration run');
   await page.screenshot({ path: 'handoff/spoolside-print-notes-mobile.png', fullPage: true });
+  const beforeOutcome = workspaceLoads;
   await ask.getByRole('button', { name: 'Save as successful' }).click();
+  await expect.poll(() => workspaceLoads).toBeGreaterThan(beforeOutcome);
   await expect(ask).toHaveCount(0);
   expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/outcome {"success":true,"note":"Calibration run"}');
   const stopped = home.getByRole('article', { name: 'How did DS Top go?' });

@@ -10,11 +10,8 @@ test("order rows show contents, store status and a direct Pirate Ship action", a
   await openOrders(page);
   await expect(page.getByLabel("Filter orders")).toHaveValue("Open orders");
   const row = page.getByRole("article", { name: "Order DEMO-1042" });
-  await expect(row.getByRole("button", { name: "Ship DEMO-1042: mark it printed and assembled first" })).toBeDisabled();
-  await row.getByLabel("Printed & assembled, ready to pack").check();
-  await expect(row.getByRole("link", { name: "Ship DEMO-1042 in Pirate Ship" })).toHaveAttribute("href", "https://ship.pirateship.com/ship");
-  await row.getByLabel("Printed & assembled, ready to pack").uncheck();
-  await expect(row.getByRole("link", { name: "Ship DEMO-1042 in Pirate Ship" })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Ship DEMO-1042: print all required items first" })).toBeDisabled();
+  await expect(row.getByLabel("Printed & assembled, ready to pack")).toHaveCount(0);
   await expect(page.locator(".orders-workspace [aria-expanded]")).toHaveCount(0);
   await page.getByLabel("Filter orders").selectOption("All orders");
   const cancelled = page.getByRole("article", { name: "Order DEMO-1044" });
