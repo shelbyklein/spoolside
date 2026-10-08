@@ -84,7 +84,13 @@ test("a print is watched, paused after two problem checks, and asks for its outc
     assert.equal(s.watcher.outcome(w.id, false, "  Corner lifted\non the left  ").note, "Corner lifted on the left");
     assert.equal(s.watcher.outcome(w.id, false).note, "Corner lifted on the left", "re-answering keeps the note");
     assert.equal(s.watcher.list().recent[0].note, "Corner lifted on the left");
-    assert.equal(s.watcher.outcome(w.id, true).note, null, "a success has no failure note");
+    assert.equal(s.watcher.outcome(w.id, true).note, "Corner lifted on the left", "success preserves saved observations");
+    assert.equal(s.watcher.note(w.id, "Calibration only").note, "Calibration only");
+    assert.equal(s.watcher.row(w.id).outcome, "success", "saving a note does not change the outcome");
+    s.watcher.set(w.id, { outcome: null });
+    s.watcher.note(w.id, "Bed still occupied");
+    assert.equal(s.watcher.row(w.id).outcome, null, "a note alone does not answer the bed/outcome gate");
+    assert.throws(() => s.watcher.note(w.id, 4), /Notes are text/);
     assert.equal(s.watcher.outcome(w.id, true).outcome, "success");
     assert.equal(s.watcher.list().watches.length, 0, "answered prints leave the list");
     // The next run of the same job is compared with this one.

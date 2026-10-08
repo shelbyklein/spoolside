@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Eye, Play, Square, X } from "lucide-react";
+import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen } from "lucide-react";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -23,14 +23,16 @@ const saveOutcome = (id: string, success: boolean, note?: string) =>
     if (!r.ok) throw Error("Couldn't save");
   });
 
-// A note on what went wrong with a failed print.
-function FailureNote({ initial = "", label, onSave, onCancel, busy }: { initial?: string; label: string; onSave: (note: string) => void; onCancel: () => void; busy: boolean }) {
+const saveNote = (id: string, note: string) =>
+  fetch(`/api/watches/${id}/note`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) }).then(r => { if (!r.ok) throw Error("Couldn't save note"); });
+// Notes can be saved independently of the print outcome.
+function FailureNote({ initial = "", label, onSave, onCancel, busy, general = false }: { general?: boolean; initial?: string; label: string; onSave: (note: string) => void; onCancel: () => void; busy: boolean }) {
   const [note, setNote] = useState(initial);
   return (
     <form className="failure-note" onSubmit={(e) => { e.preventDefault(); onSave(note); }}>
       <label>
-        What went wrong? <small>Optional</small>
-        <textarea autoFocus rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Corner lifted, spaghetti after the bridge, wrong filament" />
+        {general ? "Print notes" : "What went wrong?"} <small>Optional</small>
+        <textarea autoFocus rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder={general ? "Add an observation or reminder about this print" : "e.g. Corner lifted, spaghetti after the bridge, wrong filament"} />
       </label>
       <div className="watch-actions">
         <button className="primary" disabled={busy}>{label}</button>
@@ -73,7 +75,7 @@ export function useWatches(enabled: boolean) {
 
 // Alerts first, then "how did it go?" for finished prints. Renders nothing when all is quiet.
 export function WatchAttention({ watches, refresh, notify, water = false }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void; water?: boolean }) {
-  const [busy, setBusy] = useState(""), [failing, setFailing] = useState("");
+  const [busy, setBusy] = useState(""), [failing, setFailing] = useState(""), [noting, setNoting] = useState(""), [succeeding, setSucceeding] = useState("");
   const act = async (key: string, run: () => Promise<unknown>, done: string) => {
     setBusy(key);
     try {
@@ -112,16 +114,22 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           <h3>How did {jobName(w.job)} go?</h3>
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
-          {failing === w.id ? (
-            <FailureNote label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note), "Saved as failed.").then(() => setFailing(""))} />
+          {w.note && <p className="recent-print-note">{w.note}</p>}
+          {noting === w.id ? (
+            <FailureNote general initial={w.note || ""} label="Save note" busy={!!busy} onCancel={() => setNoting("")} onSave={(note) => act(w.id + "note", () => saveNote(w.id, note), "Note saved.").then(() => setNoting(""))} />
+          ) : succeeding === w.id ? (
+            <FailureNote general initial={w.note || ""} label="Save as successful" busy={!!busy} onCancel={() => setSucceeding("")} onSave={(note) => act(w.id + "yes", () => saveOutcome(w.id, true, note), "Saved as successful.").then(() => setSucceeding(""))} />
+          ) : failing === w.id ? (
+            <FailureNote initial={w.note || ""} label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note), "Saved as failed.").then(() => setFailing(""))} />
           ) : (
             <div className="watch-actions">
-              <button className="primary" disabled={!!busy} onClick={() => act(w.id + "yes", () => saveOutcome(w.id, true), "Saved. Spoolside will compare future runs with this one.")}>
+              <button className="primary" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
                 <Check size={15} /> Came out fine
               </button>
               <button className="secondary" disabled={!!busy} onClick={() => setFailing(w.id)}>
                 <X size={15} /> Failed
               </button>
+              <button className="secondary" disabled={!!busy} onClick={() => setNoting(w.id)}><NotebookPen size={15} /> Notes</button>
             </div>
           )}
         </article>
@@ -163,7 +171,7 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
   const save = async (w: Watch, note: string) => {
     setBusy(true);
     try {
-      await saveOutcome(w.id, false, note);
+      await saveNote(w.id, note);
       setEditing("");
       refresh();
       notify("Note saved.");
@@ -184,9 +192,8 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
               <strong>{jobName(w.job)}</strong>
               <small>{w.ended ? ago(w.ended) : ""}</small>
             </span>
-            {w.outcome === "failed" &&
-              (editing === w.id ? (
-                <FailureNote initial={w.note || ""} label="Save note" busy={busy} onCancel={() => setEditing("")} onSave={(note) => save(w, note)} />
+            {(editing === w.id ? (
+                <FailureNote general initial={w.note || ""} label="Save note" busy={busy} onCancel={() => setEditing("")} onSave={(note) => save(w, note)} />
               ) : (
                 <span className="recent-print-note">
                   {w.note ? <p>{w.note}</p> : null}

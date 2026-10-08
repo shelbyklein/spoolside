@@ -165,13 +165,20 @@ export class PrintWatcher {
   }
   // Your answer teaches the watcher: successful prints become references for the next run of the same job.
   // A failed print can carry a note on what went wrong; it can be added or edited later.
+  note(id, note) {
+    const watch = this.row(id);
+    if (!watch || !watch.ended) throw Object.assign(Error("Unknown print"), { status: 404 });
+    if (typeof note !== "string") throw Error("Notes are text");
+    this.set(id, { note: note.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 500) || null });
+    return this.view(this.row(id));
+  }
   outcome(id, success, note) {
     const watch = this.row(id);
     if (!watch || !watch.ended) throw Object.assign(Error("Unknown print"), { status: 404 });
     if (typeof success !== "boolean") throw Error("Choose success or failure");
     if (note !== undefined && note !== null && typeof note !== "string") throw Error("Notes are text");
     const text = typeof note === "string" ? note.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 500) : watch.note;
-    this.set(id, { outcome: success ? "success" : "failed", note: success ? null : text || null });
+    this.set(id, { outcome: success ? "success" : "failed", note: text || null });
     // A good print from an order counts its pieces as printed; changing the answer takes them back.
     if (watch.order_id && this.orderPrints && success !== !!watch.credited) {
       this.orderPrints.add(watch.order_id, JSON.parse(watch.assets || "[]"), success ? 1 : -1);

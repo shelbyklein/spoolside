@@ -24,6 +24,11 @@ test('the print watcher shows alerts and asks how finished prints went', async (
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
       posts.push(url.pathname + ' ' + (route.request().postData() || ''));
       if (url.pathname.endsWith('false-alarm')) watches = watches.map((w) => (w.printer === 'p1' ? { ...w, alert: null, mode: 'warn' } : w));
+      if (url.pathname.endsWith('note')) {
+        const id = url.pathname.split('/')[3], body = route.request().postDataJSON();
+        watches = watches.map(w => w.id === id ? { ...w, note: body.note } : w);
+        recent = recent.map(w => w.id === id ? { ...w, note: body.note } : w);
+      }
       if (url.pathname.endsWith('outcome')) {
         const id = url.pathname.split('/')[3], body = route.request().postDataJSON();
         watches = watches.filter((w) => w.id !== id);
@@ -41,9 +46,18 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(alert).toContainText('Spaghetti around the part.');
   const ask = home.getByRole('article', { name: 'How did Bridge go?' });
   await expect(ask).toContainText('Finished on AMS 3');
+  await ask.getByRole('button', { name: 'Notes', exact: true }).click();
+  await ask.getByLabel(/Print notes/).fill('Calibration run');
+  await ask.getByRole('button', { name: 'Save note', exact: true }).click();
+  await expect(ask).toContainText('Calibration run');
+  expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/note {"note":"Calibration run"}');
+  await expect(ask.getByRole('button', { name: 'Notes', exact: true })).toBeVisible();
   await ask.getByRole('button', { name: 'Came out fine' }).click();
+  await expect(ask.getByLabel(/Print notes/)).toHaveValue('Calibration run');
+  await page.screenshot({ path: 'handoff/spoolside-print-notes-mobile.png', fullPage: true });
+  await ask.getByRole('button', { name: 'Save as successful' }).click();
   await expect(ask).toHaveCount(0);
-  expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/outcome {"success":true}');
+  expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/outcome {"success":true,"note":"Calibration run"}');
   const stopped = home.getByRole('article', { name: 'How did DS Top go?' });
   await stopped.getByRole('button', { name: 'Failed' }).click();
   await stopped.getByLabel(/What went wrong/).fill('Corner lifted on the left');
@@ -57,7 +71,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(details).toContainText('Watching (warnings only)');
   const history = details.getByRole('region', { name: 'Recent prints' });
   await history.getByRole('button', { name: 'Add note' }).click();
-  await history.getByLabel(/What went wrong/).fill('Under-extruded, nozzle clog');
+  await history.getByLabel(/Print notes/).fill('Under-extruded, nozzle clog');
   await history.getByRole('button', { name: 'Save note' }).click();
   await expect(history).toContainText('Under-extruded, nozzle clog');
   await expect(history.getByRole('button', { name: 'Edit note' })).toBeVisible();

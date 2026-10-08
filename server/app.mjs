@@ -336,6 +336,12 @@ export function createApp({
       res.sendStatus(404);
     }
   });
+  app.post("/api/watches/:id/note", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(watcher.note(req.params.id, req.body?.note));
+    } catch (e) { fail(res, e); }
+  });
   app.post("/api/watches/:id/outcome", (req, res) => {
     try {
       if (!watcher) return res.sendStatus(404);
