@@ -1,4 +1,4 @@
-import { orderReadiness } from "./readiness.mjs";
+import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
 import express from "express";
 import {
   randomBytes,
@@ -24,6 +24,7 @@ export function createApp({
   assets,
   materials,
   watcher,
+  orderPrints,
 } = {}) {
   if (
     !pinHash ||
@@ -178,7 +179,8 @@ export function createApp({
   );
   const withReadiness = snapshot => {
     const models=assets?.list() || [], assemblies=assets?.assemblies() || [], sliced=library?.list() || [];
-    return {...snapshot, orders:snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced)}))};
+    const printed = orderPrints?.all() || {};
+    return {...snapshot, orders:snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced),printPlan:orderPrintPlan(o,models,assemblies,sliced,printed[o.id])}))};
   };
   app.get("/api/workspace", (_req, res) =>
     workspace
@@ -418,6 +420,49 @@ export function createApp({
         bedLevelling: bedLevelling !== false,
       });
       res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // An order's Print button: sends the next plate still needed for one of its groups (a case or a faceplate).
+  const planFor = (orderId) => {
+    const order = workspace?.snapshot().orders.find((o) => o.id === orderId);
+    if (!order) throw Object.assign(Error("Unknown order"), { status: 404 });
+    return { order, plan: orderPrintPlan(order, assets?.list() || [], assets?.assemblies() || [], library?.list() || [], orderPrints?.all()[order.id]) };
+  };
+  app.post("/api/orders/:id/print", async (req, res) => {
+    try {
+      if (!orderPrints || !printers) return res.sendStatus(503);
+      const { group, printer, plate, amsMapping, useAms, bedLevelling } = req.body || {};
+      const { order, plan } = planFor(req.params.id);
+      if (!["processing"].includes(String(order.commercial).toLowerCase())) throw Error("Only processing orders can be printed");
+      const next = plan.find((g) => g.key === group)?.next;
+      if (!next) throw Error("Nothing left to print for that");
+      // The request names the plate it showed you, so a plan that moved on can't start the wrong one.
+      if (plate !== `${next.fileId}:${next.plate}`) throw Object.assign(Error("This order changed. Refresh and try again."), { status: 409 });
+      const file = library.get(next.fileId);
+      if (!file) throw Error("That sliced print is no longer in the library");
+      checkStart(file.plates, { ...req.body, plate: next.plate });
+      // Everything this plate makes that the order still needs gets credited when it comes out fine.
+      const covered = new Set((file.plates.find((p) => p.index === next.plate)?.coverage || []).map((c) => c.assetId));
+      const assetIds = [...new Set(plan.flatMap((g) => g.pieces).filter((p) => covered.has(p.assetId) && p.done < p.needed).map((p) => p.assetId))];
+      await printers.startPrint(String(printer), { localFile: library.file(file.id), name: file.name, plate: next.plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
+      orderPrints.sent(String(printer), { orderId: order.id, orderNumber: order.number, assetIds: assetIds.length ? assetIds : [next.assetId] });
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // Tick a piece as printed (or not) by hand.
+  app.post("/api/orders/:id/pieces", (req, res) => {
+    try {
+      if (!orderPrints) return res.sendStatus(503);
+      const { plan } = planFor(req.params.id);
+      const piece = plan.flatMap((g) => g.pieces).find((p) => p.assetId === req.body?.assetId);
+      if (!piece) throw Error("That piece isn't part of this order");
+      const total = plan.flatMap((g) => g.pieces).filter((p) => p.assetId === piece.assetId).reduce((n, p) => n + p.needed, 0);
+      orderPrints.set(req.params.id, piece.assetId, Math.min(total, Math.max(0, Number(req.body?.done) | 0)));
+      res.json({ printPlan: planFor(req.params.id).plan });
     } catch (e) {
       fail(res, e);
     }

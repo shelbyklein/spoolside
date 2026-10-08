@@ -28,8 +28,17 @@ export type OrderItem = {
   image?: string;
   parts?: { name: string; image: string }[];
 };
+// An order's print buttons: its case and each faceplate, the pieces in them, and the next plate to print.
+export type PrintGroup = {
+  key: string;
+  label: string;
+  done: boolean;
+  pieces: { assetId: string; name: string; needed: number; done: number; plates: { fileId: string; fileName: string; plate: number }[] }[];
+  next: { assetId: string; name: string; fileId: string; fileName: string; plate: number } | null;
+};
 export type Order = {
   printReadiness?: {status: "ready" | "missing" | "review"; reasons: string[]; required: number};
+  printPlan?: PrintGroup[];
   id: string;
   number: string;
   placed: string;

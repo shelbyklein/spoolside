@@ -182,3 +182,28 @@ test("Claude vision sends the photos and reads the forced report", async () => {
   const failing = claudeVision("sk-test", async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "invalid x-api-key" } }) }));
   await assert.rejects(failing({ model: "m", context: "", images: [] }), /invalid x-api-key/);
 });
+
+test("a print sent from an order credits its pieces when it comes out fine", async () => {
+  const { OrderPrints } = await import("./orderprints.mjs");
+  const s = setup();
+  const prints = new OrderPrints(":memory:", () => 1_000_000_000);
+  s.watcher.orderPrints = prints;
+  try {
+    prints.sent("P1", { orderId: "o1", orderNumber: "#10181", assetIds: ["case"] });
+    await s.later(0);
+    let [w] = s.watcher.list().watches;
+    assert.equal(w.order, "#10181");
+    s.state.raw = "FINISH";
+    await s.later(60000);
+    s.watcher.outcome(w.id, true);
+    assert.deepEqual(prints.all(), { o1: { case: 1 } });
+    s.watcher.outcome(w.id, true);
+    assert.deepEqual(prints.all(), { o1: { case: 1 } }, "answering twice counts once");
+    s.watcher.outcome(w.id, false, "warped");
+    assert.deepEqual(prints.all(), {}, "changing to failed takes it back");
+    assert.equal(prints.claim("P1"), null, "the tag is used once");
+  } finally {
+    prints.close();
+    s.done();
+  }
+});

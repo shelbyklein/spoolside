@@ -44,3 +44,22 @@ test('plate coverage validates IDs and persists current hashes without modifying
  assert.deepEqual(fs.readFileSync(library.file(file.id)),fixture);
  }finally{library.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('the print plan groups an order into its case and each faceplate, and moves on as pieces are printed', async () => {
+ const {orderPrintPlan}=await import('./readiness.mjs');
+ const bottom=asset('bottom','Faceplate',{style:'Classic',size:'Standard'});
+ const all=[...assets,bottom];
+ const two={...assembly,components:[...assembly.components,{assetId:'bottom',quantity:1}]};
+ const lib=[{id:'f1',name:'Cases',plates:[{index:1,coverage:[{assetId:'case'}]}]},{id:'f2',name:'Classic top',plates:[{index:3,coverage:[{assetId:'top'}]}]},{id:'f3',name:'Classic bottom',plates:[{index:1,coverage:[{assetId:'bottom'}]}]}];
+ let plan=orderPrintPlan(order,all,[two],lib);
+ assert.deepEqual(plan.map(g=>g.label),['case','Classic faceplate']);
+ assert.deepEqual(plan[1].pieces.map(p=>p.name),['top','bottom'],'parts are left out');
+ assert.deepEqual(plan[0].next,{assetId:'case',name:'case',fileId:'f1',fileName:'Cases',plate:1});
+ plan=orderPrintPlan(order,all,[two],lib,{case:1,top:1});
+ assert.equal(plan[0].done,true);
+ assert.equal(plan[0].next,null);
+ assert.equal(plan[1].next.assetId,'bottom');
+ plan=orderPrintPlan(order,all,[two],lib,{case:1,top:1,bottom:1});
+ assert.equal(plan[1].done,true);
+ assert.equal(orderPrintPlan(order,all,[two],[])[0].next,null,'no linked plate, nothing to print');
+});

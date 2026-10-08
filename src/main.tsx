@@ -4,6 +4,8 @@ import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
+import { OrderPrintDialog } from "./OrderPrint";
+import type { PrintGroup } from "./order-model";
 import { SpoolList } from "./LoadedSpools";
 import { useWatches, WatchAttention, WatchStatus, RecentPrints } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
@@ -195,6 +197,17 @@ function App() {
   const setOrders = (value: Order[]) =>
     remote ? live.update("orders", value) : setDemoOrders(value);
   const updateOrder = (next: Order) => setOrders(orders.map((o) => (o.id === next.id ? next : o)));
+  // Order print buttons (live only): a dialog to send the next piece, and ticking pieces by hand.
+  const [printing, setPrinting] = useState<{ orderId: string; group: PrintGroup } | null>(null);
+  const printOrder = remote ? (order: Order, group: PrintGroup) => setPrinting({ orderId: order.id, group }) : undefined;
+  const tickPiece = remote
+    ? async (order: Order, assetId: string, done: number) => {
+        const r = await fetch(`/api/orders/${order.id}/pieces`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assetId, done }) });
+        if (!r.ok) setNotice((await r.json().catch(() => ({}))).error || "Couldn't save");
+        live.retry();
+      }
+    : undefined;
+  const printingOrder = printing && orders.find((o) => o.id === printing.orderId);
   const setSpools = (value: Spool[]) =>
     remote ? live.update("spools", value) : setDemoSpools(value);
   const [focusedOrder, setFocusedOrder] = useState<string | null>(null);
@@ -626,7 +639,7 @@ function App() {
               </div>
               <div className="orders-list">
                 {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
-                  return <OrderRow key={order.id} order={order} onChange={updateOrder} />;
+                  return <OrderRow key={order.id} order={order} onChange={updateOrder} onPrint={printOrder} onTick={tickPiece} />;
                 })}
               </div>
               {overviewOrders.length > 10 && <p className="overview-order-more">Showing the 10 oldest of {overviewOrders.length} open orders.</p>}
@@ -675,6 +688,8 @@ function App() {
               live={remote}
               orders={orders}
               onOrderChange={updateOrder}
+              onPrint={printOrder}
+              onTick={tickPiece}
             />
           )}
           {tab === "Settings" && (
@@ -896,6 +911,9 @@ function App() {
             </button>
           </section>
         </div>
+      )}
+      {printing && printingOrder && printing.group.next && (
+        <OrderPrintDialog order={printingOrder} group={printing.group} machines={machines} notify={setNotice} onClose={() => setPrinting(null)} onSent={() => live.retry()} />
       )}
       {notice && (
         <div role="status" className="toast">

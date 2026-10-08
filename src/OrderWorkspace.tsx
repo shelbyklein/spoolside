@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Search, ShoppingBag, ArrowUpRight, Truck } from "lucide-react";
 import { OrderContents } from "./OrderContents";
-import { type Order, initialOrders, isOpenOrder, storeStatus } from "./order-model";
+import { type Order, type PrintGroup, initialOrders, isOpenOrder, storeStatus } from "./order-model";
+import { OrderPrintButtons } from "./OrderPrint";
 export { initialOrders };
 
 // Pirate Ship imports Processing orders from WooCommerce; it has no per-order link or API.
@@ -28,7 +29,7 @@ export function StatusTag({ order }: { order: Order }) {
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
 }
 
-export function OrderRow({ order, onChange }: { order: Order; onChange?: (order: Order) => void }) {
+export function OrderRow({ order, onChange, onPrint, onTick }: { order: Order; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   const canMark = !!onChange && order.commercial.toLowerCase() === "processing";
   return (
     <article className="overview-order-row" aria-label={`Order ${order.number}`}>
@@ -36,7 +37,7 @@ export function OrderRow({ order, onChange }: { order: Order; onChange?: (order:
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
       </span>
-      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{canMark && <label className="ready-check"><input type="checkbox" checked={order.assembled} onChange={(e) => onChange!({ ...order, assembled: e.target.checked, packed: e.target.checked && order.packed })} /> Printed &amp; assembled, ready to pack</label>}</div>
+      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}{canMark && <label className="ready-check"><input type="checkbox" checked={order.assembled} onChange={(e) => onChange!({ ...order, assembled: e.target.checked, packed: e.target.checked && order.packed })} /> Printed &amp; assembled, ready to pack</label>}</div>
       <StatusTag order={order} />
       <span className="ship-slot"><ShipButton order={order} /></span>
     </article>
@@ -45,7 +46,7 @@ export function OrderRow({ order, onChange }: { order: Order; onChange?: (order:
 
 const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"];
 
-export function Orders({ live = false, openOrderId, orders, onOrderChange }: { live?: boolean; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void }) {
+export function Orders({ live = false, openOrderId, orders, onOrderChange, onPrint, onTick }: { live?: boolean; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   const focus = orders.find((o) => o.id === openOrderId);
   const [search, setSearch] = useState(focus ? focus.number : ""),
     [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
@@ -93,7 +94,7 @@ export function Orders({ live = false, openOrderId, orders, onOrderChange }: { l
             <button className="text-button" onClick={() => { setSearch(""); setFilter("All orders"); }}>Clear filters</button>
           </div>
         )}
-        {visible.map((order) => <OrderRow key={order.id} order={order} onChange={onOrderChange} />)}
+        {visible.map((order) => <OrderRow key={order.id} order={order} onChange={onOrderChange} onPrint={onPrint} onTick={onTick} />)}
       </div>
     </section>
   );

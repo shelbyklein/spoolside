@@ -136,3 +136,48 @@ test("a sliced file with several plates splits into one printable file per plate
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("an order's Print button sends its next plate and remembers the order", async () => {
+  const { OrderPrints } = await import("./orderprints.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-orderprint-"));
+  const library = new Library(":memory:", dir);
+  const orderPrints = new OrderPrints(":memory:");
+  const [file] = library.add("iPhone 13 Case", fixture);
+  const caseAsset = { id: "case13", name: "iPhone 13 Case", type: "Case", fit: { phone: "iPhone 13" }, hasStl: true, generation: 3, hash: "h" };
+  library.setCoverage(file.id, 1, ["case13"], { get: () => caseAsset });
+  const order = { id: "o1", number: "#10181", commercial: "processing", items: [{ id: "i1", name: "PlayCase (Case Only)", phone: "iPhone 13", quantity: 1, recipe: [], parts: [] }] };
+  const calls = [];
+  const printers = { snapshot: () => [], configs: [], startPrint: async (id, opts) => calls.push([id, opts]) };
+  const assets = { list: () => [caseAsset], assemblies: () => [] };
+  const workspace = { snapshot: () => ({ revision: 1, orders: [order], jobs: [], spools: [] }) };
+  const salt = "c".repeat(32);
+  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library, assets, workspace, orderPrints });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const login = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "12345678" }), redirect: "manual" });
+    const headers = { Cookie: login.headers.get("set-cookie").split(";")[0], Origin: "http://localhost", "Content-Type": "application/json" };
+    const ws = await (await fetch(base + "/api/workspace", { headers })).json();
+    const [group] = ws.orders[0].printPlan;
+    assert.equal(group.label, "case");
+    const body = { group: group.key, printer: "P1", plate: `${file.id}:1`, useAms: true, amsMapping: [2, -1, 3], bedClear: true };
+    const send = (b) => fetch(base + "/api/orders/o1/print", { method: "POST", headers, body: JSON.stringify(b) });
+    assert.match((await (await send({ ...body, bedClear: false })).json()).error, /plate is clear/);
+    assert.equal((await send({ ...body, plate: "other:1" })).status, 409);
+    assert.equal(calls.length, 0);
+    assert.equal((await send(body)).status, 200);
+    assert.equal(calls[0][0], "P1");
+    assert.equal(calls[0][1].localFile, library.file(file.id));
+    assert.deepEqual(orderPrints.claim("P1").assetIds, ["case13"]);
+    const ticked = await (await fetch(base + "/api/orders/o1/pieces", { method: "POST", headers, body: JSON.stringify({ assetId: "case13", done: 1 }) })).json();
+    assert.equal(ticked.printPlan[0].done, true);
+    assert.match((await (await send(body)).json()).error, /Nothing left/);
+  } finally {
+    server.close();
+    close();
+    library.close();
+    orderPrints.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

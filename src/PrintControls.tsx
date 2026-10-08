@@ -269,7 +269,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
 }
 
 // A fresh photo from the printer's camera, to confirm the bed is empty before starting.
-function BedCheck({ machine }: { machine: Machine }) {
+export function BedCheck({ machine }: { machine: Machine }) {
   const [stamp, setStamp] = useState(() => Date.now()), [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const refresh = () => { setState("loading"); setStamp(Date.now()); };
   return (
