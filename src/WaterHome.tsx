@@ -51,7 +51,8 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
 
 // The phone home screen: the spool floating on the pool, with printers and orders at a glance as pills.
 // Tap a printer for its details, or a card to open that page.
-export function WaterHome({ attention, machines, orders, loading, openPrinter, openOrder, go }: {
+export function WaterHome({ attention, machines, orders, loading, bedsToClear = [], openPrinter, openOrder, go }: {
+  bedsToClear?: string[];
   machines: Machine[];
   orders: Order[];
   loading: boolean;
@@ -72,16 +73,18 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
         {attention}
         <div className="home-pills">
           {machines.map((m) => {
+            const needsClear = bedsToClear.includes(m.id);
             const active = m.state === "Printing" || m.state === "Paused";
             return (
               <button
                 key={m.id}
                 className={`home-pill ${m.state.toLowerCase()}`}
                 onClick={() => openPrinter(m.id)}
-                aria-label={`${m.name}, ${m.state}`}
+                aria-label={`${m.name}, ${m.state}${needsClear ? ", bed needs clearing" : ""}`}
+                title={needsClear ? "Bed needs clearing" : undefined}
                 style={active ? ({ "--fill": `${Math.min(100, Math.max(0, m.progress))}%` } as React.CSSProperties) : undefined}
               >
-                <span className={`home-dot ${m.state.toLowerCase()}`} />
+                <span className={`home-dot ${needsClear ? "bed-needs-clear" : m.state.toLowerCase()}`} />
                 <span className="home-pill-name">{m.name}</span>
                 <span className="home-pill-state">{active ? `${m.progress}%` : m.state}</span>
               </button>

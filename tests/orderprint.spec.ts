@@ -108,6 +108,17 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   const card = page.getByRole('article', { name: 'AMS 3 is free' });
   await expect(card).toContainText('Print the iPhone 12 Case for #10181 · Red, slot 2');
   await expect(page.getByText('could print the next order, but the camera says: A grey case is still on the plate')).toBeVisible();
+  await page.setViewportSize({width:428,height:926});
+  const home=page.getByRole('region',{name:'Spoolside home'});
+  await expect(home.getByText(/could print the next order/)).toHaveCount(0);
+  const blockedPill=home.getByRole('button',{name:/AMS 2, .*bed needs clearing/});
+  await expect(blockedPill).toBeVisible();
+  await expect(blockedPill.locator('.home-dot')).toHaveCSS('background-color','rgb(255, 90, 79)');
+  await home.screenshot({path:'handoff/spoolside-bed-clear-dot-mobile.png'});
+  await blockedPill.click();
+  await expect(page.getByRole('dialog',{name:'AMS 2 details'})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({width:1440,height:1000});
   await card.getByRole('button', { name: 'Print…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Print case for #10181' });
   await expect(dialog.getByLabel('Printer')).toHaveValue('red', { timeout: 5000 });

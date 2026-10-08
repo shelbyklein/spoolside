@@ -2308,3 +2308,5 @@ footer .tiny-dot {
 @media (max-width: 760px) {
   body:has(.water-home.spool-dragging) .sidebar nav { opacity: 0; pointer-events: none; }
 }
+
+.home-dot.bed-needs-clear { background: #ff5a4f; box-shadow: none; }
