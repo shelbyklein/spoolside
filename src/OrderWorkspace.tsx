@@ -44,6 +44,7 @@ export function OrderRow({ order, onChange, onPrint, onTick }: { order: Order; o
   );
 }
 
+const orderNumber = (o: Order) => Number(o.number.replace(/\D/g, "")) || 0;
 const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"];
 
 export function Orders({ live = false, openOrderId, orders, onOrderChange, onPrint, onTick }: { live?: boolean; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
@@ -60,7 +61,7 @@ export function Orders({ live = false, openOrderId, orders, onOrderChange, onPri
       (filter === "Shipped" && ["shipped", "completed", "delivered"].includes(status));
     const text = `${o.number} ${o.items.map((i) => `${i.name} ${i.variant} ${i.phone || ""} ${i.colorway || ""}`).join(" ")}`;
     return match && text.toLowerCase().includes(search.toLowerCase());
-  });
+  }).sort((a, b) => orderNumber(a) - orderNumber(b)); // oldest first: the next to fulfill on top
   return (
     <section className="orders-workspace">
       <div className="order-source">
