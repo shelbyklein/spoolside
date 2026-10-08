@@ -15,8 +15,10 @@ export type Machine = {
   connected?: boolean;
   error?: string | null;
   rawState?: string | null;
-  trays?: { slot: number; type: string; color: string }[];
-  external?: { type: string; color: string } | null;
+  trays?: { slot: number; type: string; color: string; name?: string; remain?: number | null; grams?: number | null; materialId?: string | null }[];
+  external?: { type: string; color: string; name?: string } | null;
+  feeding?: number | null;
+  hasAms?: boolean;
 };
 export type Spool = {
   materialId?: string;

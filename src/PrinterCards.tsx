@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Printer, Thermometer, VideoOff } from "lucide-react";
 import type { Machine } from "./live-workspace";
+import { SpoolChips } from "./LoadedSpools";
 
 const jobName = (job: string) => job.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " ");
 const temp = (t?: number | null) => (t == null ? "—" : Math.round(t) + "°");
@@ -92,6 +93,7 @@ export function PrinterCards({ machines, live, onOpen }: { machines: Machine[]; 
                   <span className="printer-card-meta">{m.progress}% · {m.remaining} left</span>
                 </>
               )}
+              {live && <SpoolChips machine={m} />}
               <span className="printer-card-temps">
                 <Thermometer size={14} /> {temp(m.nozzle)} nozzle · {temp(m.bed)} bed
               </span>

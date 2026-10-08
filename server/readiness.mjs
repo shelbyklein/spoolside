@@ -24,11 +24,12 @@ export function orderReadiness(order, assets, assemblies, files) {
       }));
       if (matches.length !== 1) { review.push(`${style} ${size}: assembly missing or ambiguous`); continue; }
       const assembly = matches[0];
-      if (!assembly.partsConfirmed) review.push(`${assembly.name}: confirm complete parts list`);
       if (!assembly.components.length) review.push(`${assembly.name}: no active parts`);
+      // Parts (buttons, membranes, bridges, inserts) are printed ahead in bulk, so only the
+      // faceplate pieces printed per order need sliced files.
       for (const c of assembly.components) {
         const a = assets.find(x => x.id === c.assetId);
-        if (!a) review.push(`${assembly.name}: missing part`); else requireAsset(a);
+        if (!a) review.push(`${assembly.name}: missing part`); else if (a.type !== 'Part') requireAsset(a);
       }
     }
   }

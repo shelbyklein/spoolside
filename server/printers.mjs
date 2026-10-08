@@ -6,6 +6,10 @@ import { inspect3mf, zipEntries, zipRead } from "./library.mjs";
 export function mergeTelemetry(prior, update) {
   return { ...prior, ...update };
 }
+// Bambu filament codes (from the spool's RFID tag) for the materials Spoolside restocks.
+const MATERIALS = { GFU02: "bambu-tpu-ams" };
+// Bambu colors are RRGGBBAA; a zero alpha means no color was set.
+const trayColor = (c) => (c && c.length >= 6 && c.slice(6, 8) !== "00" ? "#" + c.slice(0, 6) : "");
 export function printerView(config, record, now = Date.now()) {
   const data = record?.data || {},
     stale = !record?.seen || now - record.seen > 90000,
@@ -38,9 +42,17 @@ export function printerView(config, record, now = Date.now()) {
     trays: (data.ams?.ams?.[0]?.tray || []).map((t) => ({
       slot: Number(t.id),
       type: t.tray_type || "",
-      color: t.tray_type && t.tray_color ? "#" + t.tray_color.slice(0, 6) : "",
+      color: t.tray_type ? trayColor(t.tray_color) : "",
+      name: t.tray_type ? t.tray_sub_brands || t.tray_type : "",
+      // The AMS estimates what's left only for Bambu RFID spools; -1 means unknown.
+      remain: t.tray_type && Number(t.remain) >= 0 ? Number(t.remain) : null,
+      grams: t.tray_type && Number(t.remain) >= 0 && Number(t.tray_weight) > 0 ? Math.round((Number(t.tray_weight) * Number(t.remain)) / 100) : null,
+      materialId: MATERIALS[t.tray_info_idx] || null,
     })),
-    external: data.vt_tray?.tray_type ? { type: data.vt_tray.tray_type, color: "#" + (data.vt_tray.tray_color || "").slice(0, 6) } : null,
+    external: data.vt_tray?.tray_type ? { type: data.vt_tray.tray_type, color: trayColor(data.vt_tray.tray_color), name: data.vt_tray.tray_sub_brands || data.vt_tray.tray_type } : null,
+    // Which spool feeds the nozzle: an AMS slot, or 254 for the external spool.
+    feeding: data.ams?.tray_now == null ? null : Number(data.ams.tray_now),
+    hasAms: Number(data.ams?.ams_exist_bits || 0) > 0,
     seen: record?.seen ? new Date(record.seen).toISOString() : null,
     connected,
     stale,

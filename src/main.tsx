@@ -4,6 +4,7 @@ import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
+import { SpoolList } from "./LoadedSpools";
 import { useWatches, WatchAttention, WatchStatus } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
@@ -663,7 +664,7 @@ function App() {
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
               {tab !== "Filament" && queue}
-              {tab === "Filament" && remote ? <FilamentManager notify={setNotice}/> : tab !== "Queue" && !remote && filament}
+              {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}
@@ -846,7 +847,7 @@ function App() {
               </div>
               <div>
                 <dt>Filament</dt>
-                <dd>{current.material}</dd>
+                <dd>{remote ? <SpoolList machine={current} /> : current.material}</dd>
               </div>
               <div>
                 <dt>Nozzle / bed</dt>

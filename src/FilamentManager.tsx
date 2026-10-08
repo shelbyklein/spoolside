@@ -1,5 +1,7 @@
 import {useEffect,useState} from 'react';
 import {RefreshCw,ExternalLink,Package} from 'lucide-react';
+import type {Machine} from './live-workspace';
+import {LoadedInPrinters,LoadedMaterial} from './LoadedSpools';
 type Offer={image?:string|null;id:string;materialId:string;seller:string;label:string;color?:string;url:string;grams:number;price:number;available:boolean|null;refill:boolean;source:string;checked:string;deliverySource?:string;stale:boolean;arrival:string|null;shipping:number|null;delivered:number|null;perKg:number;deliveredPerKg:number|null};
 type Material={id:string;name:string;usage:string;url:string;offers:Offer[];error?:string;lastChecked?:string};
 type Catalog={materials:Material[];settings:{zip:string;sort:string}};
@@ -7,7 +9,7 @@ const names:Record<string,string>={'bambu-tpu-ams':'Bambu TPU for AMS','recreus-
 export const materialName=(id:string)=>names[id]||'Unassigned';
 const dollars=(n:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
 async function api(url:string,method='GET',body?:unknown):Promise<Catalog>{const r=await fetch(url,{method,...(body!==undefined?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const b=await r.json();if(!r.ok)throw Error(b.error||'Could not save');return b;}
-export function FilamentManager({notify}:{notify:(s:string)=>void}){
+export function FilamentManager({notify,machines=[]}:{notify:(s:string)=>void;machines?:Machine[]}){
  const [catalog,setCatalog]=useState<Catalog|null>(null),[busy,setBusy]=useState(false),[offerFor,setOfferFor]=useState(''),[quote,setQuote]=useState<Offer|null>(null),[filters,setFilters]=useState<Record<string,string>>({});
  useEffect(()=>{if(!quote)return;const prior=document.activeElement as HTMLElement;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')setQuote(null);};document.addEventListener('keydown',escape);return ()=>{document.removeEventListener('keydown',escape);prior?.focus();};},[quote]);
  const load=()=>api('/api/materials').then(c=>setCatalog(Array.isArray(c.materials)?c:{materials:[],settings:{zip:'30360',sort:'fastest'}})).catch(e=>notify(e.message));
@@ -16,11 +18,13 @@ export function FilamentManager({notify}:{notify:(s:string)=>void}){
  return <section className="filament-manager" aria-label="Filament restock">
  <div className="material-toolbar"><label>Ship to<input aria-label="Delivery ZIP" inputMode="numeric" maxLength={5} defaultValue={catalog?.settings.zip||'30360'} key={catalog?.settings.zip} onBlur={e=>{if(e.target.value!==catalog?.settings.zip)save('/api/materials/settings','PATCH',{zip:e.target.value});}}/></label><select aria-label="Sort restock offers" value={catalog?.settings.sort||'fastest'} onChange={e=>save('/api/materials/settings','PATCH',{sort:e.target.value})}><option value="fastest">Fastest first</option><option value="price">Lowest delivered $/kg</option></select><button className="secondary" disabled={busy} onClick={()=>save('/api/materials/refresh','POST')}><RefreshCw size={16}/> {busy?'Checking…':'Check prices'}</button></div>
  {!catalog&&<p>Loading…</p>}
+ <LoadedInPrinters machines={machines}/>
  <div className="material-cards">{catalog?.materials.map(m=>{
  const filter=filters[m.id]||'spools';
  const variant=filters[m.id+'-variant']||'all';
  const offers=m.offers.filter(o=>filter==='all'||filter==='refills'?filter==='all'||o.refill:!o.refill).filter(o=>variant==='all'||`${o.color||'Black'} · ${o.grams} g`===variant).slice(0,3);
  return <section className="panel material-card" key={m.id}><div className="section-top"><div><h3>{m.name}</h3><label className="material-usage">Used for<input aria-label={`Usage for ${m.name}`} defaultValue={m.usage} placeholder="Set part usage" onBlur={e=>{if(e.target.value!==m.usage)save('/api/materials/'+m.id,'PATCH',{usage:e.target.value});}}/></label></div></div>
+ <LoadedMaterial machines={machines} materialId={m.id}/>
  <div className="restock-heading"><h4>Restock</h4><select aria-label={`Spool format for ${m.name}`} value={filter} onChange={e=>setFilters({...filters,[m.id]:e.target.value})}><option value="spools">Spools</option><option value="refills">Refills</option><option value="all">All formats</option></select><button className="text-button" onClick={()=>setOfferFor(offerFor===m.id?'':m.id)}>Add seller</button></div>
  {m.error&&<p role="alert" className="plate-meta">Price check failed: {m.error}</p>}
  <select className="material-variant" aria-label={`Variant for ${m.name}`} value={variant} onChange={e=>setFilters({...filters,[m.id+'-variant']:e.target.value})}><option value="all">All colors / sizes</option>{[...new Set(m.offers.map(o=>`${o.color||'Black'} · ${o.grams} g`))].map(label=><option key={label}>{label}</option>)}</select>
