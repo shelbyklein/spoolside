@@ -169,6 +169,10 @@ test("an order's Print button sends its next plate and remembers the order", asy
     assert.equal((await send(body)).status, 200);
     assert.equal(calls[0][0], "P1");
     assert.equal(calls[0][1].localFile, library.file(file.id));
+    assert.equal((await send({ ...body, printer: "P2" })).status, 409);
+    assert.equal(calls.length, 1, "a pending order piece cannot start on a second printer");
+    const pendingWorkspace = await (await fetch(base + "/api/workspace", { headers })).json();
+    assert.equal(pendingWorkspace.printQueue[0].blocked, "Printing / awaiting result");
     assert.deepEqual(orderPrints.claim("P1").assetIds, ["case13"]);
     const ticked = await (await fetch(base + "/api/orders/o1/pieces", { method: "POST", headers, body: JSON.stringify({ assetId: "case13", done: 1 }) })).json();
     assert.equal(ticked.printPlan[0].done, true);

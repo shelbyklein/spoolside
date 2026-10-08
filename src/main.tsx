@@ -1,3 +1,4 @@
+import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
@@ -309,7 +310,7 @@ function App() {
           className="text-button"
           onClick={() => {
             setTab("Queue");
-            setAdding(true);
+            setAdding(!remote);
           }}
         >
           <Plus size={16} /> Add job
@@ -556,7 +557,7 @@ function App() {
             >
               <t.icon size={20} />
               <span>{t.name}</span>
-              {t.name === "Queue" && <small>{queueJobs.length}</small>}
+              {t.name === "Queue" && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
             </button>
           ))}
         </nav>
@@ -603,15 +604,15 @@ function App() {
                   <RefreshCw size={17} />
                 </button>
               )}
-              {!["Settings", "Orders", "Library"].includes(tab) && (
+              {!["Settings", "Orders", "Library"].includes(tab) && !(remote && tab === "Queue") && (
                 <button
                   className="secondary"
                   onClick={() => {
                     setTab("Queue");
-                    setAdding(true);
+                    setAdding(!remote);
                   }}
                 >
-                  <Plus size={17} /> Add to queue
+                  <Plus size={17} /> {remote ? "Print queue" : "Add to queue"}
                 </button>
               )}
             </div>
@@ -686,7 +687,7 @@ function App() {
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
-              {tab !== "Filament" && queue}
+              {tab !== "Filament" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} /> : queue)}
               {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}

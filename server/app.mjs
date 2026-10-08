@@ -1,5 +1,6 @@
 import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
 import express from "express";
+import { printQueue, reservedPieces } from "./printqueue.mjs";
 import {
   randomBytes,
   scryptSync,
@@ -181,7 +182,8 @@ export function createApp({
   const withReadiness = snapshot => {
     const models=assets?.list() || [], assemblies=assets?.assemblies() || [], sliced=library?.list() || [];
     const printed = orderPrints?.all() || {};
-    return {...snapshot, orders:snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced),printPlan:orderPrintPlan(o,models,assemblies,sliced,printed[o.id])}))};
+    const orders = snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced),printPlan:orderPrintPlan(o,models,assemblies,sliced,printed[o.id])}));
+    return {...snapshot, orders, printQueue: printQueue(orders, reservedPieces(watcher, orderPrints))};
   };
   app.get("/api/workspace", (_req, res) =>
     workspace
@@ -439,6 +441,7 @@ export function createApp({
       const { group, printer, plate, amsMapping, useAms, bedLevelling } = req.body || {};
       const { order, plan } = planFor(req.params.id);
       if (!["processing"].includes(String(order.commercial).toLowerCase())) throw Error("Only processing orders can be printed");
+      if (order.assembled || order.refundReview || order.sourceReview) throw Error("Review this order before printing");
       const next = plan.find((g) => g.key === group)?.next;
       if (!next) throw Error("Nothing left to print for that");
       // The request names the plate it showed you, so a plan that moved on can't start the wrong one.
@@ -449,8 +452,18 @@ export function createApp({
       // Everything this plate makes that the order still needs gets credited when it comes out fine.
       const covered = new Set((file.plates.find((p) => p.index === next.plate)?.coverage || []).map((c) => c.assetId));
       const assetIds = [...new Set(plan.flatMap((g) => g.pieces).filter((p) => covered.has(p.assetId) && p.done < p.needed).map((p) => p.assetId))];
+      const ids = assetIds.length ? assetIds : [next.assetId];
+      const taken = reservedPieces(watcher, orderPrints);
+      if (ids.some(id => taken.has(`${order.id}:${id}`)) || orderPrints.pending.has(String(printer)))
+        throw Object.assign(Error("This piece is already printing or awaiting a result."), { status: 409 });
+      orderPrints.sent(String(printer), { orderId: order.id, orderNumber: order.number, assetIds: ids });
+      const reservation = orderPrints.pending.get(String(printer));
+      try {
       await printers.startPrint(String(printer), { localFile: library.file(file.id), name: file.name, plate: next.plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
-      orderPrints.sent(String(printer), { orderId: order.id, orderNumber: order.number, assetIds: assetIds.length ? assetIds : [next.assetId] });
+      } catch (error) {
+        if (orderPrints.pending.get(String(printer)) === reservation) orderPrints.pending.delete(String(printer));
+        throw error;
+      }
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);

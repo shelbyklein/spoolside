@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Order, Job } from "./order-model";
+import type { Order, Job, PrintGroup } from "./order-model";
 export type Machine = {
   id: string;
   name: string;
@@ -28,7 +28,9 @@ export type Spool = {
   color: string;
   remaining: number;
 };
+export type QueueEntry = { orderId: string; group: PrintGroup | null; blocked: string | null; missing: string[] };
 type Data = {
+  printQueue?: QueueEntry[];
   revision: number;
   orders: Order[];
   jobs: Job[];
