@@ -1,3 +1,4 @@
+import { reportAnthropicUsage } from "./tokenusage.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 // Store colorway names to the color looked for among loaded spools (matches the app's print dialog).
@@ -195,6 +196,7 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
       signal: AbortSignal.timeout(60000),
     });
     const body = await r.json().catch(() => ({}));
+    reportAnthropicUsage({ usage: body.usage, requestId: r.headers?.get?.("request-id") || body.id, model: body.model || model, taskId: "bed-check" });
     if (!r.ok) throw Error(body.error?.message || `Vision API ${r.status}`);
     const input = body.content?.find((c) => c.type === "tool_use")?.input;
     if (typeof input?.empty !== "boolean") throw Error("Vision API gave no answer");

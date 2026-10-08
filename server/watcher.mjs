@@ -1,3 +1,4 @@
+import { reportAnthropicUsage } from "./tokenusage.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -280,6 +281,7 @@ export function claudeVision(apiKey, fetchImpl = fetch) {
       signal: AbortSignal.timeout(60000),
     });
     const body = await r.json().catch(() => ({}));
+    reportAnthropicUsage({ usage: body.usage, requestId: r.headers?.get?.("request-id") || body.id, model: body.model || model, taskId: "print-vision" });
     if (!r.ok) throw Error(body.error?.message || `Vision API ${r.status}`);
     const input = body.content?.find((c) => c.type === "tool_use")?.input;
     if (!["ok", "problem", "unsure"].includes(input?.verdict)) throw Error("Vision API gave no verdict");
