@@ -38,22 +38,30 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
   await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
-  const rowLayout=async (first: import('@playwright/test').Locator)=>{
+  // Wide screens: one line, order | contents | status | Ship. Phones: contents below.
+  const rowLayout=async (first: import('@playwright/test').Locator, wide: boolean)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
+    const status=await first.locator('.production-stage').boundingBox();
     const id=await first.locator('.order-id').boundingBox();
-    expect(Math.abs(ship!.y-id!.y)).toBeLessThan(20);
-    expect(content!.y).toBeGreaterThan(ship!.y);
+    if (wide) {
+      expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
+      expect(status!.x).toBeGreaterThanOrEqual(content!.x+content!.width);
+      expect(ship!.x).toBeGreaterThanOrEqual(status!.x+status!.width);
+    } else {
+      expect(Math.abs(ship!.y-id!.y)).toBeLessThan(20);
+      expect(content!.y).toBeGreaterThan(ship!.y);
+    }
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   };
   const first=overview.getByRole('article',{name:'Order #1',exact:true});
-  await rowLayout(first);
+  await rowLayout(first, true);
   await first.getByText('V3 sliced files missing',{exact:true}).click();
   await expect(first.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
   await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
   await overview.getByRole('button',{name:'View orders'}).click();
   await page.setViewportSize({width:428,height:926});
-  await rowLayout(page.getByRole('article',{name:'Order #1',exact:true}));
+  await rowLayout(page.getByRole('article',{name:'Order #1',exact:true}), false);
   await page.getByLabel('Filter orders').selectOption('Shipped');
   await expect(page.getByText('#2',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Refresh orders'}).click();

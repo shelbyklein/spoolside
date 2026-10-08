@@ -267,6 +267,9 @@ function App() {
     );
   };
   const overviewOrders = orders.filter(isOpenOrder);
+  // The overview lists the oldest open orders first: the next ones to fulfill.
+  const orderNumber = (o: Order) => Number(o.number.replace(/\D/g, "")) || 0;
+  const nextOrders = [...overviewOrders].sort((a, b) => orderNumber(a) - orderNumber(b)).slice(0, 10);
   const queueJobs = jobs.filter(
     (j) =>
       !j.orderId ||
@@ -620,11 +623,11 @@ function App() {
                 <button className="text-button" onClick={() => {setFocusedOrder(null);setTab("Orders");}}>View orders <ArrowUpRight size={16} /></button>
               </div>
               <div className="orders-list">
-                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : overviewOrders.slice(0,5).map(order => {
+                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
                   return <OrderRow key={order.id} order={order} />;
                 })}
               </div>
-              {overviewOrders.length > 5 && <p className="overview-order-more">Showing 5 of {overviewOrders.length} open orders.</p>}
+              {overviewOrders.length > 10 && <p className="overview-order-more">Showing the 10 oldest of {overviewOrders.length} open orders.</p>}
             </section>
           )}
           {(tab === "Overview" || tab === "Printers") && (

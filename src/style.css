@@ -1603,16 +1603,18 @@ footer .tiny-dot {
 .overview-orders .section-top { margin-bottom: 16px; }
 .overview-orders .section-top h2 { display: flex; align-items: center; gap: 10px; }
 .order-count { font-size: 12px; padding: 4px 7px; background: #e8efef; color: #61727b; border-radius: 4px; }
-.overview-order-row { display: flex; align-items: center; gap: 24px; width: 100%; padding: 18px 24px; text-align: left; }
+/* One line per order: order and date | contents | status | Ship. Phones stack the contents below. */
+.overview-order-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto auto; align-items: center; gap: 20px; width: 100%; padding: 18px 24px; text-align: left; }
+.overview-order-row .order-id { width: auto; min-width: 0; }
+.overview-order-row .production-stage { justify-self: end; }
 .overview-order-row + .overview-order-row { border-top: 1px solid var(--line); }
-.overview-order-row .order-id { width: 140px; }
 .overview-order-row > svg { color: #6d827e; flex-shrink: 0; }
 .overview-order-more { color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) {
   .overview-orders .section-top { align-items: flex-start; gap: 12px; }
   .overview-orders .section-top p { max-width: 210px; }
   .overview-orders .section-top .text-button { min-height: 44px; white-space: nowrap; }
-  .overview-order-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; padding: 18px; }
+  .overview-order-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; padding: 18px; }
   .overview-order-row .order-id { width: auto; }
   .overview-order-row .production-stage { grid-column: 2; grid-row: 1; }
   .overview-order-row .ship-slot { grid-column: 3; grid-row: 1; width: auto; }
@@ -1650,11 +1652,7 @@ footer .tiny-dot {
 @media (min-width: 1151px) {
   .overview-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; }
   .overview-split .overview-orders { margin: 0; }
-  .overview-split .overview-order-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 16px 18px; }
-  .overview-split .overview-order-row .order-id { width: auto; }
-  .overview-split .overview-order-row .ship-slot { width: auto; grid-column: 3; grid-row: 1; }
-  .overview-split .overview-order-row .production-stage { grid-column: 2; grid-row: 1; }
-  .overview-split .overview-order-row .order-content-readiness { grid-column: 1 / -1; grid-row: 2; }
+  .overview-split .overview-order-row { grid-template-columns: 96px minmax(0, 1fr) auto auto; gap: 14px; padding: 16px 18px; }
 }
 .overview-orders .section-top { padding: 0; margin-bottom: 17px; align-items: center; }
 @media (min-width: 1151px) { .overview-split .fleet-heading, .overview-split .overview-orders .section-top { min-height: 36px; } }
