@@ -124,6 +124,13 @@ test("a sliced file with several plates splits into one printable file per plate
     const added = library.add("Cases v3.gcode.3mf", buf);
     assert.deepEqual(added.map((f) => [f.name, f.plates.map((p) => p.index)]), [["Handheld Green", [1]], ["DS Black", [2]]]);
     assert.ok(fs.statSync(library.file(added[0].id)).size < buf.length);
+    // Uploading it again replaces the entries by name and keeps their linked assets.
+    library.db.prepare("UPDATE library SET plates=? WHERE id=?").run(JSON.stringify(added[0].plates.map((p) => ({ ...p, coverage: [{ assetId: "case", hash: "v1" }] }))), added[0].id);
+    const again = library.add("Cases v3 (updated).gcode.3mf", buf);
+    assert.deepEqual(again.map((f) => [f.id, f.replaced]), [[added[0].id, true], [added[1].id, true]]);
+    assert.equal(library.list().length, 2);
+    assert.deepEqual(library.get(added[0].id).plates[0].coverage, [{ assetId: "case", hash: "v1" }]);
+    assert.ok(library.get(added[0].id).updated);
   } finally {
     library.close();
     fs.rmSync(dir, { recursive: true, force: true });

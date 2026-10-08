@@ -4,7 +4,7 @@ import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
 export type Plate = { coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
-export type LibraryFile = { id: string; name: string; size: number; plates: Plate[]; created: string };
+export type LibraryFile = { id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
@@ -183,12 +183,14 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
     setUploading(true);
     try {
       // A file with several sliced plates comes back as one entry per plate.
-      let added = 0;
+      // Entries with a name already in the library replace it, keeping their linked assets.
+      let added = 0, replaced = 0;
       for (const f of picked) {
         const entries = await api<LibraryFile[]>("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(f.name) }, body: f });
-        added += Array.isArray(entries) ? entries.length : 1;
+        for (const e of Array.isArray(entries) ? entries : []) e.replaced ? replaced++ : added++;
       }
-      notify(added > picked.length ? `Split into ${added} plates, each ready to print.` : picked.length === 1 ? `${picked[0].name} added to the library.` : `${picked.length} files added to the library.`);
+      const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+      notify([replaced && `Updated ${count(replaced, "print", "prints")} (linked assets kept)`, added && `added ${count(added, "new print", "new prints")}`].filter(Boolean).join(", ").replace(/^a/, "A") + ".");
     } catch (e) {
       notify((e as Error).message);
     } finally {
@@ -236,7 +238,7 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
 // The slicer's picture of the plate, from inside the sliced file.
 function SlicedPreview({ file }: { file: LibraryFile }) {
   const [failed, setFailed] = useState(false);
-  return failed ? <FileBox size={34} /> : <img src={`/api/library/${file.id}/preview.png`} alt={`Slicer preview of ${file.name}`} loading="lazy" onError={() => setFailed(true)} />;
+  return failed ? <FileBox size={34} /> : <img src={`/api/library/${file.id}/preview.png?v=${encodeURIComponent(file.updated || file.created)}`} alt={`Slicer preview of ${file.name}`} loading="lazy" onError={() => setFailed(true)} />;
 }
 
 const PLATE_TYPES = ["Case", "Faceplate", "Sleeve", "Part"];

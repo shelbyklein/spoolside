@@ -144,6 +144,7 @@ export class Library {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
+    if (!this.db.prepare("PRAGMA table_info(library)").all().some((c) => c.name === "updated")) this.db.exec("ALTER TABLE library ADD COLUMN updated TEXT");
   }
   setCoverage(id, plateIndex, ids, assets) {
     const file = this.get(id);
@@ -160,7 +161,7 @@ export class Library {
   }
   list() {
     return this.db
-      .prepare("SELECT id, name, size, plates, created FROM library ORDER BY name COLLATE NOCASE")
+      .prepare("SELECT id, name, size, plates, created, updated FROM library ORDER BY name COLLATE NOCASE")
       .all()
       .map((r) => ({ ...r, plates: JSON.parse(r.plates) }));
   }
@@ -171,7 +172,8 @@ export class Library {
     if (!/^[0-9a-f-]{36}$/.test(id)) throw Error("Unknown file");
     return path.join(this.dir, id + ".3mf");
   }
-  // Adds a sliced file; one with several plates becomes one entry per plate. Returns the new entries.
+  // Adds a sliced file; one with several plates becomes one entry per plate. Returns the entries;
+  // an entry whose name is already in the library replaces that one (marked replaced: true).
   add(name, buf) {
     const split = splitPlates(buf);
     if (!split) return [this.addOne(name, buf)];
@@ -180,9 +182,21 @@ export class Library {
   addOne(name, buf) {
     const { plates } = inspect3mf(buf);
     const clean = String(name || "").replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Untitled print";
+    const now = new Date().toISOString();
+    const existing = this.list().find((f) => f.name.toLowerCase() === clean.toLowerCase());
+    if (existing) {
+      // Same print, re-sliced: keep its id and the assets linked to its plates.
+      const carried = plates.map((p) => {
+        const old = existing.plates.find((o) => o.index === p.index) || (plates.length === 1 && existing.plates.length === 1 ? existing.plates[0] : null);
+        return old?.coverage ? { ...p, coverage: old.coverage } : p;
+      });
+      fs.writeFileSync(this.file(existing.id), buf, { mode: 0o600 });
+      this.db.prepare("UPDATE library SET size=?, plates=?, updated=? WHERE id=?").run(buf.length, JSON.stringify(carried), now, existing.id);
+      return { ...this.get(existing.id), replaced: true };
+    }
     const id = randomUUID();
     fs.writeFileSync(this.file(id), buf, { mode: 0o600 });
-    this.db.prepare("INSERT INTO library VALUES (?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), new Date().toISOString());
+    this.db.prepare("INSERT INTO library (id, name, size, plates, created) VALUES (?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), now);
     return this.get(id);
   }
   // The slicer's preview picture of the file's first plate, if it has one.
