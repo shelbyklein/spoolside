@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { scryptSync } from "node:crypto";
-import { Library, inspect3mf } from "./library.mjs";
+import { Library, inspect3mf, splitPlates, zipEntries, zipRead, zipWrite } from "./library.mjs";
+import { crc32, deflateRawSync } from "node:zlib";
 import { createApp } from "./app.mjs";
 import { findLastFile } from "./printers.mjs";
 const fixture = fs.readFileSync(new URL("./fixtures/plate.gcode.3mf", import.meta.url));
@@ -42,7 +43,7 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     const login = await fetch(base + "/login", { method: "POST", headers: { Origin: "http://localhost" }, body: new URLSearchParams({ pin: "12345678" }), redirect: "manual" });
     const headers = { Cookie: login.headers.get("set-cookie").split(";")[0], Origin: "http://localhost" };
     const up = await fetch(base + "/api/library", { method: "POST", headers: { ...headers, "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent("Handheld – Green.gcode.3mf") }, body: fixture });
-    const file = await up.json();
+    const [file] = await up.json();
     assert.equal(up.status, 200);
     assert.equal(file.name, "Handheld – Green");
     const bad = await fetch(base + "/api/library", { method: "POST", headers: { ...headers, "Content-Type": "application/octet-stream" }, body: Buffer.from("PK nope") });
@@ -86,4 +87,45 @@ test("the last job's file is found by Bambu Studio and Spoolside names", () => {
   assert.equal(findLastFile("Bridge", files).name, "Bridge.3mf");
   assert.equal(findLastFile("Case", files), null);
   assert.equal(findLastFile("Missing", files), null);
+});
+
+// A two-plate sliced file made from the fixture: plate 2 is a copy of plate 1 with its own part.
+function twoPlates() {
+  const entries = zipEntries(fixture), files = [];
+  const add = (name, raw) => files.push({ name, method: 8, crc: crc32(raw), usize: raw.length, data: deflateRawSync(raw) });
+  for (const [name, e] of entries) {
+    const raw = zipRead(fixture, e);
+    if (name === "Metadata/slice_info.config") {
+      const text = raw.toString().replace(/<plate>/, '<plate>\n<object identify_id="1" name="Handheld Green.stl" skipped="false" />');
+      const block = text.match(/<plate>[\s\S]*?<\/plate>/)[0];
+      add(name, Buffer.from(text.replace(block, block + block.replace('key="index" value="1"', 'key="index" value="2"').replace("Handheld Green.stl", "DS Black.stl"))));
+    } else add(name, raw);
+    if (name === "Metadata/plate_1.gcode") add("Metadata/plate_2.gcode", Buffer.concat([raw, Buffer.from("; plate 2")]));
+  }
+  return zipWrite(files);
+}
+
+test("a sliced file with several plates splits into one printable file per plate", () => {
+  const buf = twoPlates();
+  assert.deepEqual(inspect3mf(buf).plates.map((p) => p.index), [1, 2]);
+  const parts = splitPlates(buf);
+  assert.deepEqual(parts.map((p) => [p.index, p.label]), [[1, "Handheld Green"], [2, "DS Black"]]);
+  for (const p of parts) {
+    const e = zipEntries(p.buf);
+    assert.deepEqual(inspect3mf(p.buf).plates.map((x) => x.index), [p.index]);
+    assert.ok(e.has(`Metadata/plate_${p.index}.gcode`));
+    assert.equal(e.has(`Metadata/plate_${3 - p.index}.gcode`), false);
+    assert.ok(zipRead(p.buf, e.get(`Metadata/plate_${p.index}.gcode`)).equals(zipRead(buf, zipEntries(buf).get(`Metadata/plate_${p.index}.gcode`))));
+  }
+  assert.equal(splitPlates(fixture), null, "single-plate files stay whole");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-split-"));
+  const library = new Library(":memory:", dir);
+  try {
+    const added = library.add("Cases v3.gcode.3mf", buf);
+    assert.deepEqual(added.map((f) => [f.name, f.plates.map((p) => p.index)]), [["Handheld Green", [1]], ["DS Black", [2]]]);
+    assert.ok(fs.statSync(library.file(added[0].id)).size < buf.length);
+  } finally {
+    library.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -182,10 +182,13 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
     if (!picked.length) return;
     setUploading(true);
     try {
+      // A file with several sliced plates comes back as one entry per plate.
+      let added = 0;
       for (const f of picked) {
-        await api("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(f.name) }, body: f });
+        const entries = await api<LibraryFile[]>("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(f.name) }, body: f });
+        added += Array.isArray(entries) ? entries.length : 1;
       }
-      notify(picked.length === 1 ? `${picked[0].name} added to the library.` : `${picked.length} files added to the library.`);
+      notify(added > picked.length ? `Split into ${added} plates, each ready to print.` : picked.length === 1 ? `${picked[0].name} added to the library.` : `${picked.length} files added to the library.`);
     } catch (e) {
       notify((e as Error).message);
     } finally {
