@@ -7,8 +7,15 @@ export { initialOrders };
 // Pirate Ship imports Processing orders from WooCommerce; it has no per-order link or API.
 export const PIRATE_SHIP_URL = "https://ship.pirateship.com/ship";
 
+// Shipping waits until the order is confirmed printed and assembled.
 export function ShipButton({ order }: { order: Order }) {
   if (order.commercial.toLowerCase() !== "processing") return null;
+  if (!order.assembled)
+    return (
+      <button className="ship-button" disabled title="Mark it printed and assembled first" aria-label={`Ship ${order.number}: mark it printed and assembled first`}>
+        <Truck size={16} /> Ship
+      </button>
+    );
   return (
     <a className="ship-button" href={PIRATE_SHIP_URL} target="_blank" rel="noreferrer" aria-label={`Ship ${order.number} in Pirate Ship`}>
       <Truck size={16} /> Ship
@@ -21,14 +28,15 @@ export function StatusTag({ order }: { order: Order }) {
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
 }
 
-export function OrderRow({ order }: { order: Order }) {
+export function OrderRow({ order, onChange }: { order: Order; onChange?: (order: Order) => void }) {
+  const canMark = !!onChange && order.commercial.toLowerCase() === "processing";
   return (
     <article className="overview-order-row" aria-label={`Order ${order.number}`}>
       <span className="order-id">
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
       </span>
-      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}</div>
+      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{canMark && <label className="ready-check"><input type="checkbox" checked={order.assembled} onChange={(e) => onChange!({ ...order, assembled: e.target.checked, packed: e.target.checked && order.packed })} /> Printed &amp; assembled, ready to pack</label>}</div>
       <StatusTag order={order} />
       <span className="ship-slot"><ShipButton order={order} /></span>
     </article>
@@ -37,7 +45,7 @@ export function OrderRow({ order }: { order: Order }) {
 
 const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"];
 
-export function Orders({ live = false, openOrderId, orders }: { live?: boolean; openOrderId: string | null; orders: Order[] }) {
+export function Orders({ live = false, openOrderId, orders, onOrderChange }: { live?: boolean; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void }) {
   const focus = orders.find((o) => o.id === openOrderId);
   const [search, setSearch] = useState(focus ? focus.number : ""),
     [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
@@ -85,7 +93,7 @@ export function Orders({ live = false, openOrderId, orders }: { live?: boolean; 
             <button className="text-button" onClick={() => { setSearch(""); setFilter("All orders"); }}>Clear filters</button>
           </div>
         )}
-        {visible.map((order) => <OrderRow key={order.id} order={order} />)}
+        {visible.map((order) => <OrderRow key={order.id} order={order} onChange={onOrderChange} />)}
       </div>
     </section>
   );

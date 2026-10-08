@@ -37,7 +37,8 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(overview.getByRole('article',{name:'Order #1',exact:true})).toContainText('Processing');
   await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
-  await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
+  await expect(overview.getByRole('button',{name:'Ship #1: mark it printed and assembled first'})).toBeDisabled();
+  await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toHaveCount(0);
   // Wide screens: one line, order | contents | status | Ship. Phones: contents below.
   const rowLayout=async (first: import('@playwright/test').Locator, wide: boolean)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
@@ -69,6 +70,13 @@ test('hosted mobile uses active source orders and server saves without browser s
   releaseSync!();
   expect(saves).toBe(0);
   expect(await page.evaluate(()=>Object.keys(localStorage))).toEqual([]);
+  // Confirming it's printed and assembled saves the order and unlocks Pirate Ship.
+  await page.getByRole('navigation').getByRole('button',{name:'Orders',exact:true}).click();
+  await page.getByLabel('Filter orders').selectOption('Open orders');
+  await page.getByRole('article',{name:'Order #1',exact:true}).getByLabel('Printed & assembled, ready to pack').check();
+  await expect(page.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toBeVisible();
+  await expect.poll(()=>saves).toBe(1);
+  expect(state.orders.find((o:any)=>o.id==='1')!.assembled).toBe(true);
   await page.getByRole('navigation').getByRole('button',{name:'Printers',exact:true}).click();
   await expect(page.getByRole('button',{name:'AMS 2, Ready'})).toContainText('Last print');
   await expect(page.locator('.printer-card .printer-feed')).toHaveCount(1);

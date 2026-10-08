@@ -2152,3 +2152,7 @@ footer .tiny-dot {
 .recent-prints li.failed svg { color: #a3341f; }
 .recent-print-note { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-left: 21px; }
 .recent-print-note p { margin: 0; color: var(--navy); font-size: 13px; white-space: pre-wrap; }
+/* Orders: confirm printed and assembled before shipping. */
+.ready-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; }
+.ready-check input { width: 18px; height: 18px; accent-color: var(--teal); }
+.ship-button:disabled { background: #c9d4d8; color: #fff; cursor: not-allowed; opacity: 1; }
