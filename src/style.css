@@ -2226,3 +2226,5 @@ footer .tiny-dot {
 }
 
 .queue-empty { padding: 0 24px 20px; color: var(--muted); font-size: 14px; }
+.print-details-editor > label { display: flex; flex-direction: column; gap: 8px; margin: 18px 0; font-size: 14px; font-weight: 600; }
+.print-details-editor input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }

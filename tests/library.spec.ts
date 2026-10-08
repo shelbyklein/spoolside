@@ -39,7 +39,9 @@ test('sliced prints are a library section with editable per-plate asset coverage
  if(url==='/api/assets')return route.fulfill({json:[asset,...extra]});
  if(url==='/api/library')return route.fulfill({json:[file]});
  if(url==='/api/library/slice'){
- const body=route.request().postDataJSON();expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
+ const body=route.request().postDataJSON();
+ if(body.quantities){ file={...file,name:body.name,plates:[{...file.plates[0],quantity:body.quantities[0].quantity}] as any};return route.fulfill({json:file}); }
+ expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
  file={...file,plates:[{...file.plates[0],coverage:[{assetId:'case-13',hash:'current'}]}]};return route.fulfill({json:file});
  }
  return route.fulfill({json:[]});
@@ -50,4 +52,13 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
  await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
  await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');await page.reload();await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');
+ await page.getByRole('button',{name:'Edit print details for 13 plate'}).click();
+ const details=page.getByRole('dialog',{name:'Print details for 13 plate'});
+ await details.getByLabel('Print name').fill('Touch pins');
+ await details.getByLabel('Pieces per print').fill('144');
+ await page.screenshot({path:'handoff/spoolside-print-details-editor.png',fullPage:true});
+ await details.getByRole('button',{name:'Save print details'}).click();
+ await expect(page.locator('.sliced-body > strong')).toHaveText('Touch pins');
+ await expect(page.locator('.sliced-body > small')).toContainText('144 pieces');
+ await page.reload();await expect(page.locator('.sliced-body > small')).toContainText('144 pieces');
 });

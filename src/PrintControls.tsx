@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil } from "lucide-react";
 import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
-export type Plate = { coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
+export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
 export type LibraryFile = { id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
@@ -222,8 +222,9 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
             </div>
             <div className="sliced-body">
               <strong title={f.name}>{f.name}</strong>
+              <PrintDetails file={f} onSaved={refresh} notify={notify} />
               <small>
-                {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g`).join("  ·  ")}
+                {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} pieces` : ""}`).join("  ·  ")}
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
               {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
@@ -233,6 +234,25 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
       </ul>
     </section>
   );
+}
+
+function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
+  const [editing, setEditing] = useState(false), [name, setName] = useState(file.name), [counts, setCounts] = useState<Record<number,string>>({}), [busy, setBusy] = useState(false);
+  const open = () => { setName(file.name); setCounts(Object.fromEntries(file.plates.map(p => [p.index, p.quantity == null ? "" : String(p.quantity)]))); setEditing(true); };
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
+    catch(e) { notify((e as Error).message); } finally { setBusy(false); }
+  };
+  return <><button className="text-button" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={13} /> Edit details</button>
+    {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><form className="modal plate-assets-editor print-details-editor" role="dialog" aria-modal="true" aria-label={`Print details for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && !busy && setEditing(false)} onSubmit={save}>
+      <div className="section-top"><h3>Print details</h3><button type="button" className="text-button" disabled={busy} onClick={()=>setEditing(false)}>Cancel</button></div>
+      <label>Print name<input autoFocus required maxLength={80} value={name} onChange={e=>setName(e.target.value)} /></label>
+      {file.plates.map(p=><label key={p.index}>{file.plates.length>1 ? `Plate ${p.index} · ` : ""}Pieces per print<input type="number" min={1} max={10000} step={1} placeholder="e.g. 144" value={counts[p.index] || ""} onChange={e=>setCounts({...counts,[p.index]:e.target.value})} /></label>)}
+      <p className="plate-meta">Total pieces made by this plate. Leave blank if unknown.</p>
+      <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button>
+    </form></div>}
+  </>;
 }
 
 // The slicer's picture of the plate, from inside the sliced file.

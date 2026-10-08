@@ -145,6 +145,20 @@ export class Library {
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some((c) => c.name === "updated")) this.db.exec("ALTER TABLE library ADD COLUMN updated TEXT");
+    if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "source_name")) {
+      this.db.exec("ALTER TABLE library ADD COLUMN source_name TEXT");
+      this.db.exec("UPDATE library SET source_name=name");
+    }
+  }
+  details(id, name, quantities) {
+    const file = this.get(id);
+    const clean = typeof name === "string" ? name.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) : "";
+    if (!file || !clean) throw Error("Enter a print name");
+    if (this.list().some(f => f.id !== id && f.name.toLowerCase() === clean.toLowerCase())) throw Error("That print name is already in use");
+    if (!Array.isArray(quantities) || quantities.length !== file.plates.length || file.plates.some(p => quantities.filter(q => q.plate === p.index).length !== 1) || quantities.some(q => q.quantity !== null && (!Number.isInteger(q.quantity) || q.quantity < 1 || q.quantity > 10000))) throw Error("Choose 1–10000 pieces per plate, or leave it blank");
+    const plates = file.plates.map(p => ({...p, quantity: quantities.find(q => q.plate === p.index).quantity}));
+    this.db.prepare("UPDATE library SET name=?, plates=? WHERE id=?").run(clean, JSON.stringify(plates), id);
+    return this.get(id);
   }
   setCoverage(id, plateIndex, ids, assets) {
     const file = this.get(id);
@@ -161,7 +175,7 @@ export class Library {
   }
   list() {
     return this.db
-      .prepare("SELECT id, name, size, plates, created, updated FROM library ORDER BY name COLLATE NOCASE")
+      .prepare("SELECT id, name, size, plates, created, updated, source_name FROM library ORDER BY name COLLATE NOCASE")
       .all()
       .map((r) => ({ ...r, plates: JSON.parse(r.plates) }));
   }
@@ -183,12 +197,12 @@ export class Library {
     const { plates } = inspect3mf(buf);
     const clean = String(name || "").replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Untitled print";
     const now = new Date().toISOString();
-    const existing = this.list().find((f) => f.name.toLowerCase() === clean.toLowerCase());
+    const existing = this.list().find((f) => (f.source_name || f.name).toLowerCase() === clean.toLowerCase() || f.name.toLowerCase() === clean.toLowerCase());
     if (existing) {
       // Same print, re-sliced: keep its id and the assets linked to its plates.
       const carried = plates.map((p) => {
         const old = existing.plates.find((o) => o.index === p.index) || (plates.length === 1 && existing.plates.length === 1 ? existing.plates[0] : null);
-        return old?.coverage ? { ...p, coverage: old.coverage } : p;
+        return old ? { ...p, ...(old.coverage ? {coverage: old.coverage} : {}), ...(old.quantity != null ? {quantity: old.quantity} : {}) } : p;
       });
       fs.writeFileSync(this.file(existing.id), buf, { mode: 0o600 });
       this.db.prepare("UPDATE library SET size=?, plates=?, updated=? WHERE id=?").run(buf.length, JSON.stringify(carried), now, existing.id);
@@ -196,7 +210,7 @@ export class Library {
     }
     const id = randomUUID();
     fs.writeFileSync(this.file(id), buf, { mode: 0o600 });
-    this.db.prepare("INSERT INTO library (id, name, size, plates, created) VALUES (?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), now);
+    this.db.prepare("INSERT INTO library (id, name, size, plates, created, source_name) VALUES (?,?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), now, clean);
     return this.get(id);
   }
   // The slicer's preview picture of the file's first plate, if it has one.

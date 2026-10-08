@@ -323,7 +323,7 @@ export function createApp({
     }
   });
   app.patch("/api/library/:id", (req, res) => {
-    try { res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
+    try { res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : req.body?.quantities !== undefined ? library.details(req.params.id, req.body.name, req.body.quantities) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
   });
   app.delete("/api/library/:id", (req, res) => {
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
