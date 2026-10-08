@@ -78,7 +78,7 @@ export function Orders({ live = false, openOrderId, orders, onOrderChange }: { l
       <div className="orders-toolbar">
         <label className="search-field">
           <Search size={17} />
-          <input aria-label="Search orders" placeholder="Search order, phone or color" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input aria-label="Search orders" placeholder="Search orders, phones, colors" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
         <select aria-label="Filter orders" value={filter} onChange={(e) => setFilter(e.target.value)}>
           {FILTERS.map((s) => <option key={s}>{s}</option>)}

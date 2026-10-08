@@ -2156,3 +2156,23 @@ footer .tiny-dot {
 .ready-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; }
 .ready-check input { width: 18px; height: 18px; accent-color: var(--teal); }
 .ship-button:disabled { background: #c9d4d8; color: #fff; cursor: not-allowed; opacity: 1; }
+/* Phones: a compact Orders page — title and refresh on one line, store links as small pills,
+   search and filter side by side, and tighter order cards. */
+@media (max-width: 760px) {
+  .main-content .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .main-content .page-actions { margin-top: 0; }
+  .order-source { flex-wrap: nowrap; gap: 8px; padding: 0 0 12px; }
+  .order-source > svg, .order-source > div { display: none; }
+  .order-source a { flex-basis: auto; margin-left: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600; }
+  .orders-toolbar { flex-wrap: nowrap; gap: 8px; margin-bottom: 12px; }
+  .orders-toolbar .search-field { flex: 1 1 auto; flex-basis: auto; min-width: 0; padding: 6px 10px; }
+  .orders-toolbar .search-field input { font-size: 16px; }
+  .orders-toolbar > select { flex: none; padding: 8px 6px; font-size: 14px; }
+  .orders-toolbar > span { display: none; }
+  .overview-order-row { gap: 8px 10px; padding: 14px; }
+  .overview-order-row .item-thumb { width: 52px !important; height: 52px !important; }
+  .overview-order-row .order-contents { gap: 10px; }
+  .overview-order-row .production-stage { padding: 4px 8px; font-size: 11px; }
+  .overview-order-row .ship-button { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .overview-order-row .ready-check { margin-top: 6px; font-size: 13px; }
+}

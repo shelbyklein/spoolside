@@ -30,7 +30,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   await home.getByRole('button',{name:/^Orders/}).click();
   await expect(page.getByLabel('Filter orders')).toHaveValue('Open orders');
-  await expect(page.getByText('2 of 3 orders')).toBeVisible();
+  await expect(page.getByText('2 of 3 orders')).toBeAttached();
   await page.setViewportSize({width:1440,height:926});
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   const overview=page.getByRole('region',{name:'PlayCase orders overview'});
