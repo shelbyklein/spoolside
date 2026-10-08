@@ -66,6 +66,9 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await page.reload();
   await expect(page.getByRole('link', { name: 'Ship #10181 in Pirate Ship' })).toBeVisible();
   await expect(row.getByRole('checkbox', { name: 'Case printed' })).toBeChecked();
+  const column = await row.locator('.order-fulfillment').boundingBox();
+  const ship = await row.getByRole('link', { name: 'Ship #10181 in Pirate Ship' }).boundingBox();
+  expect(Math.abs(column!.width - ship!.width)).toBeLessThan(2);
   await row.screenshot({path:'handoff/spoolside-order-checklist-mobile.png'});
   await page.unrouteAll({ behavior: "wait" });
   await context.close();

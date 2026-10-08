@@ -2270,3 +2270,12 @@ footer .tiny-dot {
  .overview-order-row, .overview-split .overview-order-row { grid-template-columns: minmax(0,1fr); }
  .overview-order-row .order-content-readiness { grid-column: 1; grid-row: 2; grid-template-columns: minmax(0,1fr); gap: 12px; }
 }
+.order-fulfillment .print-check-row { min-height: 32px; padding: 3px 0; gap: 8px; }
+.order-fulfillment .print-check-row label { gap: 7px; font-size: 12px; }
+.order-fulfillment .print-check-row input { width: 15px; height: 15px; }
+.order-fulfillment .print-check-row > small { font-size: 11px; }
+.order-fulfillment .order-print { min-height: 27px; padding: 0 9px; font-size: 11px; gap: 5px; }
+.order-fulfillment .order-ship-footer { margin-top: 6px; padding-top: 7px; }
+.order-fulfillment .ship-slot { width: 100%; }
+.order-fulfillment .ship-button { width: 100%; min-height: 30px; padding: 0 10px; font-size: 12px; justify-content: center; }
+.order-fulfillment .ship-button svg { width: 14px; height: 14px; }
