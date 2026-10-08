@@ -2393,6 +2393,5 @@ footer .tiny-dot {
   .home-mark, .home-card { animation: home-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .home-content > :nth-child(2) { animation-delay: 0.06s; }
   .home-content > :nth-child(3) { animation-delay: 0.12s; }
-  .home-content > :nth-child(4) { animation-delay: 0.18s; }
 }
 @keyframes home-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

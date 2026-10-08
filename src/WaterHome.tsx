@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { WaterBackground } from "./WaterBackground";
-import type { Machine, Spool } from "./live-workspace";
+import type { Machine } from "./live-workspace";
 import type { Order } from "./order-model";
 
 // Each open order floats as a little PlayCase: its faceplate photo, else the case photo.
@@ -48,12 +48,11 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
   );
 }
 
-// The phone home screen: the spool floating on the pool, with the farm at a glance on frosted cards.
+// The phone home screen: the spool floating on the pool, with printers and orders at a glance on frosted cards.
 // Tap a printer for its details, or a card to open that page.
-export function WaterHome({ machines, orders, spools, loading, openPrinter, openOrder, go }: {
+export function WaterHome({ machines, orders, loading, openPrinter, openOrder, go }: {
   machines: Machine[];
   orders: Order[];
-  spools: Spool[];
   loading: boolean;
   openPrinter: (id: string) => void;
   openOrder: (id: string) => void;
@@ -61,7 +60,6 @@ export function WaterHome({ machines, orders, spools, loading, openPrinter, open
 }) {
   const printing = machines.filter((m) => m.state === "Printing").length,
     ready = machines.filter((m) => m.state === "Ready").length,
-    low = spools.filter((s) => s.remaining < 150),
     toPrint = orders.filter((o) => o.printReadiness?.status === "ready").length,
     toReview = orders.filter((o) => o.printReadiness && o.printReadiness.status !== "ready").length;
   const summary = loading
@@ -108,16 +106,6 @@ export function WaterHome({ machines, orders, spools, loading, openPrinter, open
           <strong>{loading ? "—" : orders.length}</strong>
           <span className="home-quiet">
             {loading ? "Loading orders…" : orders.length === 0 ? "Nothing open. Enjoy the pool." : [toPrint && `${toPrint} ready to print`, toReview && `${toReview} ${toReview === 1 ? "needs" : "need"} a look`].filter(Boolean).join(" · ") || "open"}
-          </span>
-        </button>
-        <button className="home-card home-stat" onClick={() => go("Filament")}>
-          <span className="home-card-head">
-            <h2>Filament</h2>
-            <ArrowUpRight size={16} />
-          </span>
-          <strong>{spools.reduce((n, s) => n + s.remaining, 0).toLocaleString()} g</strong>
-          <span className="home-quiet">
-            {low.length ? `Running low: ${low.map((s) => s.name).join(", ")}` : spools.length ? "All spools stocked" : "No filament recorded"}
           </span>
         </button>
       </div>
