@@ -2233,3 +2233,5 @@ footer .tiny-dot {
 .asset-add-pill { min-width: 36px; height: 26px; border-radius: 999px; background: #e9eeee; color: #61727b; }
 .asset-add-pill:hover { background: #dce4e4; color: var(--navy); }
 @media (hover: none) { .sliced-edit { opacity: 1; } }
+.library-print-dialog .bed-check img, .library-print-dialog .bed-check-placeholder { aspect-ratio: 14 / 9; max-height: 220px; }
+.sliced-print { min-height: 34px; font-size: 12px; margin-top: 4px; }

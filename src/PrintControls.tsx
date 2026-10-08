@@ -72,7 +72,7 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
 
 type LastPrint = { name: string; plates: Plate[] };
 const LAST = "last";
-function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
+function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Machine; notify: (m: string) => void; initialFile?: string; onSent?: () => void }) {
   const { files } = useLibrary();
   // The job the printer just ran, if its file is still on the SD card: it can start again with no upload.
   const [last, setLast] = useState<LastPrint | null | undefined>(undefined);
@@ -82,7 +82,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
     api<LastPrint | null>(`/api/printers/${machine.id}/last-print`).then((v) => live && setLast(v?.plates?.length ? v : null)).catch(() => live && setLast(null));
     return () => { live = false; };
   }, [machine.id, machine.rawState]);
-  const [fileId, setFileId] = useState(""),
+  const [fileId, setFileId] = useState(initialFile),
     [plateIndex, setPlateIndex] = useState(1),
     [mapping, setMapping] = useState<number[]>([]),
     // Printers with no AMS loaded print from the external spool.
@@ -113,6 +113,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
       });
       notify(`Started ${file.name}${again ? " again" : ""} on ${machine.name}.`);
       setClear(false);
+      onSent?.();
     } catch (e) {
       notify((e as Error).message);
     } finally {
@@ -121,7 +122,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
   };
   return (
     <div className="start-print">
-      <h3>{fileId === LAST ? "Print again" : "Start a print"}</h3>
+      {!initialFile && <h3>{fileId === LAST ? "Print again" : "Start a print"}</h3>}
       <label>
         File
         <select value={fileId} onChange={(e) => { setFileId(e.target.value); setPlateIndex(1); }}>
@@ -148,7 +149,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
       )}
       {plate && (
         <>
-          <p className="plate-meta">{duration(plate.minutes)} · {plate.grams} g</p>
+          <p className="plate-meta">{duration(plate.minutes)} · {plate.grams} g{plate.quantity ? ` · ${plate.quantity} pieces` : ""}</p>
           {trays.length > 0 && <label className="check-row"><input type="checkbox" checked={useAms} onChange={(e) => setUseAms(e.target.checked)} /> Use AMS</label>}
           {useAms && plate.filaments.map((f) => (
             <label key={f.id} className="slot-row">
@@ -173,6 +174,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
 }
 
 export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: string) => void; title?: string }) {
+  const [printing, setPrinting] = useState<LibraryFile | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
   const { files, refresh } = useLibrary();
@@ -227,13 +229,30 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
                 {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} pieces` : ""}`).join("  ·  ")}
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
+              <button className="primary sliced-print" onClick={() => setPrinting(f)}><Play size={14} /> Print</button>
               {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
             </div>
           </li>
         ))}
       </ul>
+      {printing && <LibraryPrintDialog file={printing} notify={notify} onClose={() => setPrinting(null)} />}
     </section>
   );
+}
+
+function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify: (m:string) => void; onClose: () => void}) {
+  const [machines, setMachines] = useState<Machine[]>([]), [selected, setSelected] = useState(""), [error, setError] = useState(""), [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    api<{machines:Machine[]}>("/api/workspace").then(data => {
+      const idle = (data.machines || []).filter(m => m.connected && !m.stale && ["IDLE","FINISH","FAILED"].includes(m.rawState || ""));
+      setMachines(idle); setSelected(idle[0]?.id || ""); setLoaded(true);
+    }).catch(()=>{setError("Could not load printers");setLoaded(true);});
+  }, []);
+  const machine=machines.find(m=>m.id===selected);
+  return <div className="modal-backdrop" onClick={onClose}><div className="order-print-dialog library-print-dialog" role="dialog" aria-modal="true" aria-label={`Print ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && onClose()}>
+    <div className="section-top"><h3>Print {file.name}</h3><button className="text-button" onClick={onClose}>Close</button></div>
+    {error ? <p role="alert">{error}</p> : !loaded ? <p>Loading printers…</p> : !machines.length ? <p>No connected idle printer is available.</p> : <><label>Printer<select value={selected} onChange={e=>setSelected(e.target.value)}>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{machine && <StartPrint key={machine.id} machine={machine} notify={notify} initialFile={file.id} onSent={onClose} />}</>}
+  </div></div>;
 }
 
 function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
