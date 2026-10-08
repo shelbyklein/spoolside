@@ -50,10 +50,11 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
 
 // The phone home screen: the spool floating on the pool, with printers and orders at a glance on frosted cards.
 // Tap a printer for its details, or a card to open that page.
-export function WaterHome({ machines, orders, loading, openPrinter, openOrder, go }: {
+export function WaterHome({ attention, machines, orders, loading, openPrinter, openOrder, go }: {
   machines: Machine[];
   orders: Order[];
   loading: boolean;
+  attention?: React.ReactNode;
   openPrinter: (id: string) => void;
   openOrder: (id: string) => void;
   go: (tab: string) => void;
@@ -77,6 +78,7 @@ export function WaterHome({ machines, orders, loading, openPrinter, openOrder, g
           </h1>
           <p>{summary}</p>
         </header>
+        {attention}
         <div className="home-card">
           <button className="home-card-head" onClick={() => go("Printers")}>
             <h2>Printers</h2>

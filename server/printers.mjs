@@ -2,7 +2,7 @@ import mqtt from "mqtt";
 import { Client as FtpClient } from "basic-ftp";
 import tls from "node:tls";
 import { Writable } from "node:stream";
-import { inspect3mf } from "./library.mjs";
+import { inspect3mf, zipEntries, zipRead } from "./library.mjs";
 export function mergeTelemetry(prior, update) {
   return { ...prior, ...update };
 }
@@ -138,6 +138,10 @@ export class Printers {
     if (!view.connected) throw Object.assign(Error("Printer is offline"), { status: 409 });
     return { ...entry, view };
   }
+  // Every printer's status plus the raw report, for the print watcher.
+  statuses() {
+    return [...this.byId.entries()].map(([serial, { config, record }]) => ({ serial, view: printerView(config, record), data: record.data || {} }));
+  }
   // Publishes a print command and waits for the printer's acknowledgement.
   request(serial, print, timeout = 10000) {
     const { client } = this.byId.get(serial);
@@ -208,8 +212,13 @@ export class Printers {
       if (entry.size > 200_000_000) return null;
       const chunks = [];
       await ftp.downloadTo(new Writable({ write(chunk, _enc, done) { chunks.push(chunk); done(); } }), "/" + entry.name);
-      const { plates } = inspect3mf(Buffer.concat(chunks));
-      const value = { remoteName: entry.name, subtask, name: entry.name.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " "), plates };
+      const buf = Buffer.concat(chunks), { plates } = inspect3mf(buf), entries = zipEntries(buf);
+      // The slicer's preview of each plate: what the finished print should look like.
+      const previews = Object.fromEntries(plates.flatMap((p) => {
+        const e = entries.get(`Metadata/plate_${p.index}.png`);
+        return e ? [[p.index, zipRead(buf, e)]] : [];
+      }));
+      const value = { remoteName: entry.name, subtask, previews, name: entry.name.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " "), plates };
       this.lastPrints.set(serial, { key, value });
       return value;
     } catch (e) {

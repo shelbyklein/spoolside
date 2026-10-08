@@ -3,6 +3,7 @@ import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
+import { useWatches, WatchAttention, WatchStatus } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -142,6 +143,7 @@ function tabFromPath() {
 function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
+  const watch = useWatches(remote);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => document.documentElement.classList.add("ready"), []);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
@@ -556,7 +558,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome attention={<WatchAttention water watches={watch.watches} refresh={watch.refresh} notify={setNotice} />} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -632,6 +634,7 @@ function App() {
           )}
           {(tab === "Overview" || tab === "Printers") && (
             <div className="fleet-column">
+              {remote && <WatchAttention watches={watch.watches} refresh={watch.refresh} notify={setNotice} />}
               <div className="fleet-heading">
                 <h2>
                   Your printers <span>{machines.length}</span>
@@ -1015,6 +1018,7 @@ function App() {
                     : "Resume demo print"}
                 </button>
               )}
+            {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
             <p className="detail-note">
               {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}

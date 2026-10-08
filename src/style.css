@@ -2395,3 +2395,22 @@ footer .tiny-dot {
   .home-content > :nth-child(3) { animation-delay: 0.12s; }
 }
 @keyframes home-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* Print watcher: alerts and "how did it go?" cards, on the light pages and on the water. */
+.watch-attention { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.watch-attention.on-water { margin-bottom: 0; }
+.watch-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.watch-card.alert { border-color: #f1b8a8; background: #fff7f4; }
+.watch-card h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 16px; }
+.watch-card.alert h3 { color: #a3341f; }
+.watch-card p { margin: 0; font-size: 14px; }
+.watch-card .watch-job { color: var(--muted); font-size: 13px; }
+.watch-card img { width: 100%; aspect-ratio: 14 / 9; object-fit: cover; border-radius: 10px; background: #eef4f3; }
+.watch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.watch-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.on-water .watch-card { border-color: rgba(255, 255, 255, 0.16); background: rgba(2, 36, 46, 0.42); color: #fff; -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 10px 30px rgba(0, 12, 18, 0.25); }
+.on-water .watch-card.alert { border-color: rgba(255, 140, 120, 0.6); background: rgba(70, 20, 16, 0.5); }
+.on-water .watch-card h3, .on-water .watch-card.alert h3 { color: #fff; }
+.on-water .watch-card p { color: rgba(255, 255, 255, 0.92); }
+.on-water .watch-card .watch-job { color: rgba(255, 255, 255, 0.72); }
+.watch-status { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+.watch-status svg { flex: none; margin-top: 2px; color: var(--teal); }

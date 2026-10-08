@@ -23,6 +23,7 @@ export function createApp({
   library,
   assets,
   materials,
+  watcher,
 } = {}) {
   if (
     !pinHash ||
@@ -307,6 +308,35 @@ export function createApp({
   });
   app.delete("/api/library/:id", (req, res) => {
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
+  });
+  app.get("/api/watches", (req, res) => {
+    res.set("Cache-Control", "no-store").json(watcher ? watcher.list() : { vision: false, watches: [] });
+  });
+  app.get("/api/watches/:id/:file", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      const file = watcher.frameFile(req.params.id, req.params.file);
+      if (!fs.existsSync(file)) return res.sendStatus(404);
+      res.set("Cache-Control", "private, max-age=86400").sendFile(file);
+    } catch {
+      res.sendStatus(404);
+    }
+  });
+  app.post("/api/watches/:id/outcome", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(watcher.outcome(req.params.id, req.body?.success));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/watches/:id/false-alarm", async (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(await watcher.falseAlarm(req.params.id));
+    } catch (e) {
+      fail(res, e);
+    }
   });
   app.get("/api/printers/:id/camera.jpg", async (req, res) => {
     try {
