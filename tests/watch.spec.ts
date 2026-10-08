@@ -46,6 +46,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(alert).toContainText('Spaghetti around the part.');
   const ask = home.getByRole('article', { name: 'How did Bridge go?' });
   await expect(ask).toContainText('Finished on AMS 3');
+  await ask.screenshot({ path: 'handoff/spoolside-outcome-icons.png' });
   await ask.getByRole('button', { name: 'Notes', exact: true }).click();
   await ask.getByLabel(/Print notes/).fill('Calibration run');
   await ask.getByRole('button', { name: 'Save note', exact: true }).click();

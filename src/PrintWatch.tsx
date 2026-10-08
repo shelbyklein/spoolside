@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen } from "lucide-react";
+import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen, Trash2 } from "lucide-react";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -123,11 +123,11 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
             <FailureNote initial={w.note || ""} label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note), "Saved as failed.").then(() => setFailing(""))} />
           ) : (
             <div className="watch-actions">
-              <button className="primary" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
-                <Check size={15} /> Came out fine
+              <button className="primary icon-only" aria-label="Came out fine" title="Came out fine" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
+                <Check size={18} />
               </button>
-              <button className="secondary" disabled={!!busy} onClick={() => setFailing(w.id)}>
-                <X size={15} /> Failed
+              <button className="secondary icon-only" aria-label="Failed" title="Failed" disabled={!!busy} onClick={() => setFailing(w.id)}>
+                <Trash2 size={18} />
               </button>
               <button className="secondary" disabled={!!busy} onClick={() => setNoting(w.id)}><NotebookPen size={15} /> Notes</button>
             </div>
