@@ -10,10 +10,11 @@ const assets=[asset('case','Case',{phone:'iPhone 13'}),asset('top','Faceplate',{
 const assembly={id:'classic',type:'Faceplate',name:'Classic',partsConfirmed:true,components:[{assetId:'top',quantity:1},{assetId:'buttons',quantity:4}]};
 const order={items:[{name:'PlayCase kit',phone:'iPhone 13',parts:[{name:'Classic Faceplate'}]}]};
 const files=[{plates:[{coverage:assets.map(a=>({assetId:a.id,hash:a.hash}))}]}];
-test('readiness requires current slices for the case and faceplate pieces; changed STL is review',()=>{
+test('readiness requires a sliced plate for the case and faceplate pieces; STL version and status do not matter',()=>{
  assert.equal(orderReadiness(order,assets,[assembly],files).status,'ready');
  assert.equal(orderReadiness(order,assets,[assembly],[]).status,'missing');
- assert.equal(orderReadiness(order,assets.map(a=>a.id==='top'?{...a,hash:'v2'}:a),[assembly],files).status,'review');
+ assert.equal(orderReadiness(order,assets.map(a=>a.id==='top'?{...a,hash:'v2'}:a),[assembly],files).status,'ready');
+ assert.equal(orderReadiness(order,assets.map(a=>a.id==='case'?{...a,status:'Stale',hasStl:false}:a),[assembly],files).status,'ready');
 });
 test('parts are printed ahead, so they never hold an order back',()=>{
  const noParts=[{plates:[{coverage:assets.filter(a=>a.type!=='Part').map(a=>({assetId:a.id,hash:a.hash}))}]}];
@@ -21,7 +22,6 @@ test('parts are printed ahead, so they never hold an order back',()=>{
  assert.equal(orderReadiness(order,assets.map(a=>a.id==='buttons'?{...a,hash:'v2',status:'Stale'}:a),[assembly],noParts).status,'ready');
  assert.equal(orderReadiness(order,assets,[{...assembly,partsConfirmed:false}],noParts).status,'ready');
  assert.equal(orderReadiness(order,assets,[assembly],noParts).required,2);
- assert.equal(orderReadiness(order,assets.map(a=>a.id==='case'?{...a,status:'Stale'}:a),[assembly],files).status,'review');
 });
 test('unknown, ambiguous, and additional order lines cannot report ready',()=>{
  assert.equal(orderReadiness({...order,items:[...order.items,{name:'Unknown'}]},assets,[assembly],files).status,'review');

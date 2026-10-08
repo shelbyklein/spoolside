@@ -1,10 +1,7 @@
 const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 export function orderReadiness(order, assets, assemblies, files) {
   const review = [], missing = [], required = new Map();
-  const requireAsset = a => {
-    required.set(a.id, a);
-    if (a.generation !== 3 || a.status !== 'Up to date' || !a.hasStl) review.push(`${a.name}: needs an up-to-date v3 STL`);
-  };
+  const requireAsset = a => required.set(a.id, a);
   if (order.sourceReview) review.push('Store items changed: review requirements');
   if (!order.items?.length) review.push('No order items');
   for (const item of order.items || []) {
@@ -33,12 +30,8 @@ export function orderReadiness(order, assets, assemblies, files) {
       }
     }
   }
-  for (const a of required.values()) {
-    const links = files.flatMap(f => f.plates.flatMap(p => p.coverage || [])).filter(c => c.assetId === a.id);
-    if (!links.some(c => c.hash === a.hash)) {
-      if (links.length) review.push(`${a.name}: sliced file predates STL update`);
-      else missing.push(`${a.name}: no sliced file`);
-    }
-  }
+  // Ready once every case and faceplate piece has a sliced plate linked; STL versions don't matter.
+  const linked = new Set(files.flatMap(f => f.plates.flatMap(p => p.coverage || [])).map(c => c.assetId));
+  for (const a of required.values()) if (!linked.has(a.id)) missing.push(`${a.name}: no sliced file`);
   return {status: review.length ? 'review' : missing.length ? 'missing' : 'ready', reasons: [...new Set([...review, ...missing])], required: required.size};
 }
