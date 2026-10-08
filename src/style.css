@@ -2131,3 +2131,8 @@ footer .tiny-dot {
 .loaded-material { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; color: var(--navy); font-size: 13px; font-weight: 600; }
 .loaded-dots { display: inline-flex; gap: 3px; }
 @media (max-width: 760px) { .loaded-grid { padding: 0 16px 16px; } }
+.plate-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.plate-types .filter-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--navy); font-size: 13px; font-weight: 600; }
+.plate-types .filter-chip small { color: var(--muted); font-weight: 500; }
+.plate-types .filter-chip.selected { border-color: var(--teal); background: #e7f3f1; color: var(--teal); }
+.plate-assets-editor .plate-options { display: flex; flex-wrap: wrap; gap: 4px 14px; max-height: 260px; overflow-y: auto; }

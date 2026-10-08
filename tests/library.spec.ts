@@ -32,10 +32,11 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
 
 test('sliced prints are a library section with editable per-plate asset coverage',async({page})=>{
  const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Up to date',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
+ const extra=[...Array.from({length:14},(_,i)=>({...asset,id:'c'+i,name:'iPhone 1'+i+' Case'})),{...asset,id:'ds-top',name:'DS – Top',type:'Faceplate',fit:{phone:'',style:'DS',size:'Standard',piece:'Top'}}];
  let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;
- if(url==='/api/assets')return route.fulfill({json:[asset]});
+ if(url==='/api/assets')return route.fulfill({json:[asset,...extra]});
  if(url==='/api/library')return route.fulfill({json:[file]});
  if(url==='/api/library/slice'){
  const body=route.request().postDataJSON();expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
@@ -44,6 +45,9 @@ test('sliced prints are a library section with editable per-plate asset coverage
  return route.fulfill({json:[]});
  });
  await page.goto('/library/sliced');await expect(page.getByRole('tab',{name:'Sliced prints'})).toHaveAttribute('aria-selected','true');
- await page.getByRole('button',{name:'Edit assets'}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
+ await page.getByRole('button',{name:'Edit assets'}).click();
+ const dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'DS – Top',exact:true})).toBeVisible();
+ await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
+ await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
  await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');await page.reload();await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');
 });
