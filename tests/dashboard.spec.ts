@@ -8,10 +8,10 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
     page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
   await page.getByLabel("Filter printers").selectOption("Ready");
-  await expect(page.locator(".featured")).toHaveCount(0);
-  await expect(page.locator(".printer-row")).toHaveCount(1);
+  await expect(page.locator(".printer-card")).toHaveCount(1);
   await page.getByLabel("Filter printers").selectOption("All printers");
-  await page.getByRole("button", { name: "View printer", exact: true }).click();
+  await expect(page.locator(".printer-card")).toHaveCount(4);
+  await page.getByRole("button", { name: "Mini One, Printing", exact: true }).click();
   await page
     .getByRole("button", { name: "Pause demo print", exact: true })
     .click();
@@ -23,7 +23,7 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
     .click();
   await page.getByRole("button", { name: "Close printer details" }).click();
   await expect(
-    page.getByRole("button", { name: "View printer", exact: true }),
+    page.getByRole("button", { name: "Mini One, Printing", exact: true }),
   ).toBeFocused();
   await page.getByRole("button", { name: "Add to queue", exact: true }).click();
   await page.getByLabel("Job name").fill("Test bracket");

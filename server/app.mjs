@@ -47,7 +47,7 @@ export function createApp({
       "X-Frame-Options": "DENY",
       "Cache-Control": "no-store",
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://playcase.gg https://store.bblcdn.com https://proto-pasta.com https://recreus.com https://3d.nice-cdn.com; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://playcase.gg https://store.bblcdn.com https://proto-pasta.com https://recreus.com https://3d.nice-cdn.com; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     });
     next();
   });
@@ -334,6 +334,23 @@ export function createApp({
     try {
       if (!watcher) return res.sendStatus(404);
       res.json(await watcher.falseAlarm(req.params.id));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // The live feed: the newest camera frame, shrunk for the web. Cards poll it while they're on screen.
+  const feedFrames = new Map();
+  app.get("/api/printers/:id/feed.jpg", async (req, res) => {
+    try {
+      if (!printers) return res.sendStatus(503);
+      const frame = await printers.liveFrame(req.params.id);
+      let small = feedFrames.get(req.params.id);
+      if (small?.at !== frame.at) {
+        const { default: sharp } = await import("sharp");
+        small = { at: frame.at, jpeg: await sharp(frame.jpeg).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer() };
+        feedFrames.set(req.params.id, small);
+      }
+      res.set({ "Cache-Control": "no-store", "X-Frame-At": String(frame.at) }).type("jpeg").send(small.jpeg);
     } catch (e) {
       fail(res, e);
     }

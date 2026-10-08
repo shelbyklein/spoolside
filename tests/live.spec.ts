@@ -62,7 +62,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   expect(saves).toBe(0);
   expect(await page.evaluate(()=>Object.keys(localStorage))).toEqual([]);
   await page.getByRole('navigation').getByRole('button',{name:'Printers',exact:true}).click();
-  await expect(page.getByText('Live LAN telemetry')).toBeVisible();
-  await expect(page.locator('.print-object')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'AMS 2, Ready'})).toContainText('Last print');
+  await expect(page.locator('.printer-card .printer-feed')).toHaveCount(1);
   await context.close();
 });
