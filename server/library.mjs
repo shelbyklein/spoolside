@@ -116,7 +116,7 @@ export function inspect3mf(buf) {
     .filter(Boolean)
     .map(Number)
     .sort((a, b) => a - b);
-  if (!sliced.length) throw Error("This file isn't sliced. Export it from Bambu Studio with File → Export → Export plate sliced file.");
+  if (!sliced.length) throw Error("This file isn't sliced yet. In Orca or Bambu Studio, slice all plates, then File → Export → Export all sliced file. Spoolside splits it into one print per plate.");
   const info = entries.has("Metadata/slice_info.config")
     ? zipRead(buf, entries.get("Metadata/slice_info.config")).toString("utf8")
     : "";
