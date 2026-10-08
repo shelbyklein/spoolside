@@ -303,6 +303,15 @@ export function createApp({
       }
     },
   );
+  app.get("/api/library/:id/preview.png", (req, res) => {
+    try {
+      const png = library?.preview(req.params.id);
+      if (!png) return res.sendStatus(404);
+      res.set("Cache-Control", "private, max-age=31536000, immutable").type("png").send(png);
+    } catch {
+      res.sendStatus(404);
+    }
+  });
   app.patch("/api/library/:id", (req, res) => {
     try { res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
   });

@@ -210,29 +210,33 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
           <input type="file" accept=".3mf" multiple hidden disabled={uploading} onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
         </label>
       </div>
-      {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files exported from Bambu Studio (Export plate sliced file).</p></div>}
-      <ul className="library-list">
+      {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files from Orca or Bambu Studio (File → Export → Export all sliced file). Each plate becomes its own print.</p></div>}
+      <ul className="sliced-grid">
         {files?.map((f) => (
-          <li key={f.id} className="sliced-file-row">
-            <div className="sliced-file-heading">
-            <FileBox size={20} />
-            <span className="library-name">
-              <strong>{f.name}</strong>
+          <li key={f.id} className="sliced-card">
+            <div className="sliced-thumb">
+              <SlicedPreview file={f} />
+              <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>
+            </div>
+            <div className="sliced-body">
+              <strong title={f.name}>{f.name}</strong>
               <small>
                 {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g`).join("  ·  ")}
+                {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
-            </span>
-            <span className="library-swatches">
-              {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
-            </span>
-            <button className="icon-button" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={16} /></button>
+              {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
             </div>
-            {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+// The slicer's picture of the plate, from inside the sliced file.
+function SlicedPreview({ file }: { file: LibraryFile }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? <FileBox size={34} /> : <img src={`/api/library/${file.id}/preview.png`} alt={`Slicer preview of ${file.name}`} loading="lazy" onError={() => setFailed(true)} />;
 }
 
 function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: (m:string) => void}) {
@@ -243,16 +247,18 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
     try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plate: plate.index, assetIds: ids})}); onSaved(); setEditing(false); notify("Plate assets saved"); }
     catch(e) { notify((e as Error).message); } finally { setBusy(false); }
   };
+  const open = () => { setIds(coverage.map(c => c.assetId)); setQuery(""); setEditing(true); };
   return <div className="plate-assets">
-    <div className="section-top"><strong>Plate {plate.index} · Assets</strong><button className="text-button" onClick={() => {setIds(coverage.map(c => c.assetId));setEditing(!editing);setQuery("");}}> {editing ? "Cancel" : "Edit assets"}</button></div>
-    {!editing && <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>}
-    {editing && <>
+    <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
+    <button className="text-button" onClick={open}>Edit assets</button>
+    {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><div className="modal plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Assets for ${file.name}`} onClick={e => e.stopPropagation()} onKeyDown={e => e.key === "Escape" && !busy && setEditing(false)}>
+      <div className="section-top"><h3>{file.name}{file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}</h3><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
       <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search v3 parts" value={query} onChange={e => setQuery(e.target.value)} />
       <div className="plate-options">{assets.filter(a => a.hasStl && a.generation === 3 && !ids.includes(a.id) && a.name.toLowerCase().includes(query.toLowerCase())).slice(0,12).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
       <p className="plate-meta">Choose every part this plate prints. Saving confirms it was sliced from the current STL versions.</p>
       <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
-    </>}
+    </div></div>}
   </div>;
 }
 

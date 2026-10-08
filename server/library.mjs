@@ -185,6 +185,14 @@ export class Library {
     this.db.prepare("INSERT INTO library VALUES (?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), new Date().toISOString());
     return this.get(id);
   }
+  // The slicer's preview picture of the file's first plate, if it has one.
+  preview(id) {
+    const file = this.get(id);
+    if (!file) return null;
+    const buf = fs.readFileSync(this.file(id)), entries = zipEntries(buf);
+    const entry = entries.get(`Metadata/plate_${file.plates[0]?.index}.png`);
+    return entry ? zipRead(buf, entry) : null;
+  }
   rename(id, name) {
     const clean = String(name || "").trim().slice(0, 80);
     if (!clean || !this.get(id)) throw Error("Unknown file");
