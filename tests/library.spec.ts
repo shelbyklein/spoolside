@@ -32,7 +32,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
 
 test('sliced prints are a library section with editable per-plate asset coverage',async({page})=>{
  const asset={id:'case-13',name:'iPhone 13 Case',type:'Case',generation:3,status:'Up to date',hasStl:true,fit:{phone:'iPhone 13',style:'',size:'',piece:''}};
- const extra=[...Array.from({length:14},(_,i)=>({...asset,id:'c'+i,name:'iPhone 1'+i+' Case'})),{...asset,id:'ds-top',name:'DS – Top',type:'Faceplate',fit:{phone:'',style:'DS',size:'Standard',piece:'Top'}}];
+ const extra=[...Array.from({length:14},(_,i)=>({...asset,id:'c'+i,name:'Test Case '+i})),{...asset,id:'ds-top',name:'DS – Top',type:'Faceplate',fit:{phone:'',style:'DS',size:'Standard',piece:'Top'}}];
  let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;
