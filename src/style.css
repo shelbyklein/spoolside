@@ -114,6 +114,7 @@ small {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 28px;
   font-size: 27px;
   font-weight: 700;
   letter-spacing: -0.04em;
