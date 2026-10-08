@@ -208,6 +208,17 @@ export class PrintWatcher {
       outcome: w.outcome, note: w.note || null, order: w.order_number || null, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
     };
   }
+  // Order pieces being printed or waiting for an answer ("orderId:assetId"), so they aren't offered twice.
+  inFlight() {
+    const out = new Set();
+    for (const r of this.db.prepare("SELECT order_id, assets FROM print_watches WHERE order_id IS NOT NULL AND (ended IS NULL OR outcome IS NULL)").all())
+      for (const a of JSON.parse(r.assets || "[]")) out.add(`${r.order_id}:${a}`);
+    return out;
+  }
+  // The printer's most recent print.
+  lastFor(serial) {
+    return this.db.prepare("SELECT id, ended, outcome FROM print_watches WHERE printer=? ORDER BY started DESC LIMIT 1").get(serial) || null;
+  }
   // Active prints, plus finished ones waiting for your answer (from the last 3 days).
   list() {
     const rows = this.db.prepare("SELECT id FROM print_watches WHERE ended IS NULL OR (outcome IS NULL AND ended>?) ORDER BY started DESC").all(this.now() - 3 * 24 * 60 * MINUTE);

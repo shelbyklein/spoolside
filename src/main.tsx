@@ -4,7 +4,7 @@ import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
-import { OrderPrintDialog } from "./OrderPrint";
+import { OrderPrintDialog, OfferCards, AutoPrintSetting, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
 import { SpoolList } from "./LoadedSpools";
 import { useWatches, WatchAttention, WatchStatus, RecentPrints } from "./PrintWatch";
@@ -146,6 +146,7 @@ function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const watch = useWatches(remote);
+  const dispatch = useDispatch(remote);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => document.documentElement.classList.add("ready"), []);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
@@ -198,7 +199,14 @@ function App() {
     remote ? live.update("orders", value) : setDemoOrders(value);
   const updateOrder = (next: Order) => setOrders(orders.map((o) => (o.id === next.id ? next : o)));
   // Order print buttons (live only): a dialog to send the next piece, and ticking pieces by hand.
-  const [printing, setPrinting] = useState<{ orderId: string; group: PrintGroup } | null>(null);
+  const [printing, setPrinting] = useState<{ orderId: string; group: PrintGroup; printer?: string } | null>(null);
+  const printOffer = (o: Offer) => {
+    const group = orders.find((x) => x.id === o.orderId)?.printPlan?.find((g) => g.key === o.group);
+    if (group?.next) setPrinting({ orderId: o.orderId, group, printer: o.printer });
+    else setNotice("That order changed. Refresh and try again.");
+  };
+  const dismissOffer = (o: Offer) => dispatch.dismiss(o.printer).catch((e) => setNotice(e.message));
+  const offers = remote ? <OfferCards offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /> : null;
   const printOrder = remote ? (order: Order, group: PrintGroup) => setPrinting({ orderId: order.id, group }) : undefined;
   const tickPiece = remote
     ? async (order: Order, assetId: string, done: number) => {
@@ -571,7 +579,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome attention={<WatchAttention water watches={watch.watches} refresh={watch.refresh} notify={setNotice} />} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome attention={<><OfferCards water offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={watch.refresh} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -647,6 +655,7 @@ function App() {
           )}
           {(tab === "Overview" || tab === "Printers") && (
             <div className="fleet-column">
+              {offers}
               {remote && <WatchAttention watches={watch.watches} refresh={watch.refresh} notify={setNotice} />}
               <div className="fleet-heading">
                 <h2>
@@ -728,6 +737,7 @@ function App() {
                 <ShoppingBag size={16} /> View orders
               </button>
               {remote && <NotificationSettings />}
+              {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={(on) => dispatch.setAuto(on).then(() => setNotice(on ? "Automatic printing is on." : "Automatic printing is off.")).catch((e) => setNotice(e.message))} />}
               <h2>Install Spoolside</h2>
               <p>Safari → Share → Add to Home Screen.</p>
               {install && (
@@ -913,7 +923,7 @@ function App() {
         </div>
       )}
       {printing && printingOrder && printing.group.next && (
-        <OrderPrintDialog order={printingOrder} group={printing.group} machines={machines} notify={setNotice} onClose={() => setPrinting(null)} onSent={() => live.retry()} />
+        <OrderPrintDialog order={printingOrder} group={printing.group} printer={printing.printer} machines={machines} notify={setNotice} onClose={() => setPrinting(null)} onSent={() => { live.retry(); dispatch.refresh(); }} />
       )}
       {notice && (
         <div role="status" className="toast">

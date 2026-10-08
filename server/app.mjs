@@ -25,6 +25,7 @@ export function createApp({
   materials,
   watcher,
   orderPrints,
+  dispatcher,
 } = {}) {
   if (
     !pinHash ||
@@ -449,6 +450,24 @@ export function createApp({
       await printers.startPrint(String(printer), { localFile: library.file(file.id), name: file.name, plate: next.plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
       orderPrints.sent(String(printer), { orderId: order.id, orderNumber: order.number, assetIds: assetIds.length ? assetIds : [next.assetId] });
       res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // Free printers offered the next order piece, and the automatic printing toggle.
+  app.get("/api/dispatch", (_req, res) => res.set("Cache-Control", "no-store").json(dispatcher ? dispatcher.view() : { auto: false, vision: false, offers: [] }));
+  app.post("/api/dispatch/auto", (req, res) => {
+    try {
+      if (!dispatcher) return res.sendStatus(503);
+      res.json(dispatcher.setAuto(req.body?.on));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/dispatch/:printer/dismiss", (req, res) => {
+    try {
+      if (!dispatcher) return res.sendStatus(503);
+      res.json(dispatcher.dismiss(req.params.printer));
     } catch (e) {
       fail(res, e);
     }

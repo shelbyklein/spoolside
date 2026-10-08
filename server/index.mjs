@@ -8,6 +8,9 @@ import { Library } from "./library.mjs";
 import { Assets } from "./assets.mjs";
 import { PrintWatcher, claudeVision, shrinkFrame } from "./watcher.mjs";
 import { OrderPrints } from "./orderprints.mjs";
+import { Dispatcher, claudeBedCheck } from "./dispatch.mjs";
+import { MODELS } from "./watcher.mjs";
+import { orderPrintPlan } from "./readiness.mjs";
 const configDir = process.env.SPOOLSIDE_CONFIG_DIR || "/run/spoolside";
 const woo = fs.existsSync(configDir + "/woocommerce.json")
   ? JSON.parse(fs.readFileSync(configDir + "/woocommerce.json"))
@@ -64,6 +67,22 @@ const watcher = new PrintWatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.sq
 });
 const watchTimer = setInterval(() => watcher.tick(), 15000);
 const pruneTimer = setInterval(() => watcher.prune(), 24 * 60 * 60 * 1000);
+// Offers free printers the next order piece; with automatic printing on, starts it when it's safe.
+const dispatcher = new Dispatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", {
+  printers,
+  library,
+  orderPrints,
+  watcher,
+  notifications,
+  shrink: shrinkFrame,
+  bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS.confirm) : null,
+  plans: () => {
+    if (!workspace) return [];
+    const models = assets.list(), assemblies = assets.assemblies(), files = library.list(), printed = orderPrints.all();
+    return workspace.snapshot().orders.map((order) => ({ order, plan: orderPrintPlan(order, models, assemblies, files, printed[order.id]) }));
+  },
+});
+const dispatchTimer = setInterval(() => dispatcher.tick(), 30000);
 const materials = workspace ? new Materials(workspace.db) : null;
 materials?.refresh();
 const materialTimer=setInterval(()=>materials?.refresh(),6*60*60*1000);
@@ -76,6 +95,7 @@ const { app, close } = createApp({
   printers,
   watcher,
   orderPrints,
+  dispatcher,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   pinHash: process.env.SPOOLSIDE_PIN_HASH,
   origin: process.env.SPOOLSIDE_ORIGIN || "https://spoolside.shelbyklein.com",
@@ -94,12 +114,14 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(backupTimer);
       clearInterval(watchTimer);
       clearInterval(pruneTimer);
+      clearInterval(dispatchTimer);
       backup();
       printers.close();
       library.close();
       assets.close();
       watcher.close();
       orderPrints.close();
+      dispatcher.close();
       workspace?.close();
       close();
       process.exit(0);

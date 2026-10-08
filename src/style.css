@@ -2194,3 +2194,9 @@ footer .tiny-dot {
 .order-print-piece small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .order-print-warn { margin: 0; padding: 8px 10px; border-radius: 8px; background: #fff4e5; color: #8a4b00; font-size: 13px; }
 .bed-check img[hidden] { display: none; }
+.offer-card { border-color: #9fd3cb; background: #f1faf8; }
+.offer-card h3 { color: var(--teal); }
+.on-water .offer-card { border-color: rgba(95, 224, 195, 0.5); background: rgba(4, 60, 60, 0.5); }
+.auto-print { margin: 18px 0; }
+.auto-print h2 { margin-bottom: 8px; }
+.auto-print .check-row { font-weight: 600; }

@@ -52,7 +52,7 @@ export function OrderPrintButtons({ order, onPrint, onTick }: { order: Order; on
 }
 
 // Choose the printer and spool for one order piece, check the bed, and send it.
-export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: (m: string) => void }) {
+export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify, printer: suggested }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: (m: string) => void; printer?: string }) {
   const next = group.next!;
   const { files } = useLibrary();
   const plate = files?.find((f) => f.id === next.fileId)?.plates.find((p) => p.index === next.plate);
@@ -63,9 +63,9 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
     () => machines.filter(idle).map((m) => ({ m, best: target ? closestTray(m, target, material) : null })).sort((a, b) => (a.best?.off ?? Infinity) - (b.best?.off ?? Infinity)),
     [machines, target, material],
   );
-  const [printerId, setPrinterId] = useState("");
-  // Pick the best printer once the plate's material is known, unless you've chosen one.
-  const [picked, setPicked] = useState(false);
+  const [printerId, setPrinterId] = useState(suggested || "");
+  // Pick the best printer once the plate's material is known, unless you've chosen one (or an offer did).
+  const [picked, setPicked] = useState(!!suggested);
   useEffect(() => {
     if (!picked && ranked[0] && (plate || files)) setPrinterId(ranked[0].m.id);
   }, [ranked, plate, files]);
@@ -156,5 +156,71 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
         )}
       </div>
     </div>
+  );
+}
+
+export type Offer = { id: string; printer: string; printerName: string; orderId: string; orderNumber: string; group: string; groupLabel: string; pieceName: string; colorway: string; slot: number; autoBlocked: string | null };
+type Dispatch = { auto: boolean; vision: boolean; offers: Offer[] };
+
+// Free printers offered the next order piece, and the automatic printing setting.
+export function useDispatch(enabled: boolean) {
+  const [data, setData] = useState<Dispatch>({ auto: false, vision: false, offers: [] });
+  const refresh = () =>
+    fetch("/api/dispatch", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && Array.isArray(d.offers) && setData(d))
+      .catch(() => {});
+  useEffect(() => {
+    if (!enabled) return;
+    refresh();
+    const timer = window.setInterval(refresh, 20000);
+    return () => clearInterval(timer);
+  }, [enabled]);
+  const post = async (url: string, body?: unknown) => {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw Error(d.error || "Couldn't save");
+    setData(d);
+  };
+  return { ...data, refresh, dismiss: (printer: string) => post(`/api/dispatch/${printer}/dismiss`), setAuto: (on: boolean) => {
+    // Show the change right away; the server's answer settles it.
+    setData((d) => ({ ...d, auto: on }));
+    return post("/api/dispatch/auto", { on }).catch((e) => { refresh(); throw e; });
+  } };
+}
+
+// "AMS 3 is free: print the iPhone 12 Case for #10177?"
+export function OfferCards({ offers, onPrint, onDismiss, water = false }: { offers: Offer[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; water?: boolean }) {
+  if (!offers.length) return null;
+  return (
+    <div className={`watch-attention${water ? " on-water" : ""}`}>
+      {offers.map((o) => (
+        <article key={o.id} className="watch-card offer-card" aria-label={`${o.printerName} is free`}>
+          <h3><Printer size={17} /> {o.printerName} is free</h3>
+          <p>Print the <strong>{o.pieceName}</strong> for {o.orderNumber} · {o.colorway}, slot {o.slot + 1}</p>
+          {o.autoBlocked && <p className="watch-job">Didn't start automatically: {o.autoBlocked}</p>}
+          <div className="watch-actions">
+            <button className="primary" onClick={() => onPrint(o)}><Play size={15} /> Print…</button>
+            <button className="text-button" onClick={() => onDismiss(o)}>Not now</button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+// Settings: let Spoolside start prints by itself.
+export function AutoPrintSetting({ auto, vision, onChange }: { auto: boolean; vision: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <section className="auto-print" aria-label="Automatic printing">
+      <h2>Automatic printing</h2>
+      <label className="check-row">
+        <input type="checkbox" checked={auto} onChange={(e) => onChange(e.target.checked)} /> Start the next order piece on a free printer without asking
+      </label>
+      <p className="plate-meta">
+        Only with a Bambu TPU for AMS spool close to the order's color loaded, and only after you've answered how that printer's last print went and a camera check sees an empty bed. Otherwise you get the usual prompt.
+        {!vision && " Camera checks need the vision key, so nothing starts by itself until it's added."}
+      </p>
+    </section>
   );
 }

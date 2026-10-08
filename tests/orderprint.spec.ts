@@ -52,3 +52,50 @@ test('order rows print their case and faceplates on the best-matching printer', 
   expect(posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);
   await context.close();
 });
+
+test('a free printer offers the next order piece; Not now and the automatic printing toggle', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  const now = new Date().toISOString();
+  const tray = (slot: number, color: string) => ({ slot, type: 'TPU-AMS', color, name: 'TPU for AMS', remain: 100, grams: 1000, materialId: 'bambu-tpu-ams' });
+  const machines = [
+    { id: 'best', name: 'AMS 2', state: 'Ready', rawState: 'IDLE', job: '', progress: 0, remaining: '—', material: '', seen: now, stale: false, connected: true, hasAms: true, trays: [tray(0, '#ED0000')] },
+    { id: 'red', name: 'AMS 3', state: 'Ready', rawState: 'FINISH', job: '', progress: 0, remaining: '—', material: '', seen: now, stale: false, connected: true, hasAms: true, trays: [tray(0, '#5898DD'), tray(1, '#E00000')] },
+  ];
+  const plan = [{ key: '0:case', label: 'case', done: false, pieces: [{ assetId: 'case', name: 'iPhone 12 Case', needed: 1, done: 0, plates: [] }], next: { assetId: 'case', name: 'iPhone 12 Case', fileId: 'f-case', fileName: 'iPhone 12 Case', plate: 1 } }];
+  const order = { id: 'o1', number: '#10181', placed: 'Oct 7, 2026', commercial: 'processing', refundReview: false, items: [{ id: 'i1', name: 'PlayCase', variant: '', quantity: 1, recipe: [], phone: 'iPhone 12', colorway: 'Red', parts: [] }], assembled: false, packed: false, shipped: false, tracking: '', note: '', printPlan: plan };
+  const state = { revision: 1, orders: [order], jobs: [], spools: [], machines, lastSync: now, syncError: null };
+  let dispatch: any = { auto: false, vision: true, offers: [{ id: 'red:o1:0:case:f-case:1', printer: 'red', printerName: 'AMS 3', orderId: 'o1', orderNumber: '#10181', group: '0:case', groupLabel: 'case', pieceName: 'iPhone 12 Case', colorway: 'Red', slot: 1, autoBlocked: null }] };
+  const posts: any[] = [];
+  const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
+  await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/workspace') return route.fulfill({ json: state });
+    if (url.pathname === '/api/dispatch') return route.fulfill({ json: dispatch });
+    if (url.pathname.startsWith('/api/dispatch/')) {
+      posts.push([url.pathname, route.request().postDataJSON()]);
+      dispatch = url.pathname.endsWith('dismiss') ? { ...dispatch, offers: [] } : { ...dispatch, auto: route.request().postDataJSON().on };
+      return route.fulfill({ json: dispatch });
+    }
+    if (url.pathname === '/api/library') return route.fulfill({ json: [{ id: 'f-case', name: 'iPhone 12 Case', size: 1, created: now, plates: [{ index: 1, minutes: 80, grams: 33, filaments: [{ id: 1, type: 'TPU-AMS', color: '#ED0000' }] }] }] });
+    if (url.pathname.endsWith('.jpg') || url.pathname.endsWith('.png')) return route.fulfill({ contentType: 'image/png', body: pixel });
+    if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: true, watches: [] } });
+    if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 404, json: {} });
+    return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) });
+  });
+  await page.goto('https://spoolside.shelbyklein.com/overview');
+  const card = page.getByRole('article', { name: 'AMS 3 is free' });
+  await expect(card).toContainText('Print the iPhone 12 Case for #10181 · Red, slot 2');
+  await card.getByRole('button', { name: 'Print…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Print case for #10181' });
+  await expect(dialog.getByLabel('Printer')).toHaveValue('red', { timeout: 5000 });
+  await page.keyboard.press('Escape');
+  await card.getByRole('button', { name: 'Not now' }).click();
+  await expect(card).toHaveCount(0);
+  expect(posts[0][0]).toBe('/api/dispatch/red/dismiss');
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('Start the next order piece on a free printer without asking').check();
+  await expect(page.getByLabel('Start the next order piece on a free printer without asking')).toBeChecked();
+  expect(posts[1]).toEqual(['/api/dispatch/auto', { on: true }]);
+  await context.close();
+});
