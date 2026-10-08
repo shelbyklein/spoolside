@@ -187,7 +187,7 @@ nav {
   margin-top: auto;
   padding-top: 32px;
 }
-.sidebar-bottom > img {
+.sidebar-bottom > .floating-spool {
   width: 100%;
   border-radius: 16px;
   display: block;
@@ -1901,7 +1901,7 @@ footer .tiny-dot {
   .sidebar .nav-item:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
   .sidebar .nav-item.selected { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); backdrop-filter: blur(8px); }
   .sidebar .nav-item small { background: rgba(255, 255, 255, 0.16); color: #fff; }
-  .sidebar-bottom > img { filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
+  .sidebar-bottom > .floating-spool { filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
   .sidebar-bottom button { color: rgba(255, 255, 255, 0.86); border-top-color: rgba(255, 255, 255, 0.14); }
   .sidebar .version { color: rgba(255, 255, 255, 0.62); }
 }
@@ -1932,7 +1932,7 @@ footer .tiny-dot {
 .arrange-buttons button { flex: 1; min-height: 36px; padding: 0; }
 /* The spool drifts gently on the water. */
 @media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
-  .sidebar-bottom > img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
+  .sidebar-bottom > .floating-spool img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
 }
 @keyframes spool-float {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
@@ -2032,7 +2032,7 @@ footer .tiny-dot {
   .pool-case { animation-play-state: paused; }
   .pool-case > span { animation: none; }
 }
-.home-mark > img { width: 132px; height: auto; margin-bottom: 6px; filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
+.home-mark > .floating-spool { width: 132px; height: auto; margin-bottom: 6px; filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
 /* Printers and orders as pills, anchored to the bottom of the pool. A printing pill fills with its progress. */
 .home-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: auto; padding-top: 8px; }
 .home-pill { --fill: 0%; display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: linear-gradient(90deg, rgba(95, 224, 195, 0.3) var(--fill), rgba(2, 36, 46, 0.42) var(--fill)); color: #fff; font: inherit; font-size: 14px; -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 6px 18px rgba(0, 12, 18, 0.22); }
@@ -2048,7 +2048,7 @@ footer .tiny-dot {
 .home-dot.paused { background: #ffc857; }
 .home-dot.error { background: #ff5a4f; }
 @media (prefers-reduced-motion: no-preference) {
-  .home-mark > img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
+  .home-mark > .floating-spool img { animation: spool-float 9s ease-in-out infinite; transform-origin: 50% 70%; }
   .home-mark, .home-pills, .watch-attention.on-water { animation: home-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .home-pills { animation-delay: 0.08s; }
 }
@@ -2284,3 +2284,27 @@ footer .tiny-dot {
 .notification-prompt p { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
 .notification-prompt .primary { font-size: 12px; min-height: 34px; }
 .watch-card.rating-target { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+/* The drag layer and idle bob have separate transforms. Only the spool captures touch gestures. */
+.floating-spool { display: block; padding: 0; border: 0; background: transparent; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.floating-spool img { display: block; width: 100%; pointer-events: none; }
+.floating-spool.dragging { cursor: grabbing; }
+.floating-spool.dragging img, .floating-spool.returning img { animation-play-state: paused; }
+.floating-spool:focus-visible { outline: 2px solid #fff; outline-offset: 6px; border-radius: 16px; }
+.sidebar-bottom > .floating-spool { border: 0; padding: 0; }
+.sidebar-bottom:has(.floating-spool.dragging), .sidebar-bottom:has(.floating-spool.returning) { z-index: 3; }
+
+.sidebar .brand, .sidebar nav, .sidebar-bottom > button:not(.floating-spool), .sidebar-bottom .version,
+.water-home .pool-cases { transition: opacity .25s ease-out; }
+.water-home .home-content > :not(.home-mark) { filter: opacity(1); transition: filter .25s ease-out; }
+.sidebar.spool-dragging .brand, .sidebar.spool-dragging nav,
+.sidebar.spool-dragging .sidebar-bottom > button:not(.floating-spool), .sidebar.spool-dragging .version,
+.water-home.spool-dragging .pool-cases { opacity: 0; pointer-events: none; }
+.water-home.spool-dragging .home-content > :not(.home-mark) { filter: opacity(0); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar .brand, .sidebar nav, .sidebar-bottom > button:not(.floating-spool), .sidebar-bottom .version,
+  .water-home .home-content > :not(.home-mark), .water-home .pool-cases { transition: none; }
+}
+@media (max-width: 760px) {
+  body:has(.water-home.spool-dragging) .sidebar nav { opacity: 0; pointer-events: none; }
+}

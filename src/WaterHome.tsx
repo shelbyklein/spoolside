@@ -1,3 +1,4 @@
+import { FloatingSpool } from "./FloatingSpool";
 import { ShoppingBag } from "lucide-react";
 import { WaterBackground } from "./WaterBackground";
 import type { Machine } from "./live-workspace";
@@ -66,7 +67,7 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
       <div className="home-content">
         <header className="home-mark">
           <FloatingCases orders={orders} openOrder={openOrder} />
-          <img src="/spoolside.png" alt="" />
+          <FloatingSpool />
         </header>
         {attention}
         <div className="home-pills">

@@ -1,3 +1,4 @@
+import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
@@ -562,10 +563,7 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <img
-            src="/spoolside.png"
-            alt="A red filament figure relaxing on a white spool"
-          />
+          <FloatingSpool />
           <button
             onClick={() => {
               setTab("Settings");

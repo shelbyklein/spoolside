@@ -60,17 +60,27 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
     for (let i = 0; i < 8; i++) ripples[i * 4 + 2] = -100;
     let nextRipple = 0, lastRippleAt = -100, lastX = -1000, lastY = -1000;
     let elapsed = 0, last = performance.now();
+    const addWave = (clientX: number, clientY: number, strength: number, trail: boolean) => {
+      if (reduce.matches || document.hidden) return;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height || clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return;
+      const x = clientX - rect.left, y = clientY - rect.top;
+      if (trail && (elapsed - lastRippleAt < .10 || Math.hypot(x-lastX,y-lastY) < 12)) return;
+      const i = (nextRipple++ % 8) * 4;
+      ripples.set([x / rect.width, 1 - y / rect.height, elapsed, strength], i);
+      lastRippleAt = elapsed; lastX = x; lastY = y;
+    };
+    const spoolWave = (event: Event) => {
+      const { x, y, strength } = (event as CustomEvent).detail;
+      addWave(x, y, strength, false);
+    };
     const ripple = (event: PointerEvent) => {
       if (reduce.matches || document.hidden) return;
       if (event.type === "pointermove" && event.pointerType !== "mouse" && !event.buttons) return;
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height || event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
-      const x = event.clientX - rect.left, y = event.clientY - rect.top;
-      if (event.type === "pointermove" && (elapsed - lastRippleAt < .10 || Math.hypot(x-lastX,y-lastY) < 12)) return;
-      const i = (nextRipple++ % 8) * 4;
-      ripples.set([x / rect.width, 1 - y / rect.height, elapsed, event.type === "pointerdown" ? 1 : .65], i);
-      lastRippleAt = elapsed; lastX = x; lastY = y;
+      if ((event.target as Element)?.closest(".floating-spool")) return;
+      addWave(event.clientX, event.clientY, event.type === "pointerdown" ? 1 : .65, event.type === "pointermove");
     };
+    surface.addEventListener("water-ripple", spoolWave);
     surface.addEventListener("pointermove", ripple, { passive: true });
     surface.addEventListener("pointerdown", ripple, { passive: true });
     const draw = () => {
@@ -91,6 +101,7 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
     gsap.ticker.add(draw);
     draw();
     return () => {
+      surface.removeEventListener("water-ripple", spoolWave);
       surface.removeEventListener("pointermove", ripple);
       surface.removeEventListener("pointerdown", ripple);
       gsap.ticker.remove(draw);
