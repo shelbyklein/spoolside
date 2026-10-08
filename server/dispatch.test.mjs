@@ -5,7 +5,7 @@ import { OrderPrints } from "./orderprints.mjs";
 
 function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true } = {}) {
   let t = 1_000_000_000;
-  const started = [], pushes = [];
+  const started = [], pushes = [], checks = [];
   const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
   const printers = {
     busy: new Set(),
@@ -24,11 +24,11 @@ function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended:
     printers, library, orderPrints, watcher,
     plans: () => orders.map((o) => ({ order: o, plan })),
     notifications: { broadcast: (e) => pushes.push(e) },
-    bedCheck: vision ? async () => bed : null,
+    bedCheck: vision ? async (jpeg, kind) => (checks.push(kind), bed) : null,
     shrink: async (jpeg) => ({ jpeg, brightness: 100 }),
     now: () => t,
   });
-  return { d, view, started, pushes, orders, orderPrints, later: (ms) => (t += ms), done: () => { d.close(); orderPrints.close(); } };
+  return { d, view, started, pushes, checks, orders, orderPrints, later: (ms) => (t += ms), done: () => { d.close(); orderPrints.close(); } };
 }
 
 test("a free printer is offered the oldest order it can print in TPU for AMS close to the colorway", async () => {
@@ -100,8 +100,9 @@ test("automatic printing starts only after the last print was answered and the b
     busyBed.d.setAuto(true);
     await busyBed.d.tick();
     assert.equal(busyBed.started.length, 0);
-    assert.match(busyBed.d.view().offers[0].autoBlocked, /red case is on the plate/);
-    assert.equal(busyBed.pushes.length, 1, "falls back to asking");
+    assert.equal(busyBed.d.view().offers.length, 0, "not even offered");
+    assert.deepEqual(busyBed.d.view().held, [{ printer: "P1", printerName: "AMS 3", reason: "A red case is on the plate." }]);
+    assert.equal(busyBed.pushes.length, 0);
   } finally {
     busyBed.done();
   }
@@ -123,5 +124,31 @@ test("automatic printing starts only after the last print was answered and the b
     assert.match(s.pushes.at(-1).title, /Started on AMS 3/);
   } finally {
     s.done();
+  }
+});
+
+test("the bed is checked by camera before offering: empty holds until the next print, anything else is rechecked", async () => {
+  const s = setup({ bed: { empty: false, reason: "Parts on the plate." } });
+  try {
+    await s.d.tick();
+    assert.equal(s.d.view().offers.length, 0);
+    assert.deepEqual(s.checks, ["routine"]);
+    await s.d.tick();
+    assert.equal(s.checks.length, 1, "not rechecked within 5 minutes");
+    s.later(5 * 60000 + 1);
+    await s.d.tick();
+    assert.equal(s.checks.length, 2);
+  } finally {
+    s.done();
+  }
+  const clear = setup();
+  try {
+    await clear.d.tick();
+    clear.later(3 * 60 * 60000);
+    await clear.d.tick();
+    assert.equal(clear.checks.length, 1, "an empty bed stays trusted until the printer prints again");
+    assert.equal(clear.d.view().offers.length, 1);
+  } finally {
+    clear.done();
   }
 });

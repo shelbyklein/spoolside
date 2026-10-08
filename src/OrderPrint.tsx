@@ -160,7 +160,8 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
 }
 
 export type Offer = { id: string; printer: string; printerName: string; orderId: string; orderNumber: string; group: string; groupLabel: string; pieceName: string; colorway: string; slot: number; autoBlocked: string | null };
-type Dispatch = { auto: boolean; vision: boolean; offers: Offer[] };
+export type Held = { printer: string; printerName: string; reason: string };
+type Dispatch = { auto: boolean; vision: boolean; offers: Offer[]; held?: Held[] };
 
 // Free printers offered the next order piece, and the automatic printing setting.
 export function useDispatch(enabled: boolean) {
@@ -190,10 +191,15 @@ export function useDispatch(enabled: boolean) {
 }
 
 // "AMS 3 is free: print the iPhone 12 Case for #10177?"
-export function OfferCards({ offers, onPrint, onDismiss, water = false }: { offers: Offer[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; water?: boolean }) {
-  if (!offers.length) return null;
+export function OfferCards({ offers, held = [], onPrint, onDismiss, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; water?: boolean }) {
+  if (!offers.length && !held.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
+      {held.map((h) => (
+        <p key={h.printer} className="held-note">
+          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes.
+        </p>
+      ))}
       {offers.map((o) => (
         <article key={o.id} className="watch-card offer-card" aria-label={`${o.printerName} is free`}>
           <h3><Printer size={17} /> {o.printerName} is free</h3>

@@ -2206,3 +2206,7 @@ footer .tiny-dot {
 .on-water .watch-card .secondary.danger { border-color: rgba(255, 150, 130, 0.6); color: #ffd9d1; }
 .on-water .watch-card .text-button { color: rgba(255, 255, 255, 0.85); }
 .on-water .failure-note textarea { border-color: rgba(255, 255, 255, 0.3); }
+.held-note { margin: 0; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.held-note strong { color: var(--navy); }
+.on-water .held-note { border-color: rgba(255, 255, 255, 0.25); background: rgba(2, 36, 46, 0.35); color: rgba(255, 255, 255, 0.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.on-water .held-note strong { color: #fff; }

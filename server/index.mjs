@@ -75,7 +75,7 @@ const dispatcher = new Dispatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.s
   watcher,
   notifications,
   shrink: shrinkFrame,
-  bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS.confirm) : null,
+  bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS) : null,
   plans: () => {
     if (!workspace) return [];
     const models = assets.list(), assemblies = assets.assemblies(), files = library.list(), printed = orderPrints.all();

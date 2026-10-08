@@ -65,7 +65,7 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   const plan = [{ key: '0:case', label: 'case', done: false, pieces: [{ assetId: 'case', name: 'iPhone 12 Case', needed: 1, done: 0, plates: [] }], next: { assetId: 'case', name: 'iPhone 12 Case', fileId: 'f-case', fileName: 'iPhone 12 Case', plate: 1 } }];
   const order = { id: 'o1', number: '#10181', placed: 'Oct 7, 2026', commercial: 'processing', refundReview: false, items: [{ id: 'i1', name: 'PlayCase', variant: '', quantity: 1, recipe: [], phone: 'iPhone 12', colorway: 'Red', parts: [] }], assembled: false, packed: false, shipped: false, tracking: '', note: '', printPlan: plan };
   const state = { revision: 1, orders: [order], jobs: [], spools: [], machines, lastSync: now, syncError: null };
-  let dispatch: any = { auto: false, vision: true, offers: [{ id: 'red:o1:0:case:f-case:1', printer: 'red', printerName: 'AMS 3', orderId: 'o1', orderNumber: '#10181', group: '0:case', groupLabel: 'case', pieceName: 'iPhone 12 Case', colorway: 'Red', slot: 1, autoBlocked: null }] };
+  let dispatch: any = { auto: false, vision: true, held: [{ printer: 'best', printerName: 'AMS 2', reason: 'A grey case is still on the plate.' }], offers: [{ id: 'red:o1:0:case:f-case:1', printer: 'red', printerName: 'AMS 3', orderId: 'o1', orderNumber: '#10181', group: '0:case', groupLabel: 'case', pieceName: 'iPhone 12 Case', colorway: 'Red', slot: 1, autoBlocked: null }] };
   const posts: any[] = [];
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
   await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
@@ -86,6 +86,7 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await page.goto('https://spoolside.shelbyklein.com/overview');
   const card = page.getByRole('article', { name: 'AMS 3 is free' });
   await expect(card).toContainText('Print the iPhone 12 Case for #10181 · Red, slot 2');
+  await expect(page.getByText('could print the next order, but the camera says: A grey case is still on the plate')).toBeVisible();
   await card.getByRole('button', { name: 'Print…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Print case for #10181' });
   await expect(dialog.getByLabel('Printer')).toHaveValue('red', { timeout: 5000 });

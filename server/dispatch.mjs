@@ -11,6 +11,7 @@ export const FAR = 20000;
 const MATERIAL = "bambu-tpu-ams"; // for now, only Bambu TPU for AMS spools are matched
 const IDLE = ["IDLE", "FINISH", "FAILED"];
 const SNOOZE = 60 * 60000;
+const RECHECK = 5 * 60000; // a bed that wasn't clear (or was too dark) is looked at again this often
 const RETRY = 10 * 60000;
 const orderNumber = (o) => Number(String(o.number).replace(/\D/g, "")) || 0;
 
@@ -25,6 +26,8 @@ export class Dispatcher {
     this.offers = new Map(); // printer -> offer
     this.snoozed = new Map(); // printer -> { offerId, until }
     this.tried = new Map(); // offerId -> { at, reason }
+    this.beds = new Map(); // printer -> { key, at, empty, reason }: the last camera check of the bed
+    this.held = new Map(); // printer -> { printerName, reason }: free, but the bed check says no
     this.busy = false;
   }
   close() {
@@ -80,7 +83,14 @@ export class Dispatcher {
         const last = this.watcher.lastFor(serial);
         const cleared = !last || (last.ended && last.outcome);
         const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial);
-        const offer = free ? this.candidate(view, taken) : null;
+        let offer = free ? this.candidate(view, taken) : null;
+        // Before offering, look at the bed: an empty result holds until the next print; anything else is
+        // checked again every few minutes.
+        if (offer) {
+          const bed = await this.lookAtBed(serial, last);
+          if (!bed.empty) { this.held.set(serial, { printer: serial, printerName: view.name, reason: bed.reason }); offer = null; }
+          else this.held.delete(serial);
+        } else this.held.delete(serial);
         if (!offer) { this.offers.delete(serial); if (!free) this.snoozed.delete(serial); continue; }
         taken.add(`${offer.orderId}:${offer.assetId}`);
         const prior = this.offers.get(serial);
@@ -98,6 +108,22 @@ export class Dispatcher {
       this.busy = false;
     }
   }
+  async lookAtBed(serial, last) {
+    if (!this.bedCheck) return { empty: true, reason: "" };
+    const key = last ? `${last.id}:${last.outcome}` : "none";
+    const seen = this.beds.get(serial);
+    if (seen?.key === key && (seen.empty || this.now() - seen.at < RECHECK)) return seen;
+    let result;
+    try {
+      const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
+      result = brightness < 18 ? { empty: false, reason: "Too dark to see the bed" } : await this.bedCheck(jpeg, "routine");
+    } catch {
+      result = { empty: false, reason: "Couldn't see the bed" };
+    }
+    const seenNow = { key, at: this.now(), ...result };
+    this.beds.set(serial, seenNow);
+    return seenNow;
+  }
   // Starts an offer by itself when it's safe; otherwise records why not and leaves it as a prompt.
   async tryAuto(serial, offer) {
     const last = this.tried.get(offer.id);
@@ -111,7 +137,7 @@ export class Dispatcher {
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
       if (brightness < 18) return block("Too dark to check the bed");
-      bed = await this.bedCheck(jpeg);
+      bed = await this.bedCheck(jpeg, "confirm");
     } catch {
       return block("Couldn't check the bed");
     }
@@ -145,13 +171,16 @@ export class Dispatcher {
       auto: this.auto,
       vision: !!this.bedCheck,
       offers: [...this.offers.entries()].filter(([p]) => !this.snoozed.has(p)).map(([, o]) => ({ ...o, autoBlocked: this.auto ? o.autoBlocked || null : null })),
+      held: [...this.held.values()],
     };
   }
 }
 
 // Asks Claude whether the build plate in a camera photo is completely empty.
-export function claudeBedCheck(apiKey, model, fetchImpl = fetch) {
-  return async (jpeg) => {
+// `models` maps "routine" (offer checks) and "confirm" (right before an automatic start) to model ids.
+export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
+  return async (jpeg, kind = "confirm") => {
+    const model = models[kind] || models.confirm;
     const r = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
