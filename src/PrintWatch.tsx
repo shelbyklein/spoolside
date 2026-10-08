@@ -88,6 +88,15 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
       setBusy("");
     }
   };
+  const focusedRating = useRef("");
+  const rating = new URLSearchParams(window.location.search).get("rate");
+  useEffect(() => {
+    if (!rating || focusedRating.current === rating || !watches.some(w=>w.id===rating && w.ended && !w.outcome)) return;
+    const card=document.getElementById(`rate-${rating}`);
+    if (card) focusedRating.current = rating;
+    card?.scrollIntoView({block:"center"});
+    card?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
+  }, [rating, watches]);
   const alerts = watches.filter((w) => !w.ended && w.alert);
   const asks = watches.filter((w) => w.ended && !w.outcome);
   if (!alerts.length && !asks.length) return null;
@@ -110,7 +119,7 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
         </article>
       ))}
       {asks.map((w) => (
-        <article key={w.id} className="watch-card" aria-label={`How did ${jobName(w.job)} go?`}>
+        <article id={`rate-${w.id}`} key={w.id} className={`watch-card${rating===w.id ? " rating-target" : ""}`} aria-label={`How did ${jobName(w.job)} go?`}>
           <h3>How did {jobName(w.job)} go?</h3>
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}

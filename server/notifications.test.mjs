@@ -71,3 +71,16 @@ test('repeat refunds notify while adding fingerprint to an older baseline stays 
  delete before.refundVersion;
  assert.deepEqual(orderChanges([before],[after]),[]);
 });
+
+test('print-finished preferences route ratings and clear disabled pending alerts', async () => {
+ const db=new DatabaseSync(':memory:');const sent=[];
+ const service=new Notifications(db,{vapid,send:async(_s,p)=>sent.push(JSON.parse(p))});
+ const device=service.register(sub,{newOrders:false,changes:false,printFinished:true});
+ service.broadcast({id:'done:1',title:'Print finished',body:'Tap to rate it',url:'/printers?rate=watch-id',kind:'printFinished'});
+ await service.drain(); assert.equal(sent[0].url,'/printers?rate=watch-id');
+ service.broadcast({id:'done:2',title:'Print finished',body:'Rate it',url:'/printers',kind:'printFinished'});
+ service.register(sub,{newOrders:false,changes:false,printFinished:false});
+ assert.equal(db.prepare('SELECT count(*) n FROM push_deliveries').get().n,0);
+ service.broadcast({id:'done:3',title:'Print finished',body:'Rate it',url:'/printers',kind:'printFinished'});
+ await service.drain();assert.equal(sent.length,1);assert.equal(service.device(device.id).preferences.printFinished,false);db.close();
+});

@@ -2279,3 +2279,8 @@ footer .tiny-dot {
 .order-fulfillment .ship-slot { width: 100%; }
 .order-fulfillment .ship-button { width: 100%; min-height: 30px; padding: 0 10px; font-size: 12px; justify-content: center; }
 .order-fulfillment .ship-button svg { width: 14px; height: 14px; }
+.notification-prompt { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; margin-bottom: 16px; border-radius: 14px; border: 1px solid var(--line); background: #fff; color: var(--navy); text-align: left; }
+.notification-prompt strong { font-size: 14px; }
+.notification-prompt p { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+.notification-prompt .primary { font-size: 12px; min-height: 34px; }
+.watch-card.rating-target { outline: 2px solid var(--teal); outline-offset: 3px; }

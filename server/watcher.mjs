@@ -159,8 +159,9 @@ export class PrintWatcher {
     this.notifications?.broadcast({
       id: `watch:${watch.id}:end`,
       title: `${watch.job} ${endedAs === "finished" ? "finished" : "stopped"} on ${watch.printer_name}`,
-      body: "Did it come out right? Tap to tell Spoolside.",
-      url: "/printers",
+      body: "Tap to rate it: good or failed, with an optional note.",
+      kind: "printFinished",
+      url: `/printers?rate=${watch.id}`,
     });
   }
   // Your answer teaches the watcher: successful prints become references for the next run of the same job.

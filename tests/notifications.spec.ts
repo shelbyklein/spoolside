@@ -24,6 +24,8 @@ test('device opt-in, preferences, test and disable work without storing credenti
  await page.goto('https://spoolside.shelbyklein.com/');await page.getByRole('navigation').getByRole('button',{name:'Settings',exact:true}).click();
  await page.getByRole('button',{name:'Enable notifications'}).click();
  await expect(page.getByText('Notifications enabled on this device. Send a test to check delivery.')).toBeVisible();
+ await expect(page.getByLabel('Print finished · quick rating')).toBeChecked();
+ await page.getByLabel('Print finished · quick rating').uncheck(); await expect.poll(()=>device.preferences.printFinished).toBe(false);
  await page.getByLabel('Order changes',{exact:true}).uncheck();await expect.poll(()=>device.preferences.changes).toBe(false);
  await page.getByRole('button',{name:'Send test notification'}).click();await expect.poll(()=>tests).toBe(1);
  await expect(page.getByText('Test accepted by the push service. Check this device for the notification.')).toBeVisible();

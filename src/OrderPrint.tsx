@@ -105,7 +105,6 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
       setSending(false);
     }
   };
-  const pieceNo = group.pieces.findIndex((p) => p.assetId === next.assetId) + 1;
   return (
     <div className="modal-backdrop" onClick={() => !sending && onClose()}>
       <div className="modal order-print-dialog" role="dialog" aria-modal="true" aria-label={`${groupTitle(group)} for ${order.number}`} onClick={(e) => e.stopPropagation()}>
@@ -117,7 +116,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
           <img src={`/api/library/${next.fileId}/preview.png`} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
           <span>
             <strong>{next.name}</strong>
-            <small>{group.pieces.length > 1 ? `Piece ${pieceNo} of ${group.pieces.length} · ` : ""}{next.fileName}</small>
+            <small>{next.fileName}</small>
             {colorway && <small><span className="color-dot" style={{ background: target || "#ccc" }} /> {colorway}</small>}
           </span>
         </div>

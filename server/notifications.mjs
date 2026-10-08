@@ -26,19 +26,21 @@ export class Notifications {
     this.send=send || ((subscription,payload)=>webpush.sendNotification(subscription,payload,{vapidDetails:vapid,TTL:3600,timeout:10000}));
     db.exec(`CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, subscription TEXT NOT NULL, new_orders INTEGER NOT NULL, changes INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS push_deliveries (event TEXT NOT NULL, device TEXT NOT NULL, payload TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL, created INTEGER NOT NULL, PRIMARY KEY(event,device));`);
+    if (!db.prepare('PRAGMA table_info(push_subscriptions)').all().some(c=>c.name==='print_finished')) db.exec('ALTER TABLE push_subscriptions ADD COLUMN print_finished INTEGER NOT NULL DEFAULT 1');
   }
   get enabled(){return !!this.vapid;}
   register(subscription,preferences) {
     if(!this.enabled) throw Error('Notifications are not configured');
     const clean=validateSubscription(subscription),id=digest(clean.endpoint);
     if(typeof preferences?.newOrders!=='boolean'||typeof preferences?.changes!=='boolean') throw Error('Choose notification preferences');
-    this.db.prepare('INSERT INTO push_subscriptions VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET subscription=excluded.subscription,new_orders=excluded.new_orders,changes=excluded.changes').run(id,JSON.stringify(clean),+preferences.newOrders,+preferences.changes);
+    this.db.prepare('INSERT INTO push_subscriptions (id,subscription,new_orders,changes,print_finished) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET subscription=excluded.subscription,new_orders=excluded.new_orders,changes=excluded.changes,print_finished=excluded.print_finished').run(id,JSON.stringify(clean),+preferences.newOrders,+preferences.changes,+(preferences.printFinished !== false));
     // Preferences apply to pending deliveries too.
     this.db.prepare("DELETE FROM push_deliveries WHERE device=? AND ((json_extract(payload,'$.kind')='newOrders' AND ?=0) OR (json_extract(payload,'$.kind')='changes' AND ?=0))").run(id,+preferences.newOrders,+preferences.changes);
-    return {id,preferences};
+    if(preferences.printFinished === false) this.db.prepare("DELETE FROM push_deliveries WHERE device=? AND json_extract(payload,'$.kind')='printFinished'").run(id);
+    return {id,preferences:{...preferences,printFinished:preferences.printFinished !== false}};
   }
   remove(id) {this.db.prepare('DELETE FROM push_subscriptions WHERE id=?').run(id);this.db.prepare('DELETE FROM push_deliveries WHERE device=?').run(id);}
-  device(id) {const row=this.db.prepare('SELECT new_orders,changes FROM push_subscriptions WHERE id=?').get(id);return row?{id,preferences:{newOrders:!!row.new_orders,changes:!!row.changes}}:null;}
+  device(id) {const row=this.db.prepare('SELECT new_orders,changes,print_finished FROM push_subscriptions WHERE id=?').get(id);return row?{id,preferences:{newOrders:!!row.new_orders,changes:!!row.changes,printFinished:!!row.print_finished}}:null;}
   enqueue(previous,next,baseline) {
     if(!this.enabled || baseline) return;
     const devices=this.db.prepare('SELECT * FROM push_subscriptions').all();
@@ -50,16 +52,16 @@ export class Notifications {
     }
   }
   // Print watcher events go to every device: they're about the farm right now.
-  broadcast({id,title,body,url}) {
+  broadcast({id,title,body,url,kind="prints"}) {
     if(!this.enabled) return;
-    const payload=JSON.stringify({title:String(title).slice(0,120),body:String(body).slice(0,180),tag:id,kind:'prints',url});
+    const payload=JSON.stringify({title:String(title).slice(0,120),body:String(body).slice(0,180),tag:id,kind,url});
     const insert=this.db.prepare('INSERT OR IGNORE INTO push_deliveries(event,device,payload,due,created) VALUES(?,?,?,?,?)');
-    for(const d of this.db.prepare('SELECT id FROM push_subscriptions').all()) insert.run(id,d.id,payload,this.now(),this.now());
+    for(const d of this.db.prepare('SELECT id,print_finished FROM push_subscriptions').all()) if(kind !== 'printFinished' || d.print_finished) insert.run(id,d.id,payload,this.now(),this.now());
   }
   async test(id) {
     const row=this.db.prepare('SELECT subscription FROM push_subscriptions WHERE id=?').get(id);
     if(!row) throw Error('Enable notifications on this device first');
-    try {await this.send(JSON.parse(row.subscription),JSON.stringify({title:'Spoolside is connected',body:'Order updates are enabled on this device.',tag:'spoolside-test',url:'/?view=orders'}));}
+    try {await this.send(JSON.parse(row.subscription),JSON.stringify({title:'Spoolside is connected',body:'Print-finished alerts and ratings are available on this device.',tag:'spoolside-test',url:'/?view=orders'}));}
     catch(e){if([404,410].includes(e.statusCode))this.remove(id);throw Error('Push service did not accept the test. Enable notifications again and retry.');}
   }
   async drain() {

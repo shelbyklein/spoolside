@@ -79,7 +79,9 @@ test("a print is watched, paused after two problem checks, and asks for its outc
     [w] = s.watcher.list().watches;
     assert.equal(w.endedAs, "finished");
     assert.ok(w.check.final);
-    assert.match(s.pushes.at(-1).body, /Did it come out right/);
+    assert.match(s.pushes.at(-1).body, /Tap to rate it/);
+    assert.equal(s.pushes.at(-1).kind, "printFinished");
+    assert.equal(s.pushes.at(-1).url, `/printers?rate=${w.id}`);
     assert.throws(() => s.watcher.outcome(w.id, "yes"), /Choose/);
     assert.equal(s.watcher.outcome(w.id, false, "  Corner lifted\non the left  ").note, "Corner lifted on the left");
     assert.equal(s.watcher.outcome(w.id, false).note, "Corner lifted on the left", "re-answering keeps the note");

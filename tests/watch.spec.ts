@@ -62,12 +62,17 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect.poll(() => workspaceLoads).toBeGreaterThan(beforeOutcome);
   await expect(ask).toHaveCount(0);
   expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/outcome {"success":true,"note":"Calibration run"}');
-  const stopped = home.getByRole('article', { name: 'How did DS Top go?' });
+  await page.goto('https://spoolside.shelbyklein.com/printers?rate=33333333-3333-4333-8333-333333333333');
+  const stopped = page.getByRole('article', { name: 'How did DS Top go?' });
+  await expect(stopped).toHaveClass(/rating-target/);
+  await expect(stopped.getByRole('button', { name: 'Came out fine' })).toBeFocused();
+  await page.screenshot({path:'handoff/spoolside-notification-rating.png',fullPage:true});
   await stopped.getByRole('button', { name: 'Failed' }).click();
   await stopped.getByLabel(/What went wrong/).fill('Corner lifted on the left');
   await stopped.getByRole('button', { name: 'Save as failed' }).click();
   await expect(stopped).toHaveCount(0);
   expect(posts).toContain('/api/watches/33333333-3333-4333-8333-333333333333/outcome {"success":false,"note":"Corner lifted on the left"}');
+  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   await alert.getByRole('button', { name: 'False alarm, resume' }).click();
   await expect(alert).toHaveCount(0);
   await home.getByRole('button', { name: 'Conductive, Paused' }).click();
