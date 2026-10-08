@@ -17,7 +17,7 @@ const seeded = (id: string) => {
   for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return (n: number) => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ n) >>> 0) / 4294967296;
 };
-const LANES = [6, 30, 70]; // % down the pool: above the spool, behind it, below the wordmark
+const LANES = [6, 30, 70]; // % down the pool: above the spool, behind it, below it
 function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id: string) => void }) {
   const floating = orders.flatMap((o) => { const c = caseImage(o); return c ? [{ order: o, ...c }] : []; }).slice(0, 10);
   return (
@@ -59,12 +59,7 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
   openOrder: (id: string) => void;
   go: (tab: string) => void;
 }) {
-  const printing = machines.filter((m) => m.state === "Printing").length,
-    ready = machines.filter((m) => m.state === "Ready").length,
-    toPrint = orders.filter((o) => o.printReadiness?.status === "ready").length;
-  const summary = loading
-    ? "Checking the farm…"
-    : [printing && `${printing} printing`, ready && `${ready} ready`, `${orders.length} open order${orders.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+  const toPrint = orders.filter((o) => o.printReadiness?.status === "ready").length;
   return (
     <section className="water-home" aria-label="Spoolside home">
       <WaterBackground className="home-water" />
@@ -72,10 +67,6 @@ export function WaterHome({ attention, machines, orders, loading, openPrinter, o
         <header className="home-mark">
           <FloatingCases orders={orders} openOrder={openOrder} />
           <img src="/spoolside.png" alt="" />
-          <h1>
-            spoolside<span className="brand-dot">.</span>
-          </h1>
-          <p>{summary}</p>
         </header>
         {attention}
         <div className="home-pills">

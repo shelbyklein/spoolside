@@ -2367,9 +2367,6 @@ footer .tiny-dot {
   .pool-case > span { animation: none; }
 }
 .home-mark > img { width: 132px; height: auto; margin-bottom: 6px; filter: drop-shadow(0 16px 18px rgba(0, 10, 16, 0.45)); }
-.home-mark h1 { margin: 0; color: #fff; font-family: Manrope, sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
-.home-mark .brand-dot { color: #ff5a4f; }
-.home-mark p { margin: 0; color: rgba(255, 255, 255, 0.82); font-size: 14px; font-weight: 600; }
 /* Printers and orders as pills, anchored to the bottom of the pool. A printing pill fills with its progress. */
 .home-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: auto; padding-top: 8px; }
 .home-pill { --fill: 0%; display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; background: linear-gradient(90deg, rgba(95, 224, 195, 0.3) var(--fill), rgba(2, 36, 46, 0.42) var(--fill)); color: #fff; font: inherit; font-size: 14px; -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 6px 18px rgba(0, 12, 18, 0.22); }
