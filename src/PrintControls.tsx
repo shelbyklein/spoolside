@@ -245,7 +245,7 @@ const PLATE_TYPES = ["Case", "Faceplate", "Sleeve", "Part"];
 function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: (m:string) => void}) {
   const [editing, setEditing] = useState(false), [ids, setIds] = useState<string[]>([]), [query, setQuery] = useState(""), [busy, setBusy] = useState(false);
   const [type, setType] = useState("All");
-  const choosable = assets.filter(a => a.hasStl && a.generation === 3 && !ids.includes(a.id)).sort((x, y) => PLATE_TYPES.indexOf(x.type) - PLATE_TYPES.indexOf(y.type) || x.name.localeCompare(y.name));
+  const choosable = assets.filter(a => a.hasStl && !ids.includes(a.id)).sort((x, y) => PLATE_TYPES.indexOf(x.type) - PLATE_TYPES.indexOf(y.type) || x.name.localeCompare(y.name));
   const coverage = plate.coverage || [];
   const save = async () => {
     setBusy(true);
@@ -259,10 +259,10 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
     {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><div className="modal plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Assets for ${file.name}`} onClick={e => e.stopPropagation()} onKeyDown={e => e.key === "Escape" && !busy && setEditing(false)}>
       <div className="section-top"><h3>{file.name}{file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}</h3><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
-      <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search v3 parts" value={query} onChange={e => setQuery(e.target.value)} />
+      <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search assets" value={query} onChange={e => setQuery(e.target.value)} />
       <div className="plate-types" role="group" aria-label="Asset type">{["All", ...PLATE_TYPES].map(t => <button key={t} className={`filter-chip${type === t ? " selected" : ""}`} aria-pressed={type === t} onClick={() => setType(t)}>{t === "All" ? "All" : `${t}s`} <small>{choosable.filter(a => t === "All" || a.type === t).length}</small></button>)}</div>
       <div className="plate-options">{choosable.filter(a => (type === "All" || a.type === type) && a.name.toLowerCase().includes(query.toLowerCase())).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
-      <p className="plate-meta">Choose every part this plate prints. Saving confirms it was sliced from the current STL versions.</p>
+      <p className="plate-meta">Choose every part this plate prints.</p>
       <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
     </div></div>}
   </div>;

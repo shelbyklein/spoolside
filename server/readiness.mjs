@@ -6,7 +6,7 @@ export function orderReadiness(order, assets, assemblies, files) {
   if (!order.items?.length) review.push('No order items');
   for (const item of order.items || []) {
     if (!item.phone) { review.push(`${item.name}: phone model or requirements unknown`); continue; }
-    const cases = assets.filter(a => a.type === 'Case' && a.generation === 3 && norm(a.fit.phone) === norm(item.phone));
+    const cases = assets.filter(a => a.type === 'Case' && norm(a.fit.phone) === norm(item.phone));
     if (cases.length !== 1) review.push(`${item.phone}: case missing or ambiguous`);
     else requireAsset(cases[0]);
     const size = /plus|pro max/i.test(item.phone) ? 'Plus' : 'Standard';

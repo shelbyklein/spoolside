@@ -45,7 +45,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
    <label>Name<input required maxLength={100} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
    <label>SKU (optional)<input maxLength={100} value={draft.sku} onChange={e=>setDraft({...draft,sku:e.target.value})}/></label>
    <label>Assembly type<select value={draft.type} onChange={e=>setDraft({...draft,type:e.target.value})}>{['Case','Faceplate','Sleeve'].map(t=><option key={t}>{t}</option>)}</select></label>
-   <label className="check-row"><input type="checkbox" checked={draft.partsConfirmed || false} onChange={e=>setDraft({...draft,partsConfirmed:e.target.checked})}/> Complete v3 print parts list</label>
+   <label className="check-row"><input type="checkbox" checked={draft.partsConfirmed || false} onChange={e=>setDraft({...draft,partsConfirmed:e.target.checked})}/> Complete print parts list</label>
    <h4>Components</h4>
    {draft.components.map(c=><div className="assembly-component" key={c.assetId}><span>{assets.find(a=>a.id===c.assetId)?.name || 'Missing asset'}</span><label>Quantity<input type="number" required min={1} max={100} value={c.quantity} onChange={e=>setDraft({...draft,components:draft.components.map(x=>x.assetId===c.assetId?{...x,quantity:Number(e.target.value)}:x)})}/></label><button type="button" className="text-button" onClick={()=>setDraft({...draft,components:draft.components.filter(x=>x.assetId!==c.assetId)})}>Remove</button></div>)}
    <label>Find components<input value={assetSearch} onChange={e=>setAssetSearch(e.target.value)} placeholder="Search STL name"/></label>

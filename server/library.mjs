@@ -152,7 +152,7 @@ export class Library {
     if (!Array.isArray(ids) || ids.length > 100 || new Set(ids).size !== ids.length) throw Error("Choose unique assets");
     const coverage = ids.map(assetId => {
       const a = assets?.get(assetId);
-      if (!a || !a.hasStl || a.generation !== 3) throw Error("Choose v3 STL assets");
+      if (!a || !a.hasStl) throw Error("Choose assets with an STL");
       return {assetId, hash: a.hash};
     });
     const plates = file.plates.map(p => p.index === plateIndex ? {...p, coverage} : p);

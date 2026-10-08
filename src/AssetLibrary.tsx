@@ -196,7 +196,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                 onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.value = open.name; e.currentTarget.blur(); e.stopPropagation(); } }}
                 onBlur={(e) => { const v = e.target.value.trim(); if (!v) e.target.value = open.name; else if (v !== open.name) save(open, { name: v }); }} />
             </h2>
-            <p>{open.type} · Gen {open.generation}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
+            <p>{open.type}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
             {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
               <StlViewer url={`/api/assets/${open.id}/stl`} colors={[categories.find((c) => c.id === open.category)?.color || ""]} />
             </Suspense>}

@@ -37,7 +37,7 @@ test('plate coverage validates IDs and persists current hashes without modifying
  const fixture=fs.readFileSync(new URL('./fixtures/plate.gcode.3mf',import.meta.url));
  const [file]=library.add('Print',fixture);const store={get:id=>assets.find(a=>a.id===id)};
  assert.throws(()=>library.setCoverage(file.id,99,['case'],store),/plate/);
- assert.throws(()=>library.setCoverage(file.id,1,['unknown'],store),/v3/);
+ assert.throws(()=>library.setCoverage(file.id,1,['unknown'],store),/STL/);
  assert.throws(()=>library.setCoverage(file.id,1,['case','case'],store),/unique/);
  library.setCoverage(file.id,1,['case'],store);library.close();library=new Library(db,dir);
  assert.deepEqual(library.get(file.id).plates[0].coverage,[{assetId:'case',hash:'v1'}]);
