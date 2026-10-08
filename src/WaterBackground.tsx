@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import { WATER_FRAGMENT } from "./water.frag";
 
 // Animated pool water for the desktop sidebar and the phone home screen: WebGL caustics and a slow GSAP tide.
-// The pointer doesn't move it. Still frame with reduced motion; CSS gradient if WebGL is unavailable.
+// Pointer ripples disturb the surface locally without moving it. Still frame with reduced motion; CSS gradient if WebGL is unavailable.
 export function WaterBackground({ className = "sidebar-water" }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -33,7 +33,7 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
     const pos = gl.getAttribLocation(program, "position");
     gl.enableVertexAttribArray(pos);
     gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-    const u = Object.fromEntries(["resolution", "drift", "time", "scale", "sunlight"].map((k) => [k, gl.getUniformLocation(program, k)]));
+    const u = Object.fromEntries(["resolution", "drift", "time", "scale", "sunlight", "ripples[0]"].map((k) => [k, gl.getUniformLocation(program, k)]));
 
     const resize = () => {
       const dpr = Math.min(devicePixelRatio || 1, 1.5);
@@ -48,8 +48,31 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
     const reduce = matchMedia("(prefers-reduced-motion: reduce)");
     const state = { tide: 0 };
     const tide = gsap.to(state, { tide: 0.16, duration: 12, ease: "sine.inOut", repeat: -1, yoyo: true });
+    const motionPreference = () => { if (reduce.matches) tide.pause(); else tide.resume(); };
+    motionPreference();
+    reduce.addEventListener("change", motionPreference);
+    const stillRipples = new Float32Array(32);
 
+    // A bounded ring buffer avoids per-event React renders. Capture on the containing surface
+    // so links still receive clicks and touch scrolling is never prevented.
+    const surface = canvas.parentElement!;
+    const ripples = new Float32Array(8 * 4);
+    for (let i = 0; i < 8; i++) ripples[i * 4 + 2] = -100;
+    let nextRipple = 0, lastRippleAt = -100, lastX = -1000, lastY = -1000;
     let elapsed = 0, last = performance.now();
+    const ripple = (event: PointerEvent) => {
+      if (reduce.matches || document.hidden) return;
+      if (event.type === "pointermove" && event.pointerType !== "mouse" && !event.buttons) return;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height || event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+      const x = event.clientX - rect.left, y = event.clientY - rect.top;
+      if (event.type === "pointermove" && (elapsed - lastRippleAt < .10 || Math.hypot(x-lastX,y-lastY) < 12)) return;
+      const i = (nextRipple++ % 8) * 4;
+      ripples.set([x / rect.width, 1 - y / rect.height, elapsed, event.type === "pointerdown" ? 1 : .65], i);
+      lastRippleAt = elapsed; lastX = x; lastY = y;
+    };
+    surface.addEventListener("pointermove", ripple, { passive: true });
+    surface.addEventListener("pointerdown", ripple, { passive: true });
     const draw = () => {
       const now = performance.now(), delta = Math.min((now - last) / 1000, 0.06);
       last = now;
@@ -60,6 +83,7 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
       gl.uniform1f(u.time, elapsed);
       gl.uniform1f(u.scale, 1.45 + state.tide);
       gl.uniform1f(u.sunlight, 0.8);
+      gl.uniform4fv(u["ripples[0]"], reduce.matches ? stillRipples : ripples);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     // 30 fps is plenty for slow water and keeps the sidebar cheap.
@@ -67,8 +91,11 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
     gsap.ticker.add(draw);
     draw();
     return () => {
+      surface.removeEventListener("pointermove", ripple);
+      surface.removeEventListener("pointerdown", ripple);
       gsap.ticker.remove(draw);
       tide.kill();
+      reduce.removeEventListener("change", motionPreference);
       observer.disconnect();
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };

@@ -6,6 +6,7 @@ uniform vec2 drift;
 uniform float time;
 uniform float scale;
 uniform float sunlight;
+uniform vec4 ripples[8];
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
 vec2 hash2(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
@@ -21,6 +22,19 @@ void main(){
  float recede=1./(1.-.16*screen.y);
  vec2 world=vec2(screen.x,screen.y*2.2)*recede;
  world+=drift*.14;
+ // Expanding elliptical wavelets follow the same foreshortening as the pool surface.
+ vec2 distortion=vec2(0.);float shimmer=0.;
+ for(int i=0;i<8;i++){
+   float age=time-ripples[i].z;
+   vec2 delta=(uv-ripples[i].xy)*resolution/min(resolution.x,resolution.y);
+   delta.y*=2.2;
+   float d=length(delta),radius=age*.85;
+   float envelope=exp(-pow((d-radius)/.10,2.))*exp(-age*1.8)*smoothstep(0.,.08,age)*ripples[i].w;
+   float wave=sin((d-radius)*55.);
+   distortion+=delta/max(d,.001)*wave*envelope*.045;
+   shimmer+=wave*envelope*.07;
+ }
+ world+=distortion;
  vec2 deep=world*5.2/scale;float t=time;
  vec2 warp=vec2(fbm(deep*.7+vec2(t*.10,-t*.07)),fbm(deep*.7+vec2(5.2-t*.06,t*.09)))-.5;
  vec2 p=deep+warp*1.8+vec2(t*.035,-t*.02);
@@ -29,6 +43,7 @@ void main(){
  float focus=pow(c1*c2,.7);float light=c1*.32+c2*.18+focus*.95;
  float swell=fbm(world*2.2+vec2(t*.04,-t*.03));
  vec3 color=mix(vec3(.0,.17,.26),vec3(.01,.32,.40),swell*.8+.15);
+ color+=vec3(.13,.35,.38)*shimmer;
  color+=vec3(.006,.04,.04)*sin(world.y*.8+world.x*.5+t*.07);
  color=mix(color,vec3(.16,.62,.66),clamp(light*sunlight,0.,.75));
  float haze=pow(max(0.,1.-length((uv-vec2(.22,.82))*vec2(.8,.7))),3.);

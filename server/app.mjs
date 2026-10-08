@@ -1,3 +1,4 @@
+import { splitPlates, inspect3mf } from "./library.mjs";
 import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
 import express from "express";
 import { defaultPrinter } from "./printer-default.mjs";
@@ -337,7 +338,12 @@ export function createApp({
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
   app.get("/api/watches", (req, res) => {
-    res.set("Cache-Control", "no-store").json(watcher ? watcher.list() : { vision: false, watches: [] });
+    const data = watcher ? watcher.list() : { vision: false, watches: [] };
+    for (const w of [...data.watches, ...(data.recent || [])]) {
+      const row = watcher.row(w.id);
+      w.inLibrary = !!library?.forJob(w.printer, w.job, row.plate);
+    }
+    res.set("Cache-Control", "no-store").json(data);
   });
   app.get("/api/watches/:id/:file", (req, res) => {
     try {
@@ -348,6 +354,33 @@ export function createApp({
     } catch {
       res.sendStatus(404);
     }
+  });
+  const importingJobs = new Set();
+  app.post("/api/watches/:id/library", async (req, res) => {
+    try {
+      const w = watcher?.row(req.params.id);
+      if (!w || !w.ended) return res.status(404).json({error: "Choose a finished print"});
+      if (!library || !printers) return res.sendStatus(503);
+      const existing = library.forJob(w.printer, w.job, w.plate);
+      if (existing) return res.json(existing);
+      const key = `${w.printer}:${w.job}:${w.plate}`;
+      if (importingJobs.has(key)) return res.status(409).json({error: "This print is already being added"});
+      importingJobs.add(key);
+      try {
+        const source = await printers.downloadPrint(w.printer, w.job);
+        const split = splitPlates(source.buf);
+        const selected = split?.find(p => p.index === w.plate);
+        if (split && !selected || !inspect3mf(source.buf).plates.some(p => p.index === w.plate)) throw Error("The reviewed plate is missing from this file");
+        const name = source.name.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "") + (split ? ` — Plate ${w.plate}` : "");
+        // An import never replaces an unrelated existing library entry with the same display name.
+        let unique = name.slice(0,80), n = 2;
+        while (library.list().some(f => [f.name, f.source_name].some(v => v?.toLowerCase() === unique.toLowerCase()))) unique = `${name.slice(0,70)} (${n++})`;
+        const file = library.addOne(unique, selected?.buf || source.buf);
+        library.details(file.id, file.name, file.plates.map(p => ({plate:p.index, quantity:null})), w.printer);
+        library.linkJob(w.printer, w.job, w.plate, file.id);
+        res.json(library.get(file.id));
+      } finally { importingJobs.delete(key); }
+    } catch (e) { fail(res, e); }
   });
   app.post("/api/watches/:id/note", (req, res) => {
     try {

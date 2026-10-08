@@ -144,12 +144,25 @@ export class Library {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS library_jobs (printer TEXT, job TEXT, plate INTEGER, file TEXT, PRIMARY KEY(printer,job,plate))");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "printer")) this.db.exec("ALTER TABLE library ADD COLUMN printer TEXT");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some((c) => c.name === "updated")) this.db.exec("ALTER TABLE library ADD COLUMN updated TEXT");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "source_name")) {
       this.db.exec("ALTER TABLE library ADD COLUMN source_name TEXT");
       this.db.exec("UPDATE library SET source_name=name");
     }
+  }
+  // Retain the source-job identity even after the saved print is renamed.
+  forJob(printer, job, plate) {
+    const link = this.db.prepare("SELECT file FROM library_jobs WHERE printer=? AND job=? AND plate=?").get(printer, job, plate);
+    if (link && this.get(link.file)) return this.get(link.file);
+    const base = String(job).replace(/(\.gcode)?\.3mf$/i, "");
+    const matches = this.list().filter(f => f.plates.some(p => p.index === plate) && [f.name, f.source_name].filter(Boolean).some(name =>
+      name === base || "spoolside_" + name.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0,60) === base));
+    return matches.length === 1 ? matches[0] : null;
+  }
+  linkJob(printer, job, plate, file) {
+    this.db.prepare("INSERT OR REPLACE INTO library_jobs VALUES (?,?,?,?)").run(printer, job, plate, file);
   }
   details(id, name, quantities, printer) {
     const file = this.get(id);

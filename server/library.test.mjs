@@ -200,3 +200,37 @@ test('print details rename and store quantities, preserving them on reimport', (
   assert.equal(lib.list().length,1);
  } finally {lib.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('review import retrieves the exact job and plate once, preserves its printer and survives renaming', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-import-'));
+  const library = new Library(':memory:', dir);
+  const watch = {id:'review', printer:'P1', job:'Orca membranes', plate:2, ended:123, outcome:null};
+  const calls = [];
+  const watcher = {row:id=>id==='review'?watch:null, list:()=>({watches:[{...watch}],recent:[]})};
+  const printers = {snapshot:()=>[], downloadPrint:async (id,job)=>{calls.push([id,job]);return {name:'Orca membranes.gcode.3mf',buf:twoPlates()};}};
+  const salt='b'.repeat(32);
+  const {app,close}=createApp({pinHash:salt+':'+scryptSync('12345678',salt,64).toString('hex'),origin:'http://localhost',secure:false,library,watcher,printers});
+  const server=app.listen(0,'127.0.0.1');
+  await new Promise(r=>server.once('listening',r));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  try {
+    const login=await fetch(base+'/login',{method:'POST',headers:{Origin:'http://localhost'},body:new URLSearchParams({pin:'12345678'}),redirect:'manual'});
+    const headers={Cookie:login.headers.get('set-cookie').split(';')[0],Origin:'http://localhost'};
+    const read=async()=> (await (await fetch(base+'/api/watches',{headers})).json()).watches[0];
+    assert.equal((await read()).inLibrary,false);
+    const add=()=>fetch(base+'/api/watches/review/library',{method:'POST',headers});
+    const response=await add(); assert.equal(response.status,200);
+    const file=await response.json();
+    assert.equal(file.printer,'P1'); assert.deepEqual(file.plates.map(p=>p.index),[2]);
+    assert.deepEqual(calls,[['P1','Orca membranes']]);
+    assert.equal(watch.outcome,null,'import does not rate the print');
+    library.rename(file.id,'My membranes');
+    assert.equal((await read()).inLibrary,true);
+    assert.equal((await (await add()).json()).id,file.id);
+    assert.equal(calls.length,1);
+    library.remove(file.id);
+    assert.equal((await read()).inLibrary,false);
+    const saved=library.addOne('Existing',fixture);
+    assert.equal(library.forJob('P2','spoolside_Existing.3mf',1).id,saved.id);
+  } finally {server.close();close();library.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

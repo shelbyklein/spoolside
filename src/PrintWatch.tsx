@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -12,6 +12,7 @@ export type Watch = {
   endedAs: "finished" | "stopped" | "ended" | null;
   outcome: "success" | "failed" | null;
   note?: string | null;
+  inLibrary?: boolean;
   mode: "pause" | "warn";
   plan: boolean;
   check: Check | null;
@@ -124,6 +125,7 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
+          {w.inLibrary === false && <button className="text-button" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>}
           {noting === w.id ? (
             <FailureNote general initial={w.note || ""} label="Save note" busy={!!busy} onCancel={() => setNoting("")} onSave={(note) => act(w.id + "note", () => saveNote(w.id, note), "Note saved.").then(() => setNoting(""))} />
           ) : succeeding === w.id ? (
@@ -201,6 +203,12 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
               <strong>{jobName(w.job)}</strong>
               <small>{w.ended ? ago(w.ended) : ""}</small>
             </span>
+            {w.inLibrary === false && <button className="text-button" disabled={busy} onClick={async () => {
+              setBusy(true);
+              try { await post(`/api/watches/${w.id}/library`); refresh(); notify("Added to Sliced prints."); }
+              catch (e) { notify((e as Error).message); }
+              finally { setBusy(false); }
+            }}><Plus size={15} /> Add to library</button>}
             {(editing === w.id ? (
                 <FailureNote general initial={w.note || ""} label="Save note" busy={busy} onCancel={() => setEditing("")} onSave={(note) => save(w, note)} />
               ) : (

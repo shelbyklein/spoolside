@@ -208,6 +208,24 @@ export class Printers {
       ftp.close();
     }
   }
+  // Read the reviewed job, rather than whichever job telemetry currently calls last.
+  async downloadPrint(serial, job) {
+    const { config } = this.printer(serial);
+    const ftp = await this.ftp(config);
+    try {
+      const entry = findLastFile(job, await ftp.list("/"));
+      if (!entry) throw Error("This print file is no longer on the printer’s SD card. Upload the sliced file from Orca instead.");
+      if (entry.size > 95_000_000) throw Error("This file exceeds the 95 MB library limit");
+      const chunks = [];
+      let size = 0;
+      await ftp.downloadTo(new Writable({ write(chunk, _enc, done) {
+        size += chunk.length;
+        if (size > 95_000_000) return done(Error("This file exceeds the 95 MB library limit"));
+        chunks.push(chunk); done();
+      } }), "/" + entry.name);
+      return { name: entry.name, buf: Buffer.concat(chunks) };
+    } finally { ftp.close(); }
+  }
   // The last job's sliced file, if it's still on the SD card: its name and plates, so it can be printed again.
   async lastPrint(serial) {
     const { config, record } = this.printer(serial);
