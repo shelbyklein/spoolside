@@ -185,3 +185,18 @@ test("an order's Print button sends its next plate and remembers the order", asy
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('print details rename and store quantities, preserving them on reimport', () => {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'print-details-'));
+ const lib=new Library(':memory:',dir);
+ try {
+  const [file]=lib.add('Original sliced name',fixture);
+  lib.details(file.id,'Touch pins',[{plate:1,quantity:144}]);
+  assert.equal(lib.get(file.id).plates[0].quantity,144);
+  assert.throws(()=>lib.details(file.id,'Touch pins',[{plate:1,quantity:0}]),/pieces/);
+  const [updated]=lib.add('Original sliced name',fixture);
+  assert.equal(updated.id,file.id); assert.equal(updated.name,'Touch pins');
+  assert.equal(updated.plates[0].quantity,144);
+  assert.equal(lib.list().length,1);
+ } finally {lib.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

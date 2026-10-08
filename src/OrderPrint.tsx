@@ -41,8 +41,8 @@ export function OrderPrintButtons({ order, onPrint, onTick }: { order: Order; on
             </button>
           );
         return (
-          <button key={g.key} className="order-print" disabled={!g.next} title={g.next ? `${g.next.name} · ${g.next.fileName}` : "No sliced plate linked yet"} onClick={() => onPrint(g)}>
-            <Printer size={14} /> {groupTitle(g)}
+          <button key={g.key} className="order-print" disabled={!g.next || !!g.activity} title={g.next ? `${g.next.name} · ${g.next.fileName}` : "No sliced plate linked yet"} onClick={() => onPrint(g)}>
+            <Printer size={14} /> {g.activity ? `${g.label} · ${g.activity}` : groupTitle(g)}
             {needed > 1 && <small>{done}/{needed}</small>}
           </button>
         );

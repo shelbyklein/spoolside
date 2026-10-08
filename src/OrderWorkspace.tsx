@@ -8,12 +8,12 @@ export { initialOrders };
 // Pirate Ship imports Processing orders from WooCommerce; it has no per-order link or API.
 export const PIRATE_SHIP_URL = "https://ship.pirateship.com/ship";
 
-// Shipping waits until the order is confirmed printed and assembled.
+// Shipping follows the required pieces, with no separate packing confirmation.
 export function ShipButton({ order }: { order: Order }) {
   if (order.commercial.toLowerCase() !== "processing") return null;
-  if (!order.assembled)
+  if (!order.printPlan?.length || !order.printPlan.every(g => g.done) || order.sourceReview || order.refundReview || order.printReadiness?.status === "review")
     return (
-      <button className="ship-button" disabled title="Mark it printed and assembled first" aria-label={`Ship ${order.number}: mark it printed and assembled first`}>
+      <button className="ship-button" disabled title="Print all required items first" aria-label={`Ship ${order.number}: print all required items first`}>
         <Truck size={16} /> Ship
       </button>
     );
@@ -29,15 +29,14 @@ export function StatusTag({ order }: { order: Order }) {
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
 }
 
-export function OrderRow({ order, onChange, onPrint, onTick }: { order: Order; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
-  const canMark = !!onChange && order.commercial.toLowerCase() === "processing";
+export function OrderRow({ order, onPrint, onTick }: { order: Order; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   return (
     <article className="overview-order-row" aria-label={`Order ${order.number}`}>
       <span className="order-id">
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
       </span>
-      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}{canMark && <label className="ready-check"><input type="checkbox" checked={order.assembled} onChange={(e) => onChange!({ ...order, assembled: e.target.checked, packed: e.target.checked && order.packed })} /> Printed &amp; assembled, ready to pack</label>}</div>
+      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}</div>
       <StatusTag order={order} />
       <span className="ship-slot"><ShipButton order={order} /></span>
     </article>

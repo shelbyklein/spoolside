@@ -8,7 +8,8 @@ export class OrderPrints {
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS order_prints (order_id TEXT NOT NULL, asset_id TEXT NOT NULL, done INTEGER NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY (order_id, asset_id))");
     // Prints sent from an order, waiting for the print watcher to pick them up (by printer).
-    this.pending = new Map();
+    this.db.exec("CREATE TABLE IF NOT EXISTS order_print_pending (printer TEXT PRIMARY KEY, tag TEXT NOT NULL)");
+    this.pending = new Map(this.db.prepare("SELECT printer, tag FROM order_print_pending").all().map(r => [r.printer, JSON.parse(r.tag)]));
   }
   close() {
     this.db.close();
@@ -29,11 +30,17 @@ export class OrderPrints {
   }
   // A print just sent from an order: remember it until the watcher starts watching that printer.
   sent(printer, tag) {
-    this.pending.set(printer, { ...tag, at: this.now() });
+    const value = { ...tag, at: this.now() };
+    this.db.prepare("INSERT INTO order_print_pending VALUES (?,?) ON CONFLICT(printer) DO UPDATE SET tag=excluded.tag").run(printer, JSON.stringify(value));
+    this.pending.set(printer, value);
+  }
+  cancel(printer) {
+    this.pending.delete(printer);
+    this.db.prepare("DELETE FROM order_print_pending WHERE printer=?").run(printer);
   }
   claim(printer) {
     const tag = this.pending.get(printer);
-    this.pending.delete(printer);
+    this.cancel(printer);
     return tag && this.now() - tag.at < 15 * 60000 ? tag : null;
   }
 }

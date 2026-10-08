@@ -36,10 +36,14 @@ test('sliced prints are a library section with editable per-plate asset coverage
  let file={id:'slice',name:'13 plate',plates:[{index:1,minutes:60,grams:20,filaments:[],coverage:[] as any[]}],size:100,created:''};
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;
+ if(url==='/api/workspace')return route.fulfill({json:{machines:[{id:'idle',name:'Membrane',connected:true,stale:false,rawState:'IDLE',state:'Ready',trays:[],external:{type:'TPU',color:'#000000'}}]}});
+ if(url==='/api/printers/idle/print') { const body=route.request().postDataJSON();expect(body.fileId).toBe('slice');expect(body.bedClear).toBe(true);return route.fulfill({json:{ok:true}}); }
  if(url==='/api/assets')return route.fulfill({json:[asset,...extra]});
  if(url==='/api/library')return route.fulfill({json:[file]});
  if(url==='/api/library/slice'){
- const body=route.request().postDataJSON();expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
+ const body=route.request().postDataJSON();
+ if(body.quantities){ file={...file,name:body.name,plates:[{...file.plates[0],quantity:body.quantities[0].quantity}] as any};return route.fulfill({json:file}); }
+ expect(body.plate).toBe(1);expect(body.assetIds).toEqual(['case-13']);
  file={...file,plates:[{...file.plates[0],coverage:[{assetId:'case-13',hash:'current'}]}]};return route.fulfill({json:file});
  }
  return route.fulfill({json:[]});
@@ -50,4 +54,24 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
  await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();
  await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');await page.reload();await expect(page.locator('.plate-assets .part-chip')).toHaveText('iPhone 13 Case');
+ await page.locator('.sliced-card').hover();
+ await page.locator('.sliced-card').screenshot({path:'handoff/spoolside-sliced-card-icons.png'});
+ await page.getByRole('button',{name:'Edit print details for 13 plate'}).click();
+ const details=page.getByRole('dialog',{name:'Print details for 13 plate'});
+ await details.getByLabel('Print name').fill('Touch pins');
+ await details.getByLabel('Pieces per print').fill('144');
+ await page.screenshot({path:'handoff/spoolside-print-details-editor.png',fullPage:true});
+ await details.getByRole('button',{name:'Save print details'}).click();
+ await expect(page.locator('.sliced-body > strong')).toHaveText('Touch pins');
+ await expect(page.locator('.sliced-body > small')).toContainText('144 pieces');
+ await page.reload();await expect(page.locator('.sliced-body > small')).toContainText('144 pieces');
+ await page.getByRole('button',{name:'Print',exact:true}).click();
+ const print=page.getByRole('dialog',{name:'Print Touch pins'});
+ await expect(print.getByLabel('Printer')).toHaveValue('idle');
+ await expect(print.getByRole('button',{name:'Start print',exact:true})).toBeDisabled();
+ await page.screenshot({path:'handoff/spoolside-card-print-dialog.png',fullPage:true});
+ await print.getByLabel('Build plate is clear').check();
+ await print.getByRole('button',{name:'Start print',exact:true}).click();
+ await expect(print).toHaveCount(0);
+
 });

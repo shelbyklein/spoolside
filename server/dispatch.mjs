@@ -158,8 +158,14 @@ export class Dispatcher {
     const covered = new Set((file.plates.find((p) => p.index === offer.plate)?.coverage || []).map((c) => c.assetId));
     const plan = this.plans().find((p) => p.order.id === offer.orderId)?.plan || [];
     const assetIds = [...new Set(plan.flatMap((g) => g.pieces).filter((p) => covered.has(p.assetId) && p.done < p.needed).map((p) => p.assetId))];
-    await this.printers.startPrint(offer.printer, { localFile: this.library.file(file.id), name: file.name, plate: offer.plate, amsMapping: offer.mapping, useAms: true, bedLevelling: true });
     this.orderPrints.sent(offer.printer, { orderId: offer.orderId, orderNumber: offer.orderNumber, assetIds: assetIds.length ? assetIds : [offer.assetId] });
+    const reservation = this.orderPrints.pending.get(offer.printer);
+    try {
+    await this.printers.startPrint(offer.printer, { localFile: this.library.file(file.id), name: file.name, plate: offer.plate, amsMapping: offer.mapping, useAms: true, bedLevelling: true });
+    } catch (error) {
+      if (this.orderPrints.pending.get(offer.printer) === reservation) this.orderPrints.cancel(offer.printer);
+      throw error;
+    }
   }
   dismiss(printer) {
     const offer = this.offers.get(printer);

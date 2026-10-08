@@ -2226,3 +2226,12 @@ footer .tiny-dot {
 }
 
 .queue-empty { padding: 0 24px 20px; color: var(--muted); font-size: 14px; }
+.print-details-editor > label { display: flex; flex-direction: column; gap: 8px; margin: 18px 0; font-size: 14px; font-weight: 600; }
+.print-details-editor input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.sliced-edit { position: absolute; top: 8px; right: 46px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.9); opacity: 0; transition: opacity .15s; }
+.sliced-card:hover .sliced-edit, .sliced-edit:focus-visible { opacity: 1; }
+.asset-add-pill { min-width: 36px; height: 26px; border-radius: 999px; background: #e9eeee; color: #61727b; }
+.asset-add-pill:hover { background: #dce4e4; color: var(--navy); }
+@media (hover: none) { .sliced-edit { opacity: 1; } }
+.library-print-dialog .bed-check img, .library-print-dialog .bed-check-placeholder { aspect-ratio: 14 / 9; max-height: 220px; }
+.sliced-print { min-height: 34px; font-size: 12px; margin-top: 4px; }

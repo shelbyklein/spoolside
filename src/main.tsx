@@ -580,7 +580,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome attention={<><OfferCards water offers={dispatch.offers} held={dispatch.held} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={watch.refresh} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome attention={<><OfferCards water offers={dispatch.offers} held={dispatch.held} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -657,7 +657,7 @@ function App() {
           {(tab === "Overview" || tab === "Printers") && (
             <div className="fleet-column">
               {offers}
-              {remote && <WatchAttention watches={watch.watches} refresh={watch.refresh} notify={setNotice} />}
+              {remote && <WatchAttention watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
               <div className="fleet-heading">
                 <h2>
                   Your printers <span>{machines.length}</span>
@@ -912,7 +912,7 @@ function App() {
                 </button>
               )}
             {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
-            {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={watch.refresh} notify={setNotice} />}
+            {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
             <p className="detail-note">
               {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}
