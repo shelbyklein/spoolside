@@ -5,6 +5,8 @@ services:
       context: ..
     restart: unless-stopped
     env_file: .env
+    environment:
+      TOKENLEDGER_EVENTS_DIR: /data/tokenledger
     ports:
       - "127.0.0.1:3110:3000"
     volumes:
