@@ -6,6 +6,7 @@ import path from "node:path";
 import { scryptSync } from "node:crypto";
 import { Library, inspect3mf } from "./library.mjs";
 import { createApp } from "./app.mjs";
+import { findLastFile } from "./printers.mjs";
 const fixture = fs.readFileSync(new URL("./fixtures/plate.gcode.3mf", import.meta.url));
 
 test("sliced 3mf plates, time, weight and filaments are read", () => {
@@ -25,6 +26,8 @@ test("print API validates library file, plate clearance and AMS mapping", async 
   const printers = {
     snapshot: () => [],
     startPrint: async (id, opts) => calls.push(["start", id, opts]),
+    lastPrint: async (id) => (id === "P1" ? { remoteName: "Touch Pin.gcode.3mf", subtask: "Touch Pin.gcode.3mf", name: "Touch Pin", plates: inspect3mf(fixture).plates } : null),
+    reprint: async (id, opts) => calls.push(["reprint", id, opts]),
     control: async (id, action) => {
       if (!["pause", "resume", "stop"].includes(action)) throw Object.assign(Error("Unknown action"), { status: 400 });
       calls.push([action, id]);
@@ -52,6 +55,16 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     assert.equal(calls[0][1], "P1");
     assert.deepEqual(calls[0][2].amsMapping, [2, -1, 3]);
     assert.equal(calls[0][2].localFile, library.file(file.id));
+    const last = await (await fetch(base + "/api/printers/P1/last-print", { headers })).json();
+    assert.deepEqual(Object.keys(last), ["name", "plates"]);
+    assert.equal(last.name, "Touch Pin");
+    assert.equal(await (await fetch(base + "/api/printers/P2/last-print", { headers })).json(), null);
+    const reprint = (id, body) => fetch(base + `/api/printers/${id}/reprint`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.match((await (await reprint("P1", { plate: 1, useAms: true, amsMapping: [2, -1, 3] })).json()).error, /plate is clear/);
+    assert.match((await (await reprint("P1", { plate: 2, bedClear: true, useAms: false })).json()).error, /sliced plate/);
+    assert.equal((await reprint("P2", { plate: 1, bedClear: true })).status, 404);
+    assert.equal((await reprint("P1", { plate: 1, bedClear: true, useAms: true, amsMapping: [2, -1, 3] })).status, 200);
+    assert.deepEqual(calls.at(-1), ["reprint", "P1", { plate: 1, amsMapping: [2, -1, 3], useAms: true, bedLevelling: true }]);
     assert.equal((await fetch(base + "/api/printers/P1/stop", { method: "POST", headers })).status, 200);
     assert.equal((await fetch(base + "/api/printers/P1/explode", { method: "POST", headers })).status, 400);
     assert.equal((await fetch(base + "/api/library/" + file.id, { method: "DELETE", headers })).status, 200);
@@ -62,4 +75,15 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     library.close();
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("the last job's file is found by Bambu Studio and Spoolside names", () => {
+  const files = [{ name: "Touch Pin.gcode.3mf" }, { name: "spoolside_Handheld_Green.3mf" }, { name: "Bridge.3mf" }, { name: "Case.gcode.3mf", type: 2 }];
+  assert.equal(findLastFile("Touch Pin.gcode.3mf", files).name, "Touch Pin.gcode.3mf");
+  assert.equal(findLastFile("Touch Pin", files).name, "Touch Pin.gcode.3mf");
+  assert.equal(findLastFile("Handheld – Green", files).name, "spoolside_Handheld_Green.3mf");
+  assert.equal(findLastFile("Handheld Green", files).name, "spoolside_Handheld_Green.3mf");
+  assert.equal(findLastFile("Bridge", files).name, "Bridge.3mf");
+  assert.equal(findLastFile("Case", files), null);
+  assert.equal(findLastFile("Missing", files), null);
 });

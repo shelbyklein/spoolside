@@ -23,6 +23,7 @@ export function createApp({
   library,
   assets,
   materials,
+  watcher,
 } = {}) {
   if (
     !pinHash ||
@@ -46,7 +47,7 @@ export function createApp({
       "X-Frame-Options": "DENY",
       "Cache-Control": "no-store",
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://playcase.gg https://store.bblcdn.com https://proto-pasta.com https://recreus.com https://3d.nice-cdn.com; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://playcase.gg https://store.bblcdn.com https://proto-pasta.com https://recreus.com https://3d.nice-cdn.com; font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     });
     next();
   });
@@ -308,17 +309,97 @@ export function createApp({
   app.delete("/api/library/:id", (req, res) => {
     try { library.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
+  app.get("/api/watches", (req, res) => {
+    res.set("Cache-Control", "no-store").json(watcher ? watcher.list() : { vision: false, watches: [] });
+  });
+  app.get("/api/watches/:id/:file", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      const file = watcher.frameFile(req.params.id, req.params.file);
+      if (!fs.existsSync(file)) return res.sendStatus(404);
+      res.set("Cache-Control", "private, max-age=86400").sendFile(file);
+    } catch {
+      res.sendStatus(404);
+    }
+  });
+  app.post("/api/watches/:id/outcome", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(watcher.outcome(req.params.id, req.body?.success));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/watches/:id/false-alarm", async (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(await watcher.falseAlarm(req.params.id));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // The live feed: the newest camera frame, shrunk for the web. Cards poll it while they're on screen.
+  const feedFrames = new Map();
+  app.get("/api/printers/:id/feed.jpg", async (req, res) => {
+    try {
+      if (!printers) return res.sendStatus(503);
+      const frame = await printers.liveFrame(req.params.id);
+      let small = feedFrames.get(req.params.id);
+      if (small?.at !== frame.at) {
+        const { default: sharp } = await import("sharp");
+        small = { at: frame.at, jpeg: await sharp(frame.jpeg).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 70 }).toBuffer() };
+        feedFrames.set(req.params.id, small);
+      }
+      res.set({ "Cache-Control": "no-store", "X-Frame-At": String(frame.at) }).type("jpeg").send(small.jpeg);
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.get("/api/printers/:id/camera.jpg", async (req, res) => {
+    try {
+      if (!printers) return res.sendStatus(503);
+      const jpg = await printers.cameraFrame(req.params.id);
+      res.set("Cache-Control", "no-store").type("jpeg").send(jpg);
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // Checks a start request against the file's sliced plates.
+  const checkStart = (plates, { plate, amsMapping, useAms, bedClear }) => {
+    if (bedClear !== true) throw Error("Confirm the build plate is clear");
+    const plateInfo = plates.find((p) => p.index === plate);
+    if (!plateInfo) throw Error("Choose a sliced plate");
+    const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
+    if (useAms && (!Array.isArray(amsMapping) || amsMapping.length !== slots || !amsMapping.every((m) => Number.isInteger(m) && m >= -1 && m <= 3)))
+      throw Error("Choose an AMS slot for each filament");
+  };
+  app.get("/api/printers/:id/last-print", async (req, res) => {
+    try {
+      if (!printers) return res.json(null);
+      const last = await printers.lastPrint(req.params.id);
+      res.set("Cache-Control", "no-store").json(last && { name: last.name, plates: last.plates });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.post("/api/printers/:id/reprint", async (req, res) => {
+    try {
+      const { plate, amsMapping, useAms, bedLevelling } = req.body || {};
+      const last = await printers.lastPrint(req.params.id);
+      if (!last) throw Object.assign(Error("The last print isn't on the printer anymore"), { status: 404 });
+      checkStart(last.plates, req.body || {});
+      await printers.reprint(req.params.id, { plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.post("/api/printers/:id/print", async (req, res) => {
     try {
-      const { fileId, plate, amsMapping, useAms, bedLevelling, bedClear } = req.body || {};
-      if (bedClear !== true) throw Error("Confirm the build plate is clear");
+      const { fileId, plate, amsMapping, useAms, bedLevelling } = req.body || {};
       const file = library?.get(String(fileId));
       if (!file) throw Error("Choose a file from the library");
-      const plateInfo = file.plates.find((p) => p.index === plate);
-      if (!plateInfo) throw Error("Choose a sliced plate");
-      const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
-      if (useAms && (!Array.isArray(amsMapping) || amsMapping.length !== slots || !amsMapping.every((m) => Number.isInteger(m) && m >= -1 && m <= 3)))
-        throw Error("Choose an AMS slot for each filament");
+      checkStart(file.plates, req.body || {});
       await printers.startPrint(req.params.id, {
         localFile: library.file(file.id),
         name: file.name,

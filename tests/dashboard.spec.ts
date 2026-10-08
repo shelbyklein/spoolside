@@ -8,10 +8,10 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
     page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
   await page.getByLabel("Filter printers").selectOption("Ready");
-  await expect(page.locator(".featured")).toHaveCount(0);
-  await expect(page.locator(".printer-row")).toHaveCount(1);
+  await expect(page.locator(".printer-card")).toHaveCount(1);
   await page.getByLabel("Filter printers").selectOption("All printers");
-  await page.getByRole("button", { name: "View printer", exact: true }).click();
+  await expect(page.locator(".printer-card")).toHaveCount(4);
+  await page.getByRole("button", { name: "Mini One, Printing", exact: true }).click();
   await page
     .getByRole("button", { name: "Pause demo print", exact: true })
     .click();
@@ -23,7 +23,7 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
     .click();
   await page.getByRole("button", { name: "Close printer details" }).click();
   await expect(
-    page.getByRole("button", { name: "View printer", exact: true }),
+    page.getByRole("button", { name: "Mini One, Printing", exact: true }),
   ).toBeFocused();
   await page.getByRole("button", { name: "Add to queue", exact: true }).click();
   await page.getByLabel("Job name").fill("Test bracket");
@@ -80,7 +80,9 @@ test("desktop and mobile rendered layouts", async ({ page }) => {
       .click();
     await page.evaluate(() => document.fonts.ready);
     await expect(
-      page.getByRole("heading", { name: "Your printers" }),
+      name === "mobile"
+        ? page.getByRole("region", { name: "Spoolside home" })
+        : page.getByRole("heading", { name: "Your printers" }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -105,4 +107,26 @@ test("each page has its own URL and back navigation works", async ({ page }) => 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Printers");
   await page.goto("/filament");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
+});
+
+test('phones open on the water home; it shows the farm and links into it', async ({ browser }) => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await phone.goto('/');
+  const home = phone.getByRole('region', { name: 'Spoolside home' });
+  await expect(home).toBeVisible();
+  await expect(home.locator('canvas')).toBeAttached();
+  await expect(home.getByRole('button', { name: 'Mini One, Printing' })).toBeVisible();
+  await home.getByRole('button', { name: 'Mini Three, Ready' }).click();
+  await expect(phone.getByRole('dialog', { name: 'Mini Three details' })).toBeVisible();
+  await phone.keyboard.press('Escape');
+  await home.getByRole('button', { name: /^Orders/ }).click();
+  await expect(phone).toHaveURL(/\/orders$/);
+  await expect(home).toHaveCount(0);
+  await phone.getByRole('button', { name: 'Overview' }).click();
+  await expect(phone.getByRole('region', { name: 'Spoolside home' })).toBeVisible();
+  const desk = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  await desk.goto('/');
+  await expect(desk.getByRole('navigation', { name: 'Main navigation' })).toBeAttached();
+  await expect(desk.getByRole('region', { name: 'Spoolside home' })).toHaveCount(0);
+  await phone.close(); await desk.close();
 });

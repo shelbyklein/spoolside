@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw } from "lucide-react";
 import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
@@ -70,33 +70,48 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
   return null;
 }
 
+type LastPrint = { name: string; plates: Plate[] };
+const LAST = "last";
 function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
   const { files } = useLibrary();
+  // The job the printer just ran, if its file is still on the SD card: it can start again with no upload.
+  const [last, setLast] = useState<LastPrint | null | undefined>(undefined);
+  const justPrinted = ["FINISH", "FAILED"].includes(machine.rawState || "");
+  useEffect(() => {
+    let live = true;
+    api<LastPrint | null>(`/api/printers/${machine.id}/last-print`).then((v) => live && setLast(v?.plates?.length ? v : null)).catch(() => live && setLast(null));
+    return () => { live = false; };
+  }, [machine.id, machine.rawState]);
   const [fileId, setFileId] = useState(""),
     [plateIndex, setPlateIndex] = useState(1),
     [mapping, setMapping] = useState<number[]>([]),
-    [useAms, setUseAms] = useState(true),
+    // Printers with no AMS loaded print from the external spool.
+    [useAms, setUseAms] = useState(() => (machine.trays || []).some((t) => t.type)),
     [level, setLevel] = useState(true),
     [clear, setClear] = useState(false),
     [sending, setSending] = useState(false);
-  const file = files?.find((f) => f.id === fileId);
+  useEffect(() => {
+    if (last && justPrinted && !fileId) setFileId(LAST);
+  }, [last]);
+  const file = fileId === LAST ? last || undefined : files?.find((f) => f.id === fileId);
   const plate = file?.plates.find((p) => p.index === plateIndex) || file?.plates[0];
   const trays = (machine.trays || []).filter((t) => t.type);
   useEffect(() => {
     if (plate) setMapping(defaultMapping(plate, machine.trays));
   }, [fileId, plateIndex]);
   if (!files) return null;
-  if (!files.length) return <p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p>;
+  if (!files.length && !last) return <><BedCheck machine={machine} /><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
   const start = async () => {
     if (!file || !plate) return;
     setSending(true);
     try {
-      await api(`/api/printers/${machine.id}/print`, {
+      const again = fileId === LAST;
+      await api(`/api/printers/${machine.id}/${again ? "reprint" : "print"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: file.id, plate: plate.index, amsMapping: mapping, useAms, bedLevelling: level, bedClear: clear }),
+        body: JSON.stringify({ ...(again ? {} : { fileId }), plate: plate.index, amsMapping: mapping, useAms, bedLevelling: level, bedClear: clear }),
       });
-      notify(`Started ${file.name} on ${machine.name}.`);
+      notify(`Started ${file.name}${again ? " again" : ""} on ${machine.name}.`);
       setClear(false);
     } catch (e) {
       notify((e as Error).message);
@@ -106,12 +121,21 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
   };
   return (
     <div className="start-print">
-      <h3>Start a print</h3>
+      <h3>{fileId === LAST ? "Print again" : "Start a print"}</h3>
       <label>
         File
         <select value={fileId} onChange={(e) => { setFileId(e.target.value); setPlateIndex(1); }}>
           <option value="">Choose a file…</option>
-          {files.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          {last && (
+            <optgroup label="On the printer">
+              <option value={LAST}>{last.name} (last print)</option>
+            </optgroup>
+          )}
+          {files.length > 0 && (
+            <optgroup label="Print library">
+              {files.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </optgroup>
+          )}
         </select>
       </label>
       {file && file.plates.length > 1 && (
@@ -125,7 +149,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
       {plate && (
         <>
           <p className="plate-meta">{duration(plate.minutes)} · {plate.grams} g</p>
-          <label className="check-row"><input type="checkbox" checked={useAms} onChange={(e) => setUseAms(e.target.checked)} /> Use AMS</label>
+          {trays.length > 0 && <label className="check-row"><input type="checkbox" checked={useAms} onChange={(e) => setUseAms(e.target.checked)} /> Use AMS</label>}
           {useAms && plate.filaments.map((f) => (
             <label key={f.id} className="slot-row">
               <span><span className="color-dot" style={{ background: f.color }} /> {f.type} <span aria-hidden="true">→</span> <span className="color-dot" style={{ background: trays.find((t) => t.slot === mapping[f.id - 1])?.color || "transparent" }} /></span>
@@ -137,6 +161,7 @@ function StartPrint({ machine, notify }: { machine: Machine; notify: (m: string)
           ))}
           {!useAms && <p className="plate-meta">Prints from the external spool{machine.external ? ` (${machine.external.type})` : ""}.</p>}
           <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
+          <BedCheck machine={machine} />
           <label className="check-row"><input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} /> Build plate is clear</label>
           <button className="primary" disabled={!clear || sending || (useAms && plate.filaments.some((f) => (mapping[f.id - 1] ?? -1) < 0))} onClick={start}>
             <Play size={16} /> {sending ? "Sending to printer…" : "Start print"}
@@ -226,4 +251,20 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
       <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
     </>}
   </div>;
+}
+
+// A fresh photo from the printer's camera, to confirm the bed is empty before starting.
+function BedCheck({ machine }: { machine: Machine }) {
+  const [stamp, setStamp] = useState(() => Date.now()), [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const refresh = () => { setState("loading"); setStamp(Date.now()); };
+  return (
+    <figure className="bed-check">
+      <img key={stamp} src={`/api/printers/${machine.id}/camera.jpg?t=${stamp}`} alt={`Camera view of ${machine.name}'s bed`} onLoad={() => setState("ready")} onError={() => setState("error")} hidden={state !== "ready"} />
+      {state !== "ready" && <div className="bed-check-placeholder">{state === "loading" ? "Getting a photo of the bed…" : "Camera unavailable"}</div>}
+      <figcaption>
+        <span>{state === "ready" ? `Bed photo · ${new Date(stamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Bed photo"}</span>
+        <button type="button" className="text-button" onClick={refresh} disabled={state === "loading"}><RefreshCw size={14} /> Refresh</button>
+      </figcaption>
+    </figure>
+  );
 }

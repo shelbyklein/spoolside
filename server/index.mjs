@@ -6,6 +6,7 @@ import { Printers } from "./printers.mjs";
 import { createApp } from "./app.mjs";
 import { Library } from "./library.mjs";
 import { Assets } from "./assets.mjs";
+import { PrintWatcher, claudeVision, shrinkFrame } from "./watcher.mjs";
 const configDir = process.env.SPOOLSIDE_CONFIG_DIR || "/run/spoolside";
 const woo = fs.existsSync(configDir + "/woocommerce.json")
   ? JSON.parse(fs.readFileSync(configDir + "/woocommerce.json"))
@@ -51,6 +52,15 @@ const assets = new Assets(
   process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   process.env.SPOOLSIDE_ASSET_DIR || "/data/assets",
 );
+// Watches every print; vision checks run once an Anthropic API key is set in the server's .env.
+const watcher = new PrintWatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", process.env.SPOOLSIDE_WATCH_DIR || "/data/watch", {
+  printers,
+  notifications,
+  vision: process.env.ANTHROPIC_API_KEY ? claudeVision(process.env.ANTHROPIC_API_KEY) : null,
+  shrink: shrinkFrame,
+});
+const watchTimer = setInterval(() => watcher.tick(), 15000);
+const pruneTimer = setInterval(() => watcher.prune(), 24 * 60 * 60 * 1000);
 const materials = workspace ? new Materials(workspace.db) : null;
 materials?.refresh();
 const materialTimer=setInterval(()=>materials?.refresh(),6*60*60*1000);
@@ -61,6 +71,7 @@ const { app, close } = createApp({
   workspace,
   notifications,
   printers,
+  watcher,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   pinHash: process.env.SPOOLSIDE_PIN_HASH,
   origin: process.env.SPOOLSIDE_ORIGIN || "https://spoolside.shelbyklein.com",
@@ -77,10 +88,13 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(materialTimer);
       clearInterval(pushTimer);
       clearInterval(backupTimer);
+      clearInterval(watchTimer);
+      clearInterval(pruneTimer);
       backup();
       printers.close();
       library.close();
       assets.close();
+      watcher.close();
       workspace?.close();
       close();
       process.exit(0);

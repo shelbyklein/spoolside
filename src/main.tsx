@@ -2,6 +2,9 @@ import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary } from "./PrintControls";
 import { AssetLibrary } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
+import { WaterHome } from "./WaterHome";
+import { PrinterCards } from "./PrinterCards";
+import { useWatches, WatchAttention, WatchStatus } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -17,12 +20,10 @@ import {
   Pause,
   Play,
   X,
-  ChevronRight,
   WifiOff,
   RefreshCw,
   Boxes,
   Clock3,
-  Thermometer,
   Check,
   Download,
   CircleHelp,
@@ -136,12 +137,14 @@ function tabFromPath() {
   const segment = window.location.pathname.split("/")[1] || "";
   const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
   if (match) return match.name;
-  return new URLSearchParams(window.location.search).get("view") === "orders" || window.matchMedia("(max-width: 760px)").matches ? "Orders" : "Overview";
+  return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
 }
 function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
+  const watch = useWatches(remote);
   const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => document.documentElement.classList.add("ready"), []);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
   const [wideScreen, setWideScreen] = useState(() => matchMedia("(min-width: 761px)").matches);
   useEffect(() => {
@@ -234,11 +237,7 @@ function App() {
     opener.current = document.activeElement as HTMLElement;
     setSelected(id);
   };
-  const printing = machines.filter((m) => m.state === "Printing").length,
-    active =
-      machines.find((m) => m.state === "Printing" || m.state === "Paused") ||
-      machines[0],
-    current = machines.find((m) => m.id === selected);
+  const current = machines.find((m) => m.id === selected);
   const toggle = (id: string) => {
     if (remote) {
       setNotice("Live printer controls are not enabled yet.");
@@ -553,6 +552,9 @@ function App() {
         </div>
       </aside>
       <main>
+        {!wideScreen && tab === "Overview" ? (
+          <WaterHome attention={<WatchAttention water watches={watch.watches} refresh={watch.refresh} notify={setNotice} />} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+        ) : (
         <div className="main-content">
           <div className="page-heading">
             <div>
@@ -627,6 +629,7 @@ function App() {
           )}
           {(tab === "Overview" || tab === "Printers") && (
             <div className="fleet-column">
+              {remote && <WatchAttention watches={watch.watches} refresh={watch.refresh} notify={setNotice} />}
               <div className="fleet-heading">
                 <h2>
                   Your printers <span>{machines.length}</span>
@@ -643,145 +646,11 @@ function App() {
                   <option>Paused</option>
                 </select>
               </div>
-              <div
-                className={
-                  filter === "All printers"
-                    ? "fleet-layout"
-                    : "fleet-layout filtered"
-                }
-              >
-                {filter === "All printers" && active && (
-                  <section className="featured">
-                    <div className="feature-top">
-                      <span className={`status ${active.state.toLowerCase()}`}>
-                        <span />
-                        {active.state}
-                      </span>
-                      <button
-                        className="feature-details"
-                        onClick={() => openDetail(active.id)}
-                      >
-                        View printer <ArrowUpRight size={16} />
-                      </button>
-                    </div>
-                    <div className="feature-body">
-                      <div>
-                        <h3>{active.name}</h3>
-                        <span className="model">Bambu Lab A1 mini</span>
-                        <h4>{active.job}</h4>
-                        <p>
-                          {remote ? "Live LAN telemetry" : <>{active.material} <span>·</span> 0.20 mm layers</>}
-                        </p>
-                      </div>
-                      {!remote && <div className="print-object" aria-hidden="true">
-                        <div className="object-top" />
-                        <div className="object-body">
-                          <span />
-                          <span />
-                          <span />
-                        </div>
-                        <div className="object-base" />
-                      </div>}
-                    </div>
-                    <div className="progress-heading">
-                      <strong>
-                        {active.progress}
-                        <span>%</span>
-                      </strong>
-                      <span>
-                        <Clock3 size={14} /> {active.remaining} left
-                      </span>
-                    </div>
-                    <div className="progress-track">
-                      <span style={{ width: `${active.progress}%` }} />
-                    </div>
-                    <div className="feature-bottom">
-                      <span>
-                        <Thermometer size={16} />
-                        <b>
-                          {remote
-                            ? active.nozzle == null
-                              ? "—"
-                              : Math.round(active.nozzle) + "°"
-                            : "220°"}
-                        </b>{" "}
-                        nozzle <i />{" "}
-                        <b>
-                          {remote
-                            ? active.bed == null
-                              ? "—"
-                              : Math.round(active.bed) + "°"
-                            : "60°"}
-                        </b>{" "}
-                        bed
-                      </span>
-                      <button
-                        disabled={
-                          !remote &&
-                          !["Printing", "Paused"].includes(active.state)
-                        }
-                        onClick={() => (remote ? openDetail(active.id) : toggle(active.id))}
-                      >
-                        {active.state === "Paused" || (remote && active.state === "Ready") ? (
-                          <Play size={16} />
-                        ) : (
-                          <Pause size={16} />
-                        )}{" "}
-                        {remote
-                          ? ["Printing", "Paused", "Preparing"].includes(active.state) ? "Controls" : "Start print"
-                          : active.state === "Paused"
-                            ? "Resume"
-                            : "Pause"}
-                      </button>
-                    </div>
-                  </section>
-                )}
-                <section className="printer-list" aria-label="Printer list">
-                  {machines
-                    .filter(
-                      (m) => filter === "All printers" || m.state === filter,
-                    )
-                    .map((m) => (
-                      <button
-                        className={`printer-row ${m.id === active.id ? "active-row" : ""}`}
-                        key={m.id}
-                        onClick={() => openDetail(m.id)}
-                      >
-                        <span className="printer-symbol">
-                          <Printer size={27} />
-                        </span>
-                        <span className="printer-copy">
-                          <strong>{m.name}</strong>
-                          <span>{m.job}</span>
-                          {(m.state === "Printing" || m.state === "Paused") && (
-                            <span className="mini-progress">
-                              <i style={{ width: `${m.progress}%` }} />
-                            </span>
-                          )}
-                        </span>
-                        <span className="printer-state">
-                          <span className={`status ${m.state.toLowerCase()}`}>
-                            <span />
-                            {m.state}
-                          </span>
-                          <small>
-                            {m.progress
-                              ? `${m.progress}% · ${m.remaining}`
-                              : "A1 mini"}
-                          </small>
-                        </span>
-                        <ChevronRight size={17} />
-                      </button>
-                    ))}
-                  {machines.filter(
-                    (m) => filter === "All printers" || m.state === filter,
-                  ).length === 0 && (
-                    <div className="empty">
-                      <p>No printers in this state.</p>
-                    </div>
-                  )}
-                </section>
-              </div>
+              <PrinterCards
+                machines={machines.filter((m) => filter === "All printers" || m.state === filter)}
+                live={remote}
+                onOpen={openDetail}
+              />
             </div>
           )}
           </div>
@@ -920,6 +789,7 @@ function App() {
             </span>
           </footer>
         </div>
+        )}
       </main>
       {current && (
         <div className="detail-overlay" onClick={() => setSelected(null)}>
@@ -1009,6 +879,7 @@ function App() {
                     : "Resume demo print"}
                 </button>
               )}
+            {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
             <p className="detail-note">
               {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}

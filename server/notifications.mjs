@@ -49,6 +49,13 @@ export class Notifications {
       for(const d of devices) if(d[event.kind==='newOrders'?'new_orders':'changes']) insert.run(id,d.id,payload,this.now(),this.now());
     }
   }
+  // Print watcher events go to every device: they're about the farm right now.
+  broadcast({id,title,body,url}) {
+    if(!this.enabled) return;
+    const payload=JSON.stringify({title:String(title).slice(0,120),body:String(body).slice(0,180),tag:id,kind:'prints',url});
+    const insert=this.db.prepare('INSERT OR IGNORE INTO push_deliveries(event,device,payload,due,created) VALUES(?,?,?,?,?)');
+    for(const d of this.db.prepare('SELECT id FROM push_subscriptions').all()) insert.run(id,d.id,payload,this.now(),this.now());
+  }
   async test(id) {
     const row=this.db.prepare('SELECT subscription FROM push_subscriptions WHERE id=?').get(id);
     if(!row) throw Error('Enable notifications on this device first');

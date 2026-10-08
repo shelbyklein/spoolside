@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { WATER_FRAGMENT } from "./water.frag";
 
-// Animated pool water for the desktop sidebar: WebGL caustics and a slow GSAP tide.
+// Animated pool water for the desktop sidebar and the phone home screen: WebGL caustics and a slow GSAP tide.
 // The pointer doesn't move it. Still frame with reduced motion; CSS gradient if WebGL is unavailable.
-export function WaterBackground() {
+export function WaterBackground({ className = "sidebar-water" }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -73,5 +73,5 @@ export function WaterBackground() {
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, []);
-  return <canvas ref={canvasRef} className="sidebar-water" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }
