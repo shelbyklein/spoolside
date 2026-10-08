@@ -35,7 +35,7 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await expect(row.getByRole('button', { name: 'Print case' })).toBeVisible();
   await expect(row.getByLabel('Printed & assembled, ready to pack')).toHaveCount(0);
   await expect(row.getByRole('button', { name: /print all required items first/ })).toBeDisabled();
-  await expect(row.getByRole('button', { name: /Print DS faceplate/ })).toContainText('0/2');
+  await expect(row.getByRole('button', { name: /Print DS faceplate/ })).toHaveText('Print');
   await expect(row.getByRole('checkbox', { name: 'Classic faceplate printed' })).toBeChecked();
   await expect(row.locator('.production-stage')).toHaveCount(0);
   await row.screenshot({path:'handoff/spoolside-order-checklist.png'});

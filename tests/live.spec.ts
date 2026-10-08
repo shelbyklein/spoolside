@@ -44,9 +44,12 @@ test('hosted mobile uses active source orders and server saves without browser s
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
     const id=await first.locator('.order-id').boundingBox();
-    if (wide) expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
+    if (wide) {
+      expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
+      expect(ship!.x).toBeGreaterThanOrEqual((await first.locator(".order-product-summary").boundingBox())!.x+(await first.locator(".order-product-summary").boundingBox())!.width);
+    }
     else expect(content!.y).toBeGreaterThan(id!.y);
-    expect(ship!.y).toBeGreaterThan(id!.y);
+    if (!wide) expect(ship!.y).toBeGreaterThan(content!.y);
     await expect(first.locator('.production-stage')).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   };

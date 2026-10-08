@@ -2255,3 +2255,18 @@ footer .tiny-dot {
   .overview-order-row .order-content-readiness { grid-column: 1 / -1; grid-row: 2; }
   .overview-order-row .order-ship-footer .ship-slot { width: auto; }
 }
+
+.order-content-readiness { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 24px; align-items: center; }
+.order-product-summary { min-width: 0; }
+.order-fulfillment { min-width: 0; }
+.order-fulfillment .order-print-checklist { margin-top: 0; }
+.order-fulfillment > .production-stage { margin-top: 8px; display: inline-block; }
+.overview-order-row, .overview-split .overview-order-row { grid-template-columns: 100px minmax(0,1fr); align-items: center; }
+@media(max-width:1100px) and (min-width:761px) {
+ .overview-order-row, .overview-split .overview-order-row { grid-template-columns: 85px minmax(0,1fr); gap: 14px; }
+ .order-content-readiness { grid-template-columns: minmax(0,1fr) 240px; gap: 16px; }
+}
+@media(max-width:760px) {
+ .overview-order-row, .overview-split .overview-order-row { grid-template-columns: minmax(0,1fr); }
+ .overview-order-row .order-content-readiness { grid-column: 1; grid-row: 2; grid-template-columns: minmax(0,1fr); gap: 12px; }
+}

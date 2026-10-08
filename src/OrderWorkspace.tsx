@@ -37,8 +37,9 @@ export function OrderRow({ order, onPrint, onTick }: { order: Order; onChange?: 
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
       </span>
-      <div className="order-content-readiness"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}<div className="order-ship-footer"><span className="ship-slot"><ShipButton order={order} /></span></div></div>
-      <StatusTag order={order} />
+      <div className="order-content-readiness"><div className="order-product-summary"><OrderContents order={order} />{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary>{order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Sliced files missing" : "Files need review"}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}</div>
+      <div className="order-fulfillment">{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}<div className="order-ship-footer"><span className="ship-slot"><ShipButton order={order} /></span></div><StatusTag order={order} />
+      </div></div>
     </article>
   );
 }
