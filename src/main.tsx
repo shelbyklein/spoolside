@@ -153,6 +153,16 @@ function App() {
   const dispatch = useDispatch(remote);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => document.documentElement.classList.add("ready"), []);
+  useEffect(() => {
+    // Safari can ignore viewport zoom limits; prevent its page-level pinch gesture.
+    const stopZoom = (event: Event) => { if (matchMedia("(max-width: 760px)").matches) event.preventDefault(); };
+    document.addEventListener("gesturestart", stopZoom, { passive: false });
+    document.addEventListener("gesturechange", stopZoom, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", stopZoom);
+      document.removeEventListener("gesturechange", stopZoom);
+    };
+  }, []);
   // The water only runs where the full sidebar shows; phones get the plain tab bar.
   const [wideScreen, setWideScreen] = useState(() => matchMedia("(min-width: 761px)").matches);
   useEffect(() => {
