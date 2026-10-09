@@ -159,7 +159,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
 
 export type Offer = { id: string; printer: string; printerName: string; orderId: string; orderNumber: string; group: string; groupLabel: string; pieceName: string; colorway: string; slot: number; autoBlocked: string | null };
 export type Held = { printer: string; printerName: string; reason: string };
-type Dispatch = { auto: boolean; vision: boolean; offers: Offer[]; held?: Held[] };
+type Dispatch = { auto: boolean; vision: boolean; offers: Offer[]; held?: Held[]; available?: {orderId: string; printer: string; printerName: string}[] };
 
 // Free printers offered the next order piece, and the automatic printing setting.
 export function useDispatch(enabled: boolean) {

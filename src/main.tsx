@@ -207,6 +207,10 @@ function App() {
     jobs = remote ? live.data.jobs : demoJobs,
     orders = remote ? live.data.orders : demoOrders,
     spools = remote ? live.data.spools : demoSpools;
+  const availableOrders = (dispatch.available || dispatch.offers).filter(a => {
+    const m = machines.find(m => m.id === a.printer);
+    return m?.connected && !m.stale && ["IDLE", "FINISH", "FAILED"].includes(m.rawState || "");
+  }).map(a => a.orderId);
   const setJobs = (value: Job[]) =>
     remote ? live.update("jobs", value) : setDemoJobs(value);
   const setOrders = (value: Order[]) =>
@@ -659,7 +663,7 @@ function App() {
               </div>
               <div className="orders-list">
                 {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
-                  return <OrderRow key={order.id} order={order} onChange={updateOrder} onPrint={printOrder} onTick={tickPiece} />;
+                  return <OrderRow key={order.id} order={order} printerAvailable={availableOrders.includes(order.id)} onChange={updateOrder} onPrint={printOrder} onTick={tickPiece} />;
                 })}
               </div>
               {overviewOrders.length > 10 && <p className="overview-order-more">Showing the 10 oldest of {overviewOrders.length} open orders.</p>}
@@ -709,6 +713,7 @@ function App() {
               openOrderId={focusedOrder}
               live={remote}
               orders={orders}
+              availableOrders={availableOrders}
               onOrderChange={updateOrder}
               onPrint={printOrder}
               onTick={tickPiece}

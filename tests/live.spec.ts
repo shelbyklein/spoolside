@@ -55,7 +55,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   };
   const first=overview.getByRole('article',{name:'Order #1',exact:true});
   await rowLayout(first, true);
-  await first.getByText('Sliced files missing',{exact:true}).click();
+  await first.getByLabel('Files missing',{exact:true}).click();
   await expect(first.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
   await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
   await overview.getByRole('button',{name:'View orders'}).click();

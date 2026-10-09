@@ -38,6 +38,9 @@ test("a free printer is offered the oldest order it can print in TPU for AMS clo
     const [offer] = s.d.view().offers;
     assert.equal(offer.orderNumber, "#10177", "oldest red order; the blue one has no close spool");
     assert.deepEqual(offer.mapping, [1]);
+    assert.deepEqual(s.d.view().available.map(a=>a.orderId).sort(),["o10177","o10181"],"all matching orders can show availability, not only the oldest offer");
+    s.view.rawState="RUNNING";assert.equal(s.d.view().available.length,0);
+    s.view.rawState="FINISH";
     assert.equal(s.pushes.length, 1);
     assert.match(s.pushes[0].body, /iPhone 12 Case for #10177 \(Red\)/);
     await s.d.tick();
@@ -83,6 +86,7 @@ test("automatic printing starts only after the last print was answered and the b
     assert.equal(unanswered.started.length, 0);
     assert.equal(unanswered.d.view().offers.length, 0, "a finished print still on the bed means the printer isn't free");
     assert.equal(unanswered.pushes.length, 0);
+    assert.equal(unanswered.d.view().available.length,0);
   } finally {
     unanswered.done();
   }
@@ -100,6 +104,7 @@ test("automatic printing starts only after the last print was answered and the b
     busyBed.d.setAuto(true);
     await busyBed.d.tick();
     assert.equal(busyBed.started.length, 0);
+    assert.equal(busyBed.d.view().available.length,0);
     assert.equal(busyBed.d.view().offers.length, 0, "not even offered");
     assert.deepEqual(busyBed.d.view().held, [{ printer: "P1", printerName: "AMS 3", reason: "A red case is on the plate." }]);
     assert.equal(busyBed.pushes.length, 0);

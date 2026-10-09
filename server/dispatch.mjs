@@ -43,11 +43,11 @@ export class Dispatcher {
     return this.view();
   }
   // The best piece this printer could print now, or null.
-  candidate(view, taken) {
+  candidate(view, taken, orderId) {
     const trays = (view.trays || []).filter((t) => t.materialId === MATERIAL && t.color);
     if (!trays.length) return null;
     const work = this.plans()
-      .filter(({ order }) => String(order.commercial).toLowerCase() === "processing" && !order.refundReview && !order.sourceReview && !order.assembled)
+      .filter(({ order }) => (!orderId || order.id === orderId) && String(order.commercial).toLowerCase() === "processing" && !order.refundReview && !order.sourceReview && !order.assembled)
       .sort((a, b) => orderNumber(a.order) - orderNumber(b.order));
     for (const { order, plan } of work) {
       const target = COLORWAYS[String(order.items.find((i) => i.colorway)?.colorway || "").toLowerCase()];
@@ -172,12 +172,30 @@ export class Dispatcher {
     this.snoozed.set(printer, { offerId: offer.id, until: this.now() + SNOOZE });
     return this.view();
   }
+  // Read-only availability for every order, rather than just the oldest offered piece.
+  availableOrders() {
+    if (!this.bedCheck) return [];
+    const taken = this.watcher.inFlight();
+    for (const tag of this.orderPrints.pending.values()) for (const a of tag.assetIds) taken.add(`${tag.orderId}:${a}`);
+    const available = [];
+    for (const {serial, view} of this.printers.statuses()) {
+      const last = this.watcher.lastFor(serial);
+      if (!view.connected || view.stale || !IDLE.includes(view.rawState) || (last && (!last.ended || !last.outcome)) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) continue;
+      const bed = this.beds.get(serial), key = last ? `${last.id}:${last.outcome}` : "none";
+      if (this.bedCheck && (!bed?.empty || bed.key !== key)) continue;
+      for (const {order} of this.plans()) {
+        if (this.candidate(view, taken, order.id)) available.push({orderId:order.id,printer:serial,printerName:view.name});
+      }
+    }
+    return available;
+  }
   view() {
     return {
       auto: this.auto,
       vision: !!this.bedCheck,
       offers: [...this.offers.entries()].filter(([p]) => !this.snoozed.has(p)).map(([, o]) => ({ ...o, autoBlocked: this.auto ? o.autoBlocked || null : null })),
       held: [...this.held.values()],
+      available: this.availableOrders(),
     };
   }
 }
