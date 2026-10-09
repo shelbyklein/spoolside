@@ -15,6 +15,8 @@ export type Watch = {
   inLibrary?: boolean;
   external?: boolean;
   importDismissed?: boolean;
+  importing?: boolean;
+  importError?: string | null;
   mode: "pause" | "warn";
   plan: boolean;
   check: Check | null;
@@ -50,6 +52,37 @@ async function post(url: string) {
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw Error(body.error || "Request failed");
   return body;
+}
+// Add a detected print's sliced file to the library. Reading it off a busy printer can take a while, so the
+// server keeps going in the background; the button shows that, then any error with a retry.
+function ImportButton({ watch, refresh, notify, primary = false }: { watch: Watch; refresh: () => void; notify: (m: string) => void; primary?: boolean }) {
+  const [sending, setSending] = useState(false);
+  const working = sending || !!watch.importing;
+  useEffect(() => {
+    if (!watch.importing) return;
+    const timer = window.setInterval(refresh, 4000);
+    return () => clearInterval(timer);
+  }, [watch.importing]);
+  const start = async () => {
+    setSending(true);
+    try {
+      const body = await post(`/api/watches/${watch.id}/library`);
+      notify(body?.importing ? "Saving from the printer. This can take a few minutes while it's printing." : "Added to Sliced prints with this printer as its default.");
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setSending(false);
+      refresh();
+    }
+  };
+  return (
+    <>
+      <button className={primary ? "primary" : "text-button"} disabled={working} onClick={start}>
+        <Plus size={15} /> {working ? "Saving from printer…" : watch.importError ? "Try again" : "Add to library"}
+      </button>
+      {watch.importError && !working && <p className="import-error">Couldn't add it: {watch.importError}</p>}
+    </>
+  );
 }
 const ago = (at: number) => {
   const m = Math.round((Date.now() - at) / 60000);
@@ -115,8 +148,8 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
         <p className="watch-job">{jobName(w.job)} · {w.printerName}</p>
         <p>Started outside Spoolside. Save its sliced plate for printing again.</p>
         <div className="watch-actions">
-          <button className="primary" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>
-          <button className="secondary" disabled={!!busy} onClick={() => act(w.id + "dismiss", () => post(`/api/watches/${w.id}/dismiss-import`), "Skipped this print.")}>Not now</button>
+          <ImportButton primary watch={w} refresh={refresh} notify={notify} />
+          <button className="secondary" disabled={!!busy || !!w.importing} onClick={() => act(w.id + "dismiss", () => post(`/api/watches/${w.id}/dismiss-import`), "Skipped this print.")}>Not now</button>
         </div>
       </article>)}
       {alerts.map((w) => (
@@ -141,7 +174,7 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
-          {w.inLibrary === false && (!w.external || w.importDismissed) && <button className="text-button" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>}
+          {w.inLibrary === false && (!w.external || w.importDismissed) && <ImportButton watch={w} refresh={refresh} notify={notify} />}
           {noting === w.id ? (
             <FailureNote general initial={w.note || ""} label="Save note" busy={!!busy} onCancel={() => setNoting("")} onSave={(note) => act(w.id + "note", () => saveNote(w.id, note), "Note saved.").then(() => setNoting(""))} />
           ) : succeeding === w.id ? (
@@ -219,12 +252,7 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
               <strong>{jobName(w.job)}</strong>
               <small>{w.ended ? ago(w.ended) : ""}</small>
             </span>
-            {w.inLibrary === false && <button className="text-button" disabled={busy} onClick={async () => {
-              setBusy(true);
-              try { await post(`/api/watches/${w.id}/library`); refresh(); notify("Added to Sliced prints."); }
-              catch (e) { notify((e as Error).message); }
-              finally { setBusy(false); }
-            }}><Plus size={15} /> Add to library</button>}
+            {w.inLibrary === false && <ImportButton watch={w} refresh={refresh} notify={notify} />}
             {(editing === w.id ? (
                 <FailureNote general initial={w.note || ""} label="Save note" busy={busy} onCancel={() => setEditing("")} onSave={(note) => save(w, note)} />
               ) : (

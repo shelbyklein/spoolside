@@ -2395,3 +2395,5 @@ footer .tiny-dot {
 .personal-library > .section-top {padding:0;}
 .personal-library .plate-assets-editor label {display:grid;gap:6px;font-size:13px;}
 .personal-library .plate-assets-editor textarea {min-height:100px;}
+.import-error { margin: 0; color: #a3341f; font-size: 13px; }
+.on-water .import-error { color: #ffd9d1; }

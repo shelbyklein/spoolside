@@ -234,3 +234,42 @@ test('review import retrieves the exact job and plate once, preserves its printe
     assert.equal(library.forJob('P2','spoolside_Existing.3mf',1).id,saved.id);
   } finally {server.close();close();library.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('a slow or failing import keeps going in the background and reports progress', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slow-import-'));
+  const library = new Library(':memory:', dir);
+  const watch = {id:'slow', printer:'P1', job:'Orca membranes', plate:2, ended:null, outcome:null};
+  const watcher = {row:id=>id==='slow'?watch:null, list:()=>({watches:[{...watch}],recent:[]})};
+  let release, fail = true, calls = 0;
+  const printers = {snapshot:()=>[], downloadPrint:async ()=>{
+    calls++;
+    if (fail) { fail = false; throw Error('FTP timed out'); }
+    await new Promise(r=>release=r);
+    return {name:'Orca membranes.gcode.3mf',buf:twoPlates()};
+  }};
+  const salt='d'.repeat(32);
+  const {app,close}=createApp({pinHash:salt+':'+scryptSync('12345678',salt,64).toString('hex'),origin:'http://localhost',secure:false,library,watcher,printers,importWait:50});
+  const server=app.listen(0,'127.0.0.1');
+  await new Promise(r=>server.once('listening',r));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  try {
+    const login=await fetch(base+'/login',{method:'POST',headers:{Origin:'http://localhost'},body:new URLSearchParams({pin:'12345678'}),redirect:'manual'});
+    const headers={Cookie:login.headers.get('set-cookie').split(';')[0],Origin:'http://localhost'};
+    const read=async()=> (await (await fetch(base+'/api/watches',{headers})).json()).watches[0];
+    const add=()=>fetch(base+'/api/watches/slow/library',{method:'POST',headers});
+    assert.equal((await add()).status,400);
+    assert.equal((await read()).importError,'FTP timed out');
+    const started=await add();
+    assert.equal(started.status,202);
+    assert.equal((await read()).importing,true);
+    assert.equal((await add()).status,202,'a second tap joins the running import');
+    assert.equal(calls,2);
+    release();
+    await new Promise(r=>setTimeout(r,50));
+    const after=await read();
+    assert.equal(after.inLibrary,true);
+    assert.equal(after.importing,false);
+    assert.equal(library.list().length,1);
+  } finally {server.close();close();library.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
