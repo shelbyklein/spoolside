@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus } from "lucide-react";
-import type { Asset } from "./AssetLibrary";
+import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
@@ -208,6 +208,19 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
   const [assets, setAssets] = useState<Asset[]>([]);
   useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
   const { files, refresh } = useLibrary();
+  const [query,setQuery]=useState(""), [printerFilter,setPrinterFilter]=useState(""), [typeFilter,setTypeFilter]=useState(""), [categoryFilter,setCategoryFilter]=useState(""), [materialFilter,setMaterialFilter]=useState("");
+  const [categories,setCategories]=useState<Category[]>([]);
+  useEffect(()=>{api<Category[]>("/api/categories").then(c=>setCategories(Array.isArray(c)?c:[])).catch(()=>{});},[]);
+  const linked=(f:LibraryFile)=>assets.filter(a=>f.plates.some(p=>p.coverage?.some(c=>c.assetId===a.id)));
+  const printerOptions=Array.from(new Map((files||[]).filter(f=>f.preferredPrinter).map(f=>[f.preferredPrinter!,f.preferredPrinterName||f.preferredPrinter!])).entries()).sort((a,b)=>a[1].localeCompare(b[1]));
+  const types=Array.from(new Set((files||[]).flatMap(f=>linked(f).map(a=>a.type)))).sort();
+  const materials=Array.from(new Set((files||[]).flatMap(f=>f.plates.flatMap(p=>p.filaments.map(x=>x.type).filter(Boolean))))).sort();
+  const visible=files?.filter(f=>{
+    const parts=linked(f), text=[f.name,...parts.map(a=>a.name)].join(" ").toLowerCase();
+    return text.includes(query.trim().toLowerCase()) && (!printerFilter || (printerFilter==='override'?!!f.printer:printerFilter==='unassigned'?!f.preferredPrinter:f.preferredPrinter===printerFilter)) && (!typeFilter || (typeFilter==='unlinked'?!parts.length:parts.some(a=>a.type===typeFilter))) && (!categoryFilter || parts.some(a=>a.category===categoryFilter)) && (!materialFilter || f.plates.some(p=>p.filaments.some(x=>x.type===materialFilter)));
+  });
+  const filtered=!!(query||printerFilter||typeFilter||categoryFilter||materialFilter);
+  const reset=()=>{setQuery("");setPrinterFilter("");setTypeFilter("");setCategoryFilter("");setMaterialFilter("");};
   const remove = async (f: LibraryFile) => {
     if (!window.confirm(`Remove ${f.name} from the library?`)) return;
     await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message));
@@ -220,8 +233,17 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
         <PrintUploadButton notify={notify} onUploaded={refresh} />
       </div>
       {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files from Orca or Bambu Studio (File → Export → Export all sliced file). Each plate becomes its own print.</p></div>}
+      {!!files?.length && <div className="sliced-filters" aria-label="Filter sliced prints">
+        <input type="search" aria-label="Search sliced prints" placeholder="Search prints or linked assets…" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <select aria-label="Filter by printer" value={printerFilter} onChange={e=>setPrinterFilter(e.target.value)}><option value="">All printers</option><option value="override">Print overrides only</option><option value="unassigned">No assigned printer</option>{printerOptions.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
+        <select aria-label="Filter by part type" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">All part types</option>{types.map(t=><option key={t} value={t}>{t}</option>)}<option value="unlinked">No linked assets</option></select>
+        <select aria-label="Filter by category" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">All categories</option>{categories.filter(c=>(files||[]).some(f=>linked(f).some(a=>a.category===c.id))).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <select aria-label="Filter by material" value={materialFilter} onChange={e=>setMaterialFilter(e.target.value)}><option value="">All materials</option>{materials.map(m=><option key={m} value={m}>{m}</option>)}</select>
+        <div className="sliced-filter-summary"><small>{visible?.length} of {files.length} prints</small>{filtered&&<button className="text-button" onClick={reset}>Clear filters</button>}</div>
+      </div>}
+      {!!files?.length && !visible?.length && <p className="sliced-no-matches" role="status">No prints match these filters. Try another filter or clear them.</p>}
       <ul className="sliced-grid">
-        {files?.map((f) => (
+        {visible?.map((f) => (
           <li key={f.id} className="sliced-card">
             <div className="sliced-thumb">
               <SlicedPreview file={f} />
