@@ -2367,3 +2367,9 @@ footer .tiny-dot {
 .sliced-no-matches {padding:0 24px 20px;color:var(--muted);font-size:13px;}
 @media(max-width:760px){.sliced-filters {padding:0 16px 14px;}.sliced-filters input {flex-basis:100%;}.sliced-filters select {flex-basis:calc(50% - 4px);width:calc(50% - 4px);}.sliced-no-matches {padding-inline:16px;}}
 .sliced-filters input[type="search"] {border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);padding:8px 10px;font:inherit;font-size:13px;min-height:34px;}
+/* Keep mobile content inside the usable viewport, above the persistent tabs. */
+@media (max-width: 760px) {
+  html, body, #root {height:100%;overflow:hidden;}
+  .app {height:100dvh;min-height:0;}
+  main {position:fixed;inset:0 0 calc(69px + env(safe-area-inset-bottom));margin-left:0;padding-bottom:0;overflow-y:auto;overscroll-behavior-y:contain;scroll-padding:16px;-webkit-overflow-scrolling:touch;}
+}

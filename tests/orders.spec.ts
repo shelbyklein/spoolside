@@ -37,3 +37,14 @@ test("orders desktop and mobile renders", async ({ page }) => {
     });
   }
 });
+
+test('mobile order content scrolls above the tabs and the last order remains reachable',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await openOrders(page);await page.getByLabel('Filter orders').selectOption('All orders');
+ const bounds=await page.evaluate(()=>{const main=document.querySelector('main')!,nav=document.querySelector('.sidebar')!;return {mainBottom:main.getBoundingClientRect().bottom,navTop:nav.getBoundingClientRect().top,scrolling:getComputedStyle(main).overflowY};});
+ expect(bounds.scrolling).toBe('auto');expect(bounds.mainBottom).toBeLessThanOrEqual(bounds.navTop);
+ await page.locator('main').evaluate(el=>el.scrollTop=el.scrollHeight);
+ const last=page.locator('.overview-order-row').last();await last.scrollIntoViewIfNeeded();
+ const row=await last.boundingBox(),nav=await page.locator('.sidebar').boundingBox();expect(row!.y+row!.height).toBeLessThanOrEqual(nav!.y);
+ expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+ await page.screenshot({path:'handoff/spoolside-mobile-orders-scroll.png'});
+});
