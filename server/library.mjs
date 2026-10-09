@@ -144,6 +144,7 @@ export class Library {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS library (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, plates TEXT NOT NULL, created TEXT NOT NULL)");
+    if (!this.db.prepare("PRAGMA table_info(library)").all().some(c=>c.name === "scope")) this.db.exec("ALTER TABLE library ADD COLUMN scope TEXT NOT NULL DEFAULT 'playcase'");
     this.db.exec("CREATE TABLE IF NOT EXISTS library_jobs (printer TEXT, job TEXT, plate INTEGER, file TEXT, PRIMARY KEY(printer,job,plate))");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "printer")) this.db.exec("ALTER TABLE library ADD COLUMN printer TEXT");
     if (!this.db.prepare("PRAGMA table_info(library)").all().some((c) => c.name === "updated")) this.db.exec("ALTER TABLE library ADD COLUMN updated TEXT");
@@ -168,7 +169,8 @@ export class Library {
     const file = this.get(id);
     const clean = typeof name === "string" ? name.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) : "";
     if (!file || !clean) throw Error("Enter a print name");
-    if (this.list().some(f => f.id !== id && f.name.toLowerCase() === clean.toLowerCase())) throw Error("That print name is already in use");
+    const owner=file.scope === "personal" && this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='project_slices'").get() ? this.db.prepare("SELECT project FROM project_slices WHERE file=?").get(id)?.project : null;
+    if (this.list().some(f => f.id !== id && f.scope === file.scope && (!owner || this.db.prepare("SELECT 1 FROM project_slices WHERE project=? AND file=?").get(owner,f.id)) && f.name.toLowerCase() === clean.toLowerCase())) throw Error("That print name is already in use");
     if (!Array.isArray(quantities) || quantities.length !== file.plates.length || file.plates.some(p => quantities.filter(q => q.plate === p.index).length !== 1) || quantities.some(q => q.quantity !== null && (!Number.isInteger(q.quantity) || q.quantity < 1 || q.quantity > 10000))) throw Error("Choose 1–10000 pieces per plate, or leave it blank");
     if (printer !== undefined) this.db.prepare("UPDATE library SET printer=? WHERE id=?").run(printer || null, id);
     const plates = file.plates.map(p => ({...p, quantity: quantities.find(q => q.plate === p.index).quantity}));
@@ -190,7 +192,7 @@ export class Library {
   }
   list() {
     return this.db
-      .prepare("SELECT id, name, size, plates, created, updated, source_name, printer FROM library ORDER BY name COLLATE NOCASE")
+      .prepare("SELECT id, name, size, plates, created, updated, source_name, printer, scope FROM library ORDER BY name COLLATE NOCASE")
       .all()
       .map((r) => ({ ...r, plates: JSON.parse(r.plates) }));
   }
@@ -203,16 +205,17 @@ export class Library {
   }
   // Adds a sliced file; one with several plates becomes one entry per plate. Returns the entries;
   // an entry whose name is already in the library replaces that one (marked replaced: true).
-  add(name, buf) {
+  add(name, buf, scope = "playcase", project = null) {
+    if (!["playcase","personal"].includes(scope)) throw Error("Unknown print library");
     const split = splitPlates(buf);
-    if (!split) return [this.addOne(name, buf)];
-    return split.map((p) => this.addOne(p.label, p.buf));
+    if (!split) return [this.addOne(name, buf, scope, project)];
+    return split.map((p) => this.addOne(p.label, p.buf, scope, project));
   }
-  addOne(name, buf) {
+  addOne(name, buf, scope = "playcase", project = null) {
     const { plates } = inspect3mf(buf);
     const clean = String(name || "").replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Untitled print";
     const now = new Date().toISOString();
-    const existing = this.list().find((f) => (f.source_name || f.name).toLowerCase() === clean.toLowerCase() || f.name.toLowerCase() === clean.toLowerCase());
+    const existing = this.list().filter(f=>f.scope===scope && (!project || this.db.prepare("SELECT 1 FROM project_slices WHERE project=? AND file=?").get(project,f.id))).find((f) => (f.source_name || f.name).toLowerCase() === clean.toLowerCase() || f.name.toLowerCase() === clean.toLowerCase());
     if (existing) {
       // Same print, re-sliced: keep its id and the assets linked to its plates.
       const carried = plates.map((p) => {
@@ -225,8 +228,19 @@ export class Library {
     }
     const id = randomUUID();
     fs.writeFileSync(this.file(id), buf, { mode: 0o600 });
-    this.db.prepare("INSERT INTO library (id, name, size, plates, created, source_name) VALUES (?,?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), now, clean);
+    this.db.prepare("INSERT INTO library (id, name, size, plates, created, source_name, scope) VALUES (?,?,?,?,?,?,?)").run(id, clean, buf.length, JSON.stringify(plates), now, clean, scope);
     return this.get(id);
+  }
+  metadata(id) {
+    const file=this.get(id);if(!file)throw Error("Unknown file");
+    const buf=fs.readFileSync(this.file(id)),entries=zipEntries(buf);
+    let settings={};const config=entries.get("Metadata/project_settings.config");
+    if(config){try{settings=JSON.parse(zipRead(buf,config).toString("utf8"));}catch{}}
+    const keys=["printer_model","printer_variant","printer_settings_id","nozzle_diameter","curr_bed_type","bed_type","printable_area","printable_height","layer_height","initial_layer_print_height","filament_type","filament_settings_id","nozzle_temperature","nozzle_temperature_initial_layer","bed_temperature","textured_plate_temp","hot_plate_temp","cool_plate_temp","enable_support","sparse_infill_density","brim_type"];
+    const relevant=Object.fromEntries(keys.filter(k=>settings[k]!==undefined).map(k=>[k,settings[k]]));
+    const first=entries.get(`Metadata/plate_${file.plates[0]?.index}.gcode`);
+    if(first){const header=zipRead(buf,first).toString("utf8").slice(0,30000);for(const k of keys){if(relevant[k]!==undefined)continue;const line=header.match(new RegExp("^;\\s*"+k+"\\s*=\\s*(.+)$","m"));if(line)relevant[k]=line[1].trim();}}
+    return {settings:relevant,plates:file.plates};
   }
   // The slicer's preview picture of the file's first plate, if it has one.
   preview(id) {

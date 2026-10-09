@@ -59,7 +59,7 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await start.click();
   await expect(dialog).toHaveCount(0);
   expect(posts[0]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: true }]);
-  await page.getByRole('navigation').getByRole('button', { name: 'Orders', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'PlayCase', exact: true }).click();
   await row.getByRole('checkbox', { name: 'Classic faceplate printed' }).click();
   await expect.poll(() => posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);
   plan.forEach(g => { g.done = true; g.next = null; g.pieces.forEach(p => p.done = p.needed); });

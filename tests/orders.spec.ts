@@ -3,7 +3,7 @@ const openOrders = async (page: import("@playwright/test").Page) => {
   await page.goto("/");
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Orders", exact: true })
+    .getByRole("button", { name: "PlayCase", exact: true })
     .click();
 };
 test("order rows show contents, store status and a direct Pirate Ship action", async ({ page }) => {

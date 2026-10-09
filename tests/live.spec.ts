@@ -68,7 +68,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   releaseSync!();
   expect(saves).toBe(0);
   expect(await page.evaluate(()=>Object.keys(localStorage))).toEqual([]);
-  await page.getByRole('navigation').getByRole('button',{name:'Orders',exact:true}).click();
+  await page.getByRole('navigation').getByRole('button',{name:'PlayCase',exact:true}).click();
   await page.getByLabel('Filter orders').selectOption('Open orders');
   await expect(page.getByLabel('Printed & assembled, ready to pack')).toHaveCount(0);
   expect(saves).toBe(0);

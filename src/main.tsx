@@ -1,3 +1,4 @@
+import { PersonalLibrary } from "./PersonalLibrary";
 import { BedTraining } from "./BedTraining";
 import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
@@ -134,16 +135,18 @@ function useSaved<T>(key: string, initial: T, enabled = true) {
 const tabs = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Printers", icon: Printer },
-  { name: "Orders", icon: ShoppingBag },
-  { name: "Library", icon: Boxes },
+  { name: "PlayCase", icon: ShoppingBag },
+  { name: "Personal", icon: Boxes },
   { name: "Queue", icon: Layers3 },
   { name: "Filament", icon: Disc3 },
   { name: "Settings", icon: Settings },
 ];
 function tabFromPath() {
   const segment = window.location.pathname.split("/")[1] || "";
+  if(segment.toLowerCase() === "orders") return "Orders";
+  if(segment.toLowerCase() === "library") return "Library";
   const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
-  if (match) return match.name;
+  if (match) return match.name === "PlayCase" ? "Orders" : match.name;
   return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
 }
 function App() {
@@ -572,11 +575,12 @@ function App() {
         </a>
         <nav aria-label="Main navigation">
           {tabs.map((t) => (
+            <React.Fragment key={t.name}>
             <button
               key={t.name}
-              className={tab === t.name ? "nav-item selected" : "nav-item"}
+              className={(tab === t.name || (t.name === "PlayCase" && ["Orders","Library"].includes(tab))) ? "nav-item selected" : "nav-item"}
               onClick={() => {
-                setTab(t.name);
+                setTab(t.name === "PlayCase" ? "Orders" : t.name);
                 setSelected(null);
               }}
             >
@@ -584,6 +588,8 @@ function App() {
               <span>{t.name}</span>
               {t.name === "Queue" && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
             </button>
+            {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button></div>}
+            </React.Fragment>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -607,7 +613,7 @@ function App() {
         <div className="main-content">
           <div className="page-heading">
             <div>
-              <h1>{tab}</h1>
+              <h1>{["Orders","Library"].includes(tab) ? "PlayCase" : tab}</h1>
             </div>
             <div className="page-actions">
               {/* Pages put their own header controls here (Library's section tabs). */}
@@ -627,7 +633,7 @@ function App() {
                   <RefreshCw size={17} />
                 </button>
               )}
-              {!["Settings", "Orders", "Library"].includes(tab) && !(remote && tab === "Queue") && (
+              {!["Settings", "Orders", "Library", "Personal"].includes(tab) && !(remote && tab === "Queue") && (
                 <button
                   className="secondary"
                   onClick={() => {
@@ -715,6 +721,8 @@ function App() {
               {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
+          {["Orders","Library"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active" : ""}>Library</button></div>}
+          {tab === "Personal" && <PersonalLibrary notify={setNotice} />}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}
           {tab === "Orders" && (
             <Orders

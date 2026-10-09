@@ -2373,3 +2373,25 @@ footer .tiny-dot {
   .app {height:100dvh;min-height:0;}
   main {position:fixed;inset:0 0 calc(69px + env(safe-area-inset-bottom));margin-left:0;padding-bottom:0;overflow-y:auto;overscroll-behavior-y:contain;scroll-padding:16px;-webkit-overflow-scrolling:touch;}
 }
+.playcase-subnav {display:flex;flex-direction:column;margin:0 0 8px 28px;gap:2px;}
+.playcase-subnav button {justify-content:flex-start;padding:7px 12px;color:rgba(255,255,255,.8);font-size:12px;border-radius:8px;}
+.playcase-subnav button.selected {background:rgba(255,255,255,.14);color:#fff;}
+.playcase-sections {width:max-content;margin-bottom:16px;}
+.personal-library > .section-top {margin:16px 0;gap:12px;}
+.personal-library input[type="search"],.personal-library input:not([type="file"]),.personal-library textarea {border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;min-width:0;width:100%;}
+.personal-library > .section-top input {max-width:320px;}
+.personal-project-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.personal-project-card {display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:20px;background:#fff;border:1px solid var(--line);border-radius:14px;gap:8px;}
+.personal-project-card span,.personal-project-card p {font-size:12px;color:var(--muted);}
+.personal-file-list {list-style:none;padding:0;margin:16px 0;}
+.personal-file-list li {display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.personal-file-list li > div {flex:1;min-width:0;overflow-wrap:anywhere;}
+.personal-file-list small {display:block;color:var(--muted);margin-top:4px;}
+.print-metadata {margin:0;font-size:13px;}
+.print-metadata > div {display:grid;grid-template-columns:1fr 1fr;gap:12px;border-bottom:1px solid var(--line);padding:8px 0;}
+.print-metadata dt {text-transform:capitalize;color:var(--muted);}
+.print-metadata dd {margin:0;overflow-wrap:anywhere;}
+.sliced-metadata {font-size:12px;justify-content:flex-start;}
+.personal-library > .section-top {padding:0;}
+.personal-library .plate-assets-editor label {display:grid;gap:6px;font-size:13px;}
+.personal-library .plate-assets-editor textarea {min-height:100px;}

@@ -1,3 +1,4 @@
+import { Projects } from "./projects.mjs";
 import { splitPlates, inspect3mf } from "./library.mjs";
 import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
 import express from "express";
@@ -191,7 +192,7 @@ export function createApp({
     }),
   );
   const withReadiness = snapshot => {
-    const models=assets?.list() || [], assemblies=assets?.assemblies() || [], sliced=library?.list() || [];
+    const models=assets?.list() || [], assemblies=assets?.assemblies() || [], sliced=(library?.list() || []).filter(f=>f.scope!=="personal");
     const printed = orderPrints?.all() || {};
     const orders = snapshot.orders.map(o=>({...o,printReadiness:orderReadiness(o,models,assemblies,sliced),printPlan:orderPrintPlan(o,models,assemblies,sliced,printed[o.id])}));
     const queue = printQueue(orders, reservedPieces(watcher, orderPrints));
@@ -313,7 +314,15 @@ export function createApp({
   app.post("/api/material-offers", (req,res)=>{try{res.json(materials.addOffer(req.body));}catch(e){fail(res,e);}});
   app.patch("/api/material-offers", (req,res)=>{try{res.json(req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body));}catch(e){fail(res,e);}});
   app.delete("/api/material-offers/:id", (req,res)=>{try{res.json(materials.removeOffer(req.params.id));}catch(e){fail(res,e);}});
-  app.get("/api/library", (_req, res) => res.json((library?.list() || []).map(file => {
+  const projects=library ? new Projects(library) : null;
+  app.get("/api/projects", (_req,res)=>res.json(projects?.list()||[]));
+  app.post("/api/projects", (req,res)=>{try{res.json(projects.save(null,req.body?.name,req.body?.note));}catch(e){fail(res,e);}});
+  app.patch("/api/projects/:id", (req,res)=>{try{res.json(projects.save(req.params.id,req.body?.name,req.body?.note));}catch(e){fail(res,e);}});
+  app.delete("/api/projects/:id", (req,res)=>{try{projects.remove(req.params.id);res.json({ok:true});}catch(e){fail(res,e);}});
+  app.post("/api/projects/:id/files",express.raw({type:"application/octet-stream",limit:"95mb"}),(req,res)=>{try{res.json(projects.upload(req.params.id,decodeURIComponent(req.get("x-file-name")||""),req.body));}catch(e){fail(res,e);}});
+  app.get("/api/projects/:id/files/:file",(req,res)=>{try{const f=projects.file(req.params.id,req.params.file);res.download(f.path,f.name);}catch(e){fail(res,e);}});
+  app.delete("/api/projects/:id/files/:file",(req,res)=>{try{projects.removeFile(req.params.id,req.params.file);res.json({ok:true});}catch(e){fail(res,e);}});
+  app.get("/api/library", (req, res) => res.json((library?.list() || []).filter(f=>!req.query.scope || f.scope===req.query.scope).map(file => {
     const preference = defaultPrinter(file, assets?.list() || [], assets?.categories() || []);
     return {...file, ...preference, preferredPrinterName: printers?.snapshot().find(p=>p.id===preference.preferredPrinter)?.name || null};
   })));
@@ -325,12 +334,13 @@ export function createApp({
       if (!library) return res.status(503).json({ error: "Print library unavailable" });
       try {
         if (!Buffer.isBuffer(req.body) || !req.body.length) throw Error("Choose a sliced .3mf file");
-        res.json(library.add(decodeURIComponent(String(req.get("x-file-name") || "")), req.body));
+        res.json(library.add(decodeURIComponent(String(req.get("x-file-name") || "")), req.body, req.get("x-library-scope") || "playcase"));
       } catch (e) {
         fail(res, e);
       }
     },
   );
+  app.get("/api/library/:id/metadata", (req,res)=>{try{res.json(library.metadata(req.params.id));}catch(e){fail(res,e);}});
   app.get("/api/library/:id/preview.png", (req, res) => {
     try {
       const png = library?.preview(req.params.id);
@@ -500,7 +510,7 @@ export function createApp({
   const planFor = (orderId) => {
     const order = workspace?.snapshot().orders.find((o) => o.id === orderId);
     if (!order) throw Object.assign(Error("Unknown order"), { status: 404 });
-    return { order, plan: orderPrintPlan(order, assets?.list() || [], assets?.assemblies() || [], library?.list() || [], orderPrints?.all()[order.id]) };
+    return { order, plan: orderPrintPlan(order, assets?.list() || [], assets?.assemblies() || [], (library?.list() || []).filter(f=>f.scope!=="personal"), orderPrints?.all()[order.id]) };
   };
   app.post("/api/orders/:id/print", async (req, res) => {
     try {

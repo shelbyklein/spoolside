@@ -79,7 +79,7 @@ const dispatcher = new Dispatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.s
   bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS) : null,
   plans: () => {
     if (!workspace) return [];
-    const models = assets.list(), assemblies = assets.assemblies(), files = library.list(), printed = orderPrints.all();
+    const models = assets.list(), assemblies = assets.assemblies(), files = library.list().filter(f=>f.scope!=="personal"), printed = orderPrints.all();
     return workspace.snapshot().orders.map((order) => ({ order, plan: orderPrintPlan(order, models, assemblies, files, printed[order.id]) }));
   },
 });

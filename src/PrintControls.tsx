@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
-export type LibraryFile = { printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
+export type LibraryFile = { scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
@@ -18,12 +18,12 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function useLibrary() {
+export function useLibrary(scope?: "playcase" | "personal") {
   const [files, setFiles] = useState<LibraryFile[] | null>(null);
-  const refresh = () => api<LibraryFile[]>("/api/library").then(value => setFiles(Array.isArray(value) ? value : [])).catch(() => setFiles([]));
+  const refresh = () => api<LibraryFile[]>(scope ? `/api/library?scope=${scope}` : "/api/library").then(value => setFiles(Array.isArray(value) ? value : [])).catch(() => setFiles([]));
   useEffect(() => {
     refresh();
-  }, []);
+  }, [scope]);
   return { files, refresh };
 }
 
@@ -173,7 +173,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   );
 }
 
-export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf" }: { notify: (m: string) => void; onUploaded?: () => void; label?: string }) {
+export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", scope = "playcase" }: { notify: (m: string) => void; onUploaded?: () => void; label?: string; scope?: "playcase" | "personal" }) {
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const upload = async (list: FileList | null) => {
@@ -185,7 +185,7 @@ export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf" }:
       // Entries with a name already in the library replace it, keeping their linked assets.
       let added = 0, replaced = 0;
       for (const f of picked) {
-        const entries = await api<LibraryFile[]>("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(f.name) }, body: f });
+        const entries = await api<LibraryFile[]>("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(f.name), "X-Library-Scope": scope }, body: f });
         for (const e of Array.isArray(entries) ? entries : []) e.replaced ? replaced++ : added++;
       }
       const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -203,11 +203,12 @@ export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf" }:
   </>;
 }
 
-export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: string) => void; title?: string }) {
+export function PrintLibrary({ notify, title = "Print library", scope = "playcase", fileIds }: { notify: (m: string) => void; title?: string; scope?: "playcase" | "personal"; fileIds?: string[] }) {
   const [printing, setPrinting] = useState<LibraryFile | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
-  const { files, refresh } = useLibrary();
+  const { files: allFiles, refresh } = useLibrary(scope);
+  const files=allFiles?.filter(f=>!fileIds || fileIds.includes(f.id));
   const [query,setQuery]=useState(""), [printerFilter,setPrinterFilter]=useState(""), [typeFilter,setTypeFilter]=useState(""), [categoryFilter,setCategoryFilter]=useState(""), [materialFilter,setMaterialFilter]=useState("");
   const [categories,setCategories]=useState<Category[]>([]);
   useEffect(()=>{api<Category[]>("/api/categories").then(c=>setCategories(Array.isArray(c)?c:[])).catch(()=>{});},[]);
@@ -230,7 +231,7 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
     <section className="panel print-library" aria-label="Print library">
       <div className="section-top">
         <h2>{title}</h2>
-        <PrintUploadButton notify={notify} onUploaded={refresh} />
+        {!fileIds && <PrintUploadButton scope={scope} notify={notify} onUploaded={refresh} />}
       </div>
       {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files from Orca or Bambu Studio (File → Export → Export all sliced file). Each plate becomes its own print.</p></div>}
       {!!files?.length && <div className="sliced-filters" aria-label="Filter sliced prints">
@@ -248,7 +249,7 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
             <div className="sliced-thumb">
               <SlicedPreview file={f} />
               <PrintDetails file={f} onSaved={refresh} notify={notify} />
-              <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>
+              {!fileIds && <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>}
             </div>
             <div className="sliced-body">
               <strong title={f.name}>{f.name}</strong>
@@ -257,8 +258,9 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
               {f.preferredPrinterName && <small>{f.printerSource}: {f.preferredPrinterName}</small>}
+              <PrintMetadata file={f} />
               <button className="primary sliced-print" onClick={() => setPrinting(f)}><Play size={14} /> Print</button>
-              {f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
+              {scope !== "personal" && f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
             </div>
           </li>
         ))}
@@ -351,4 +353,11 @@ export function BedCheck({ machine }: { machine: Machine }) {
       </figcaption>
     </figure>
   );
+}
+
+
+function PrintMetadata({file}:{file:LibraryFile}) {
+ const [open,setOpen]=useState(false),[data,setData]=useState<Record<string,unknown>|null>(null),[error,setError]=useState("");
+ const show=()=>{setOpen(true);setError("");setData(null);api<{settings:Record<string,unknown>}>(`/api/library/${file.id}/metadata`).then(d=>setData(d.settings)).catch(e=>setError(e.message));};
+ return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><section className="plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Print settings for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Escape'&&setOpen(false)}><div className="section-top"><h3>{file.name}</h3><button className="text-button" onClick={()=>setOpen(false)}>Close</button></div><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></section></div>}</>;
 }
