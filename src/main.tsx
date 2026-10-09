@@ -1,3 +1,4 @@
+import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
@@ -145,6 +146,7 @@ function tabFromPath() {
   return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
 }
 function App() {
+  const appUpdates = useAppUpdates();
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const watch = useWatches(remote);
@@ -538,6 +540,7 @@ function App() {
   );
   return (
     <div className="app">
+      {appUpdates.available && <div className="app-update" role="status"><span>A new Spoolside version is ready.</span><RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} /></div>}
       <aside className="sidebar">
         {wideScreen && <WaterBackground />}
         <a className="brand" href="/" aria-label="Spoolside home">
@@ -738,6 +741,9 @@ function App() {
               </button>
               {remote && <NotificationSettings />}
               {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={(on) => dispatch.setAuto(on).then(() => setNotice(on ? "Automatic printing is on." : "Automatic printing is off.")).catch((e) => setNotice(e.message))} />}
+              <h2>App updates</h2>
+              <p>Checks for updates when you reopen the app. Refresh here to get the latest version now.</p>
+              <RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} />
               <h2>Install Spoolside</h2>
               <p>Safari → Share → Add to Home Screen.</p>
               {install && (
