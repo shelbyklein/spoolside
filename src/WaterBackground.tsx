@@ -69,6 +69,7 @@ export function WaterBackground({ className = "sidebar-water" }: { className?: s
       const i = (nextRipple++ % 8) * 4;
       ripples.set([x / rect.width, 1 - y / rect.height, elapsed, strength], i);
       lastRippleAt = elapsed; lastX = x; lastY = y;
+      surface.dispatchEvent(new CustomEvent("water-wave", { detail: { x: clientX, y: clientY, strength } }));
     };
     const spoolWave = (event: Event) => {
       const { x, y, strength } = (event as CustomEvent).detail;

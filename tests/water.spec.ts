@@ -66,3 +66,36 @@ test('dragging the spool hides app information, leaves waves and returns home on
  await expect.poll(()=>phoneSpool.evaluate(el=>getComputedStyle(el).transform)).toBe('matrix(1, 0, 0, 1, 0, 0)');
  expect(errors).toEqual([]);await context.close();
 });
+
+test('five printer pills clear the phone tabs and floating orders respond to waves while dragging',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:428,height:926},serviceWorkers:'block'});const page=await context.newPage();
+ const machines=['AMS 2','AMS 3','Conductive','Desk','Membrane'].map((name,i)=>({id:String(i),name,state:'Ready',rawState:'IDLE',job:'',progress:0,remaining:'',material:'',seen:new Date().toISOString(),stale:false,connected:true}));
+ const orders=[{id:'o1',number:'#123',placed:'Oct 8',commercial:'processing',items:[{id:'i1',name:'PlayCase',quantity:1,recipe:[],image:'/icon-192.png',parts:[],phone:'iPhone',colorway:'Red'}],shipped:false,tracking:'',note:''}];
+ await page.route('https://spoolside.shelbyklein.com/**',async route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname==='/api/workspace') return route.fulfill({json:{revision:1,orders,jobs:[],spools:[],machines,lastSync:new Date().toISOString(),syncError:null}});
+  if(url.pathname==='/api/watches') return route.fulfill({json:{watches:[],recent:[]}});
+  if(url.pathname==='/api/dispatch') return route.fulfill({json:{offers:[],held:[]}});
+  if(url.pathname.startsWith('/api/')) return route.fulfill({json:{}});
+  return route.fulfill({response:await route.fetch({url:'http://127.0.0.1:4173'+url.pathname+url.search})});
+ });
+ await page.goto('https://spoolside.shelbyklein.com/');await page.waitForTimeout(800);
+ // Emulate a 34px iPhone home-indicator inset in the computed layout.
+ await page.addStyleTag({content:'.sidebar{height:103px!important;padding-bottom:34px!important}.water-home{bottom:103px!important}'});
+ const pills=page.locator('.home-pills');const nav=(await page.locator('.sidebar').boundingBox())!;
+ expect((await pills.boundingBox())!.y+(await pills.boundingBox())!.height).toBeLessThan(nav.y-15);
+ await page.screenshot({path:'handoff/spoolside-home-spacing-mobile.png'});
+ const boat=page.locator('.pool-case-force');await expect(boat).toBeAttached();
+ await page.locator('.pool-case').evaluate(el=>{el.style.animation='none';el.style.left='150px';el.style.top='100px';});
+ const spool=page.locator('.water-home .floating-spool');const rect=(await spool.boundingBox())!;
+ await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);await page.mouse.down();
+ await page.mouse.move(rect.x+rect.width/2+20,rect.y+rect.height/2-100,{steps:12});
+ await expect(page.locator('.pool-cases')).toHaveCSS('opacity','1');
+ const b=(await boat.boundingBox())!;
+ // Mouse wave originates beside the case and propagates through the same event as spool waves.
+ await page.locator('.water-home').dispatchEvent('pointerdown',{clientX:b.x-8,clientY:b.y+b.height/2,pointerType:'mouse'});
+ await expect.poll(()=>boat.evaluate(el=>Math.abs(new DOMMatrix(getComputedStyle(el).transform).m41))).toBeGreaterThan(1);
+ await page.mouse.up();
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(boat).toHaveCSS('transform','none');
+ await context.close();
+});
