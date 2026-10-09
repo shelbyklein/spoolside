@@ -368,7 +368,7 @@ export function createApp({
   app.post("/api/watches/:id/library", async (req, res) => {
     try {
       const w = watcher?.row(req.params.id);
-      if (!w || !w.ended) return res.status(404).json({error: "Choose a finished print"});
+      if (!w) return res.status(404).json({error: "Choose a detected print"});
       if (!library || !printers) return res.sendStatus(503);
       const existing = library.forJob(w.printer, w.job, w.plate);
       if (existing) return res.json(existing);
@@ -389,6 +389,12 @@ export function createApp({
         library.linkJob(w.printer, w.job, w.plate, file.id);
         res.json(library.get(file.id));
       } finally { importingJobs.delete(key); }
+    } catch (e) { fail(res, e); }
+  });
+  app.post("/api/watches/:id/dismiss-import", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(watcher.dismissImport(req.params.id));
     } catch (e) { fail(res, e); }
   });
   app.post("/api/watches/:id/note", (req, res) => {

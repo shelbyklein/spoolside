@@ -14,14 +14,14 @@ const interval = (progress) => (progress < 15 ? 2 : 4) * MINUTE;
 // Watches every print: photos from the camera, a vision check against past successful prints of the same
 // job and the slicer's preview, a pause after two problem checks in a row, and an outcome question at the end.
 export class PrintWatcher {
-  constructor(dbFile, dir, { printers, notifications, vision = null, shrink, orderPrints = null, now = Date.now }) {
-    Object.assign(this, { dir, printers, notifications, vision, shrink, orderPrints, now });
+  constructor(dbFile, dir, { printers, notifications, vision = null, shrink, orderPrints = null, library = null, now = Date.now }) {
+    Object.assign(this, { dir, printers, notifications, vision, shrink, orderPrints, library, now });
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(dbFile);
     this.db.exec(`CREATE TABLE IF NOT EXISTS print_watches (id TEXT PRIMARY KEY, printer TEXT NOT NULL, printer_name TEXT NOT NULL, job TEXT NOT NULL, plate INTEGER NOT NULL, started INTEGER NOT NULL, ended INTEGER, ended_as TEXT, outcome TEXT, mode TEXT NOT NULL, bad INTEGER NOT NULL DEFAULT 0, alert TEXT, last_check TEXT, next_check INTEGER NOT NULL, plan INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS watch_frames (watch TEXT NOT NULL, file TEXT NOT NULL, at INTEGER NOT NULL, progress INTEGER NOT NULL, layer INTEGER, verdict TEXT, reason TEXT, PRIMARY KEY (watch, file));`);
     const columns = this.db.prepare("PRAGMA table_info(print_watches)").all().map((c) => c.name);
-    for (const [name, type] of [["note", "TEXT"], ["order_id", "TEXT"], ["order_number", "TEXT"], ["assets", "TEXT"], ["credited", "INTEGER NOT NULL DEFAULT 0"]])
+    for (const [name, type] of [["external", "INTEGER NOT NULL DEFAULT 0"], ["import_dismissed", "INTEGER NOT NULL DEFAULT 0"], ["note", "TEXT"], ["order_id", "TEXT"], ["order_number", "TEXT"], ["assets", "TEXT"], ["credited", "INTEGER NOT NULL DEFAULT 0"]])
       if (!columns.includes(name)) this.db.exec(`ALTER TABLE print_watches ADD COLUMN ${name} ${type}`);
     this.busy = new Set();
   }
@@ -82,6 +82,8 @@ export class PrintWatcher {
     const tag = this.orderPrints?.claim(serial);
     this.db.prepare("INSERT INTO print_watches (id, printer, printer_name, job, plate, started, mode, next_check, order_id, order_number, assets) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
       .run(id, serial, view.name, data.subtask_name, plate, this.now(), "pause", this.now() + MINUTE, tag?.orderId ?? null, tag?.orderNumber ?? null, tag ? JSON.stringify(tag.assetIds) : null);
+    const sent = this.printers.consumeStart?.(serial, data.subtask_name, plate);
+    this.set(id, { external: !tag && !sent ? 1 : 0 });
     try {
       const preview = (await this.printers.lastPrint(serial))?.previews?.[plate];
       if (preview) {
@@ -89,7 +91,18 @@ export class PrintWatcher {
         this.set(id, { plan: 1 });
       }
     } catch {}
-    return this.row(id);
+    const w = this.row(id);
+    if (w.external && this.library && !this.library.forJob(serial, w.job, plate)) {
+      this.notifications?.broadcast({ id: `watch:${id}:import`, title: `New print on ${view.name}`,
+        body: `Add ${w.job.replace(/(\.gcode)?\.3mf$/i, "")} to your sliced-print library?`, url: `/printers?import=${id}` });
+    }
+    return w;
+  }
+  dismissImport(id) {
+    const w = this.row(id);
+    if (!w) throw Error("Unknown print");
+    this.set(id, { import_dismissed: 1 });
+    return this.view(this.row(id));
   }
   async snap(watch, serial, view) {
     const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
@@ -213,7 +226,7 @@ export class PrintWatcher {
   view(w) {
     return {
       id: w.id, printer: w.printer, printerName: w.printer_name, job: w.job, started: w.started, ended: w.ended, endedAs: w.ended_as,
-      outcome: w.outcome, note: w.note || null, order: w.order_number || null, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
+      external: !!w.external, importDismissed: !!w.import_dismissed, outcome: w.outcome, note: w.note || null, order: w.order_number || null, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
     };
   }
   // Order pieces being printed or waiting for an answer ("orderId:assetId"), so they aren't offered twice.

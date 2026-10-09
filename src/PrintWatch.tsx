@@ -13,6 +13,8 @@ export type Watch = {
   outcome: "success" | "failed" | null;
   note?: string | null;
   inLibrary?: boolean;
+  external?: boolean;
+  importDismissed?: boolean;
   mode: "pause" | "warn";
   plan: boolean;
   check: Check | null;
@@ -98,11 +100,25 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
     card?.scrollIntoView({block:"center"});
     card?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
   }, [rating, watches]);
+  const importing = new URLSearchParams(window.location.search).get("import");
+  useEffect(() => {
+    if (importing) document.getElementById(`import-${importing}`)?.scrollIntoView({block:"center"});
+  }, [importing, watches]);
   const alerts = watches.filter((w) => !w.ended && w.alert);
   const asks = watches.filter((w) => w.ended && !w.outcome);
-  if (!alerts.length && !asks.length) return null;
+  const imports = watches.filter(w => w.external && w.inLibrary === false && !w.importDismissed);
+  if (!alerts.length && !asks.length && !imports.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
+      {imports.map(w => <article id={`import-${w.id}`} key={`import-${w.id}`} className="watch-card" aria-label={`Add ${jobName(w.job)} to library?`}>
+        <h3>Add this print to the library?</h3>
+        <p className="watch-job">{jobName(w.job)} · {w.printerName}</p>
+        <p>Started outside Spoolside. Save its sliced plate for printing again.</p>
+        <div className="watch-actions">
+          <button className="primary" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>
+          <button className="secondary" disabled={!!busy} onClick={() => act(w.id + "dismiss", () => post(`/api/watches/${w.id}/dismiss-import`), "Skipped this print.")}>Not now</button>
+        </div>
+      </article>)}
       {alerts.map((w) => (
         <article key={w.id} className="watch-card alert" aria-label={`${w.printerName} alert`}>
           <h3><AlertTriangle size={17} /> {w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}</h3>
@@ -125,7 +141,7 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
-          {w.inLibrary === false && <button className="text-button" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>}
+          {w.inLibrary === false && (!w.external || w.importDismissed) && <button className="text-button" disabled={!!busy} onClick={() => act(w.id + "library", () => post(`/api/watches/${w.id}/library`), "Added to Sliced prints with this printer as its default.")}><Plus size={15} /> {busy === w.id + "library" ? "Adding…" : "Add to library"}</button>}
           {noting === w.id ? (
             <FailureNote general initial={w.note || ""} label="Save note" busy={!!busy} onCancel={() => setNoting("")} onSave={(note) => act(w.id + "note", () => saveNote(w.id, note), "Note saved.").then(() => setNoting(""))} />
           ) : succeeding === w.id ? (

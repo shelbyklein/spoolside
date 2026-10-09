@@ -204,7 +204,7 @@ test('print details rename and store quantities, preserving them on reimport', (
 test('review import retrieves the exact job and plate once, preserves its printer and survives renaming', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-import-'));
   const library = new Library(':memory:', dir);
-  const watch = {id:'review', printer:'P1', job:'Orca membranes', plate:2, ended:123, outcome:null};
+  const watch = {id:'review', printer:'P1', job:'Orca membranes', plate:2, ended:null, outcome:null};
   const calls = [];
   const watcher = {row:id=>id==='review'?watch:null, list:()=>({watches:[{...watch}],recent:[]})};
   const printers = {snapshot:()=>[], downloadPrint:async (id,job)=>{calls.push([id,job]);return {name:'Orca membranes.gcode.3mf',buf:twoPlates()};}};

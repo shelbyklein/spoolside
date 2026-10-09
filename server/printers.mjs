@@ -286,8 +286,17 @@ export class Printers {
       this.busy.delete(serial);
     }
   }
-  sendProject(serial, { remoteName, name, plate, amsMapping, useAms, bedLevelling }) {
-    return this.request(serial, {
+  consumeStart(serial, job, plate) {
+    const sent = this.sentStarts?.get(serial);
+    if (!sent || sent.name !== job || sent.plate !== plate || Date.now()-sent.at > 120000) return false;
+    this.sentStarts.delete(serial);
+    return true;
+  }
+  async sendProject(serial, { remoteName, name, plate, amsMapping, useAms, bedLevelling }) {
+    this.sentStarts ??= new Map();
+    const sent = {name, plate, at:Date.now()};
+    this.sentStarts.set(serial,sent);
+    try { return await this.request(serial, {
       command: "project_file",
       param: `Metadata/plate_${plate}.gcode`,
       project_id: "0",
@@ -306,7 +315,8 @@ export class Printers {
       layer_inspect: false,
       use_ams: !!useAms,
       ams_mapping: useAms ? amsMapping : [],
-    }, 20000);
+    }, 20000); }
+    catch (e) { if (this.sentStarts.get(serial) === sent) this.sentStarts.delete(serial); throw e; }
   }
   // Opens the printer's camera (A1 series: JPEG frames over TLS on port 6000, pinned like MQTT)
   // and calls onFrame for each frame. Returns the socket; onEnd runs once when it closes or fails.

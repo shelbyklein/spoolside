@@ -64,6 +64,7 @@ const watcher = new PrintWatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.sq
   vision: process.env.ANTHROPIC_API_KEY ? claudeVision(process.env.ANTHROPIC_API_KEY) : null,
   shrink: shrinkFrame,
   orderPrints,
+  library,
 });
 const watchTimer = setInterval(() => watcher.tick(), 15000);
 const pruneTimer = setInterval(() => watcher.prune(), 24 * 60 * 60 * 1000);

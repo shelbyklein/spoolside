@@ -215,3 +215,31 @@ test("a print sent from an order credits its pieces when it comes out fine", asy
     s.done();
   }
 });
+
+test('external print prompts are stored once per run, can be dismissed, and exclude known and Spoolside prints',async()=>{
+ const s=setup();
+ try {
+  s.watcher.library={forJob:()=>null};
+  await s.later(0);
+  const first=s.watcher.active('P1');
+  assert.equal(s.watcher.view(first).external,true);
+  assert.equal(s.pushes.filter(p=>p.id.endsWith(':import')).length,1);
+  s.watcher.dismissImport(first.id);
+  await s.later(1000);
+  assert.equal(s.watcher.view(s.watcher.row(first.id)).importDismissed,true);
+  assert.equal(s.pushes.filter(p=>p.id.endsWith(':import')).length,1);
+  s.state.raw='FINISH';await s.later(1000);
+  s.state.raw='RUNNING';s.state.job='New membrane.gcode.3mf';await s.later(1000);
+  assert.equal(s.watcher.view(s.watcher.active('P1')).importDismissed,false);
+  assert.equal(s.pushes.filter(p=>p.id.endsWith(':import')).length,2);
+  s.state.raw='FINISH';await s.later(1000);
+  s.watcher.printers.consumeStart=()=>true;
+  s.state.raw='RUNNING';s.state.job='Sent from Spoolside';await s.later(1000);
+  assert.equal(s.watcher.view(s.watcher.active('P1')).external,false);
+  assert.equal(s.pushes.filter(p=>p.id.endsWith(':import')).length,2);
+  s.state.raw='FINISH';await s.later(1000);
+  s.watcher.printers.consumeStart=()=>false;s.watcher.library.forJob=()=>({id:'saved'});
+  s.state.raw='RUNNING';s.state.job='Known file';await s.later(1000);
+  assert.equal(s.pushes.filter(p=>p.id.endsWith(':import')).length,2);
+ } finally {s.done();}
+});

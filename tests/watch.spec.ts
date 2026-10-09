@@ -7,7 +7,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   const machine = { id: 'p1', name: 'Conductive', state: 'Paused', rawState: 'PAUSE', job: 'Touch Pin.gcode.3mf', progress: 40, remaining: '8 min', material: '', seen: new Date().toISOString(), stale: false, connected: true };
   const state = { revision: 1, orders: [], jobs: [], spools: [], machines: [machine], lastSync: new Date().toISOString(), syncError: null };
   let watches = [
-    { id: '11111111-1111-4111-8111-111111111111', printer: 'p1', printerName: 'Conductive', job: 'Touch Pin.gcode.3mf', started: now - 600000, ended: null, endedAs: null, outcome: null, mode: 'pause', plan: true,
+    { id: '11111111-1111-4111-8111-111111111111', printer: 'p1', printerName: 'Conductive', job: 'Touch Pin.gcode.3mf', external: true, inLibrary: false, importDismissed: false, started: now - 600000, ended: null, endedAs: null, outcome: null, mode: 'pause', plan: true,
       check: { at: now - 60000, verdict: 'problem', reason: 'Spaghetti around the part.', file: '2.jpg' }, alert: { at: now - 60000, reason: 'Spaghetti around the part.', file: '2.jpg', paused: true } },
     { id: '22222222-2222-4222-8222-222222222222', printer: 'p2', printerName: 'AMS 3', job: 'Bridge.gcode.3mf', inLibrary: false, started: now - 9000000, ended: now - 300000, endedAs: 'finished', outcome: null, mode: 'pause', plan: false,
       check: { at: now - 400000, verdict: 'ok', reason: 'Fine.', file: '1.jpg', final: '3.jpg' }, alert: null },
@@ -24,6 +24,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
     if (/^\/api\/watches\/[^/]+\/[^/]+\.jpg$/.test(url.pathname)) return route.fulfill({ contentType: 'image/png', body: pixel });
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
       posts.push(url.pathname + ' ' + (route.request().postData() || ''));
+      if (url.pathname.endsWith('/dismiss-import')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, importDismissed: true } : w);
       if (url.pathname.endsWith('/library')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, inLibrary: true } : w);
       if (url.pathname.endsWith('false-alarm')) watches = watches.map((w) => (w.printer === 'p1' ? { ...w, alert: null, mode: 'warn' } : w));
       if (url.pathname.endsWith('note')) {
@@ -44,6 +45,11 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await page.goto('https://spoolside.shelbyklein.com/');
   const home = page.getByRole('region', { name: 'Spoolside home' });
   const alert = home.getByRole('article', { name: 'Conductive alert' });
+  const importing=home.getByRole('article',{name:'Add Touch Pin to library?'});
+  await expect(importing).toContainText('Started outside Spoolside');
+  await importing.screenshot({path:'handoff/spoolside-external-import-prompt.png'});
+  await importing.getByRole('button',{name:'Not now'}).click();
+  await expect(importing).toHaveCount(0);
   await expect(alert).toContainText('Spoolside paused Conductive');
   await expect(alert).toContainText('Spaghetti around the part.');
   const ask = home.getByRole('article', { name: 'How did Bridge go?' });
