@@ -25,7 +25,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
       posts.push(url.pathname + ' ' + (route.request().postData() || ''));
       if (url.pathname.endsWith('/dismiss-import')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, importDismissed: true } : w);
-      if (url.pathname.endsWith('/library')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, inLibrary: true } : w);
+      if (url.pathname.endsWith('/library') || url.pathname.endsWith('/library?wait=0')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, inLibrary: true } : w);
       if (url.pathname.endsWith('false-alarm')) watches = watches.map((w) => (w.printer === 'p1' ? { ...w, alert: null, mode: 'warn' } : w));
       if (url.pathname.endsWith('note')) {
         const id = url.pathname.split('/')[3], body = route.request().postDataJSON();
@@ -56,6 +56,10 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(ask).toContainText('Finished on AMS 3');
   await ask.screenshot({path:'handoff/spoolside-review-add-library.png'});
   await ask.getByRole('button', {name:'Add to library'}).click();
+  const importDialog = page.getByRole('dialog', { name: 'Add Bridge to library' });
+  await expect(importDialog).toContainText('Added to Sliced prints, with AMS 3 as its printer.');
+  await importDialog.getByRole('button', { name: 'Done' }).click();
+  await expect(importDialog).toHaveCount(0);
   await expect(ask.getByRole('button', {name:'Add to library'})).toHaveCount(0);
   await expect(ask.getByRole('button', {name:'Came out fine'})).toBeVisible();
   await ask.screenshot({ path: 'handoff/spoolside-outcome-icons.png' });

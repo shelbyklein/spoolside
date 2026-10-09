@@ -365,6 +365,7 @@ export function createApp({
       const job = imports.get(importKey({ ...w, plate: row.plate }));
       w.importing = !!job && !job.error;
       w.importError = job?.error || null;
+      w.importProgress = job && !job.error ? job.progress : null;
     }
     res.set("Cache-Control", "no-store").json(data);
   });
@@ -383,8 +384,9 @@ export function createApp({
   // progress, and the card follows along through /api/watches (importing / importError).
   const imports = new Map(); // printer:job:plate -> { promise, error }
   const importKey = (w) => `${w.printer}:${w.job}:${w.plate}`;
-  const runImport = async (w) => {
-    const source = await printers.downloadPrint(w.printer, w.job);
+  const runImport = async (w, job) => {
+    const source = await printers.downloadPrint(w.printer, w.job, (p) => (job.progress = p));
+    job.progress = { stage: "saving", bytes: source.buf.length, total: source.buf.length };
     const split = splitPlates(source.buf);
     const selected = split?.find(p => p.index === w.plate);
     if (split && !selected || !inspect3mf(source.buf).plates.some(p => p.index === w.plate)) throw Error("The reviewed plate is missing from this file");
@@ -409,12 +411,12 @@ export function createApp({
       const key = importKey(w);
       let job = imports.get(key);
       if (!job || job.error) {
-        job = { error: null };
-        job.promise = runImport(w).then((file) => { imports.delete(key); return file; }, (e) => { job.error = e.message; throw e; });
+        job = { error: null, progress: { stage: "connecting", bytes: 0, total: 0 } };
+        job.promise = runImport(w, job).then((file) => { imports.delete(key); return file; }, (e) => { job.error = e.message; throw e; });
         job.promise.catch(() => {});
         imports.set(key, job);
       }
-      const waited = await Promise.race([job.promise, new Promise((r) => setTimeout(r, importWait, null))]);
+      const waited = await Promise.race([job.promise, new Promise((r) => setTimeout(r, Math.min(importWait, req.query.wait === "0" ? 0 : importWait), null))]);
       if (waited) return res.json(waited);
       res.status(202).json({ importing: true });
     } catch (e) { fail(res, e); }

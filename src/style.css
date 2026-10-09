@@ -2397,3 +2397,17 @@ footer .tiny-dot {
 .personal-library .plate-assets-editor textarea {min-height:100px;}
 .import-error { margin: 0; color: #a3341f; font-size: 13px; }
 .on-water .import-error { color: #ffd9d1; }
+/* Add to library: progress dialog. */
+.import-dialog { display: flex; flex-direction: column; gap: 10px; width: 420px; max-width: 100%; padding: 22px; border-radius: 18px; background: #fff; color: var(--navy); box-shadow: 0 24px 70px rgba(8, 32, 53, 0.3); text-align: left; }
+.import-dialog .section-top { padding: 0; }
+.import-dialog h3 { margin: 0; font-size: 17px; }
+.import-dialog p { margin: 0; }
+.import-dialog .watch-job { color: var(--muted); font-size: 13px; }
+.import-stage { color: var(--navy); font-weight: 600; }
+.import-bar { position: relative; height: 8px; overflow: hidden; border-radius: 8px; background: #e6eeec; }
+.import-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--teal); transition: width 0.4s ease; }
+.import-bar.indeterminate > span { width: 35%; animation: import-slide 1.2s ease-in-out infinite; }
+@keyframes import-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) { .import-bar.indeterminate > span { animation: none; width: 100%; opacity: 0.4; } }
+.import-done { display: flex; align-items: center; gap: 8px; color: #17655d; font-weight: 600; }
+.import-dialog .watch-actions a.primary { display: inline-flex; align-items: center; text-decoration: none; }

@@ -262,6 +262,7 @@ test('a slow or failing import keeps going in the background and reports progres
     const started=await add();
     assert.equal(started.status,202);
     assert.equal((await read()).importing,true);
+    assert.equal((await read()).importProgress.stage,'connecting');
     assert.equal((await add()).status,202,'a second tap joins the running import');
     assert.equal(calls,2);
     release();

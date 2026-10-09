@@ -12,7 +12,7 @@ import { PrinterCards } from "./PrinterCards";
 import { OrderPrintDialog, OfferCards, AutoPrintSetting, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
 import { SpoolList } from "./LoadedSpools";
-import { useWatches, WatchAttention, WatchStatus, RecentPrints } from "./PrintWatch";
+import { useWatches, WatchAttention, WatchStatus, RecentPrints, ImportDialogHost } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import React, { useEffect, useState, useRef } from "react";
@@ -964,6 +964,7 @@ function App() {
         <OrderPrintDialog order={printingOrder} group={printing.group} printer={printing.printer} machines={machines} notify={setNotice} onClose={() => setPrinting(null)} onSent={() => { live.retry(); dispatch.refresh(); }} />
       )}
       {training && <BedTraining printer={training} onClose={() => setTraining(null)} onSaved={() => {setTraining(null);dispatch.refresh();setNotice("Empty-bed reference saved. The camera will check again using your example.");}} />}
+      {remote && <ImportDialogHost watches={[...watch.watches, ...(watch.recent || [])]} refresh={watch.refresh} notify={setNotice} />}
       {notice && (
         <div role="status" className="toast">
           <Check size={18} />

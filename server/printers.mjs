@@ -209,8 +209,10 @@ export class Printers {
     }
   }
   // Read the reviewed job, rather than whichever job telemetry currently calls last.
-  async downloadPrint(serial, job) {
+  // onProgress({ stage, bytes, total }) reports connecting, then each chunk as it downloads.
+  async downloadPrint(serial, job, onProgress = () => {}) {
     const { config } = this.printer(serial);
+    onProgress({ stage: "connecting", bytes: 0, total: 0 });
     const ftp = await this.ftp(config);
     try {
       const entry = findLastFile(job, await ftp.list("/"));
@@ -218,8 +220,10 @@ export class Printers {
       if (entry.size > 95_000_000) throw Error("This file exceeds the 95 MB library limit");
       const chunks = [];
       let size = 0;
+      onProgress({ stage: "downloading", bytes: 0, total: entry.size });
       await ftp.downloadTo(new Writable({ write(chunk, _enc, done) {
         size += chunk.length;
+        onProgress({ stage: "downloading", bytes: size, total: entry.size });
         if (size > 95_000_000) return done(Error("This file exceeds the 95 MB library limit"));
         chunks.push(chunk); done();
       } }), "/" + entry.name);

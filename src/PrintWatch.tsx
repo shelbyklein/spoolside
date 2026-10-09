@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
@@ -17,6 +17,7 @@ export type Watch = {
   importDismissed?: boolean;
   importing?: boolean;
   importError?: string | null;
+  importProgress?: { stage: "connecting" | "downloading" | "saving"; bytes: number; total: number } | null;
   mode: "pause" | "warn";
   plan: boolean;
   check: Check | null;
@@ -54,34 +55,89 @@ async function post(url: string) {
   return body;
 }
 // Add a detected print's sliced file to the library. Reading it off a busy printer can take a while, so the
-// server keeps going in the background; the button shows that, then any error with a retry.
-function ImportButton({ watch, refresh, notify, primary = false }: { watch: Watch; refresh: () => void; notify: (m: string) => void; primary?: boolean }) {
-  const [sending, setSending] = useState(false);
-  const working = sending || !!watch.importing;
-  useEffect(() => {
-    if (!watch.importing) return;
-    const timer = window.setInterval(refresh, 4000);
-    return () => clearInterval(timer);
-  }, [watch.importing]);
-  const start = async () => {
-    setSending(true);
-    try {
-      const body = await post(`/api/watches/${watch.id}/library`);
-      notify(body?.importing ? "Saving from the printer. This can take a few minutes while it's printing." : "Added to Sliced prints with this printer as its default.");
-    } catch (e) {
-      notify((e as Error).message);
-    } finally {
-      setSending(false);
-      refresh();
-    }
-  };
+// server works in the background and one dialog (ImportDialogHost) follows along: connecting, downloading
+// with progress, saving. It lives outside the cards, which disappear once the print is saved.
+const kb = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
+type ImportState = { watch: Watch; open: boolean; startedAt: number; sending: boolean; error: string };
+let importState: ImportState | null = null;
+const importListeners = new Set<() => void>();
+const setImport = (next: ImportState | null) => { importState = next; importListeners.forEach((l) => l()); };
+const useImportState = () => useSyncExternalStore((l) => (importListeners.add(l), () => importListeners.delete(l)), () => importState);
+async function startImport(watch: Watch, refresh: () => void) {
+  if (watch.importing) return setImport({ watch, open: true, startedAt: Date.now(), sending: false, error: "" });
+  setImport({ watch, open: true, startedAt: Date.now(), sending: true, error: "" });
+  let error = "";
+  try {
+    await post(`/api/watches/${watch.id}/library?wait=0`);
+  } catch (e) {
+    error = (e as Error).message;
+  }
+  if (importState?.watch.id === watch.id) setImport({ ...importState, sending: false, error });
+  refresh();
+}
+function ImportButton({ watch, refresh, primary = false }: { watch: Watch; refresh: () => void; notify?: (m: string) => void; primary?: boolean }) {
+  const state = useImportState();
+  const mine = state?.watch.id === watch.id;
+  const working = !!watch.importing || (mine && state!.sending);
   return (
-    <>
-      <button className={primary ? "primary" : "text-button"} disabled={working} onClick={start}>
-        <Plus size={15} /> {working ? "Saving from printer…" : watch.importError ? "Try again" : "Add to library"}
-      </button>
-      {watch.importError && !working && <p className="import-error">Couldn't add it: {watch.importError}</p>}
-    </>
+    <button className={primary ? "primary" : "text-button"} onClick={() => startImport(watch, refresh)}>
+      <Plus size={15} /> {working ? "Saving from printer…" : watch.importError ? "Try again" : "Add to library"}
+    </button>
+  );
+}
+export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void }) {
+  const state = useImportState();
+  const live = state && watches.find((w) => w.id === state.watch.id);
+  const watch = live || state?.watch;
+  // Just after a tap the server may not have reported the import yet; treat it as running for a moment.
+  const working = !!state && (state.sending || !!live?.importing || (Date.now() - state.startedAt < 4000 && !live?.inLibrary && !state.error));
+  useEffect(() => {
+    if (!working) return;
+    const timer = window.setInterval(refresh, state?.open ? 1200 : 4000);
+    return () => clearInterval(timer);
+  }, [working, state?.open]);
+  if (!state?.open || !watch) return null;
+  const close = () => setImport({ ...state, open: false });
+  const p = live?.importProgress, error = state.error || live?.importError;
+  const done = !working && !!live?.inLibrary;
+  const pct = p?.total ? Math.min(100, Math.round((p.bytes / p.total) * 100)) : null;
+  const stage = !p || p.stage === "connecting" ? "Connecting to the printer…" : p.stage === "downloading" ? "Copying the sliced file from the printer" : "Saving to your library…";
+  return (
+    <div className="modal-backdrop" onClick={close}>
+      <div className="modal import-dialog" role="dialog" aria-modal="true" aria-label={`Add ${jobName(watch.job)} to library`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && close()}>
+        <div className="section-top">
+          <h3>Add to library</h3>
+          <button className="icon-button" aria-label="Close" onClick={close}><X size={18} /></button>
+        </div>
+        <p className="watch-job">{jobName(watch.job)} · {watch.printerName}</p>
+        {done ? (
+          <>
+            <p className="import-done"><Check size={18} /> Added to Sliced prints, with {watch.printerName} as its printer.</p>
+            <div className="watch-actions">
+              <a className="primary" href="/library/sliced">Open Sliced prints</a>
+              <button className="text-button" onClick={() => { setImport(null); notify("Added to Sliced prints."); }}>Done</button>
+            </div>
+          </>
+        ) : error && !working ? (
+          <>
+            <p className="import-error">Couldn't add it: {error}</p>
+            <div className="watch-actions">
+              <button className="primary" onClick={() => startImport(watch, refresh)}><Plus size={15} /> Try again</button>
+              <button className="text-button" onClick={() => setImport(null)}>Close</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="import-stage">{stage}</p>
+            <div className={`import-bar${pct === null ? " indeterminate" : ""}`} role="progressbar" aria-label="Import progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? undefined}>
+              <span style={pct === null ? undefined : { width: `${pct}%` }} />
+            </div>
+            <p className="plate-meta">{p?.stage === "downloading" && p.total ? `${kb(p.bytes)} of ${kb(p.total)} · ${pct}%` : "This can take a few minutes while the printer is busy."}</p>
+            <p className="plate-meta">You can close this; the save keeps going.</p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 const ago = (at: number) => {
