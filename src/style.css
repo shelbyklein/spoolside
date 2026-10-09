@@ -2331,3 +2331,31 @@ footer .tiny-dot {
 @media (max-width: 760px) { .order-status-pills { margin-left: 46px; } }
 .printer-available { white-space: nowrap; }
 .overview-split .order-status-pills { margin-left: 0; }
+
+.overview-upload-shortcuts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.overview-upload-shortcuts .upload-button { cursor: pointer; }
+.home-tools { margin-top: auto; display: flex; justify-content: center; }
+.home-tools + .home-pills { margin-top: 0; }
+.home-tools .secondary { color: #fff; border-color: rgba(255,255,255,.3); background: rgba(2,36,46,.42); font-size: 12px; min-height: 36px; padding: 0 12px; }
+
+.assembly-part-list { list-style: none; padding: 0; margin: 6px 0; }
+.assembly-part-list li + li { border-top: 1px solid var(--line); }
+.assembly-part-list button { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 34px; padding: 5px 0; border: 0; background: transparent; text-align: left; font-size: 12px; color: var(--navy); }
+.assembly-part-list button:hover { color: var(--teal); }
+.assembly-part-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.assembly-part-swatch { flex: 0 0 7px; height: 7px; border: 1px solid rgba(16,45,68,.2); border-radius: 50%; }
+.assembly-part-list small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.assembly-part-file { display: inline-flex; flex-shrink: 0; }
+.assembly-part-file.available { color: #176440; }
+.assembly-part-file.missing { color: #9a3b20; }
+
+.bed-training { width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 20px; background: var(--surface, #fff); color: var(--ink, #172b36); border-radius: 18px; box-shadow: 0 16px 60px #0005; }
+.bed-training h2 {font-size:18px;margin:0;}
+.bed-training p {font-size:13px;line-height:1.5;}
+.bed-reference-photo {display:block;width:100%;border-radius:10px;}
+.bed-training .check-row {margin:14px 0;font-size:13px;}
+.bed-reference-note {display:grid;gap:6px;font-size:13px;margin:14px 0;}
+.bed-reference-note textarea {width:100%;min-height:72px;padding:10px;border:1px solid #cbd5db;border-radius:8px;font:inherit;resize:vertical;}
+.held-note .text-button {margin-left:8px;}
+.bed-training .section-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.bed-training .section-heading .icon-button {flex-shrink:0;}

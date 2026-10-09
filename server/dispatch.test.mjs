@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { Dispatcher } from "./dispatch.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 
-function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true } = {}) {
-  let t = 1_000_000_000;
-  const started = [], pushes = [], checks = [];
+function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true, dbFile = ":memory:" } = {}) {
+  let t = Date.UTC(2026,9,8,16);
+  const started = [], pushes = [], checks = [], references = [];
   const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
   const printers = {
     busy: new Set(),
@@ -20,15 +20,15 @@ function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended:
   const orders = [order(10181, "Red"), order(10177, "Red"), order(10170, "Blue")];
   const orderPrints = new OrderPrints(":memory:", () => t);
   const watcher = { inFlight: () => new Set(), lastFor: () => last };
-  const d = new Dispatcher(":memory:", {
+  const d = new Dispatcher(dbFile, {
     printers, library, orderPrints, watcher,
     plans: () => orders.map((o) => ({ order: o, plan })),
     notifications: { broadcast: (e) => pushes.push(e) },
-    bedCheck: vision ? async (jpeg, kind) => (checks.push(kind), bed) : null,
+    bedCheck: vision ? async (jpeg, kind, reference) => (checks.push(kind), references.push(reference), bed) : null,
     shrink: async (jpeg) => ({ jpeg, brightness: 100 }),
     now: () => t,
   });
-  return { d, view, started, pushes, checks, orders, orderPrints, later: (ms) => (t += ms), done: () => { d.close(); orderPrints.close(); } };
+  return { d, view, started, pushes, checks, references, orders, orderPrints, later: (ms) => (t += ms), done: () => { d.close(); orderPrints.close(); } };
 }
 
 test("a free printer is offered the oldest order it can print in TPU for AMS close to the colorway", async () => {
@@ -156,4 +156,69 @@ test("the bed is checked by camera before offering: empty holds until the next p
   } finally {
     clear.done();
   }
+});
+
+
+test("print-opportunity notifications wait for 9am New York time and stop at 11pm", async () => {
+  const morning = setup();
+  try {
+    morning.later(-4*3600000); // 8am EDT
+    await morning.d.tick();assert.equal(morning.d.view().offers.length,1);assert.equal(morning.pushes.length,0);
+    morning.later(3600000); // 9am EDT, same still-available offer
+    await morning.d.tick();assert.equal(morning.pushes.length,1);
+    await morning.d.tick();assert.equal(morning.pushes.length,1,"no repeated notifications for one opportunity");
+  } finally {morning.done();}
+  const night=setup();
+  try {night.later(11*3600000);await night.d.tick();assert.equal(night.pushes.length,0,"11pm is quiet time");}
+  finally {night.done();}
+});
+
+
+test("empty-bed teaching uses an exact fresh confirmed photo without bypassing vision", async()=>{
+ const s=setup({bed:{empty:false,reason:"Fixture mistaken for part"}});
+ try {
+  await s.d.tick();const capture=await s.d.captureReference("P1");
+  assert.throws(()=>s.d.teachReference("P1",capture.id,false,"fixture"),/Confirm/);
+  assert.equal(s.d.reference("P1"),null);
+  assert.deepEqual(s.d.referencePhoto("P1",capture.id).jpeg,Buffer.from("jpg"));
+  s.d.teachReference("P1",capture.id,true," White circle is a fixture ");
+  assert.equal(s.d.reference("P1").note,"White circle is a fixture");
+  assert.equal(s.d.reference("other"),null);
+  assert.equal(s.d.beds.has("P1"),false);
+  await s.d.tick();assert.equal(s.references.at(-1).note,"White circle is a fixture");
+  assert.equal(s.d.view().offers.length,0,"reference never forces clear");assert.equal(s.started.length,0);
+  const expired=await s.d.captureReference("P1");s.later(300001);
+  assert.throws(()=>s.d.teachReference("P1",expired.id,true,""),/expired/);
+  const changed=await s.d.captureReference("P1");s.view.rawState="RUNNING";
+  assert.throws(()=>s.d.teachReference("P1",changed.id,true,""),/idle/);
+  await assert.rejects(()=>s.d.captureReference("P1"),/idle/);
+ }finally{s.done();}
+ const dark=setup();try{dark.d.shrink=async jpeg=>({jpeg,brightness:5});await assert.rejects(()=>dark.d.captureReference("P1"),/dark/);}finally{dark.done();}
+});
+test("automatic final check also receives the printer reference",async()=>{
+ const s=setup();try{const c=await s.d.captureReference("P1");s.d.teachReference("P1",c.id,true,"fixture");s.d.setAuto(true);await s.d.tick();assert.deepEqual(s.checks,["routine","confirm"]);assert.ok(s.references.every(r=>r.note==="fixture"));}finally{s.done();}
+});
+
+test('vision compares separately labeled reference and current photos',async()=>{
+ const {claudeBedCheck}=await import('./dispatch.mjs');let request;
+ const check=claudeBedCheck('test',{routine:'routine',confirm:'confirm'},async(_url,options)=>{request=JSON.parse(options.body);return Response.json({content:[{type:'tool_use',input:{empty:true,reason:'Clear'}}]});});
+ await check(Buffer.from('current'),'routine',{jpeg:Buffer.from('reference'),note:'fixed circle'});
+ const content=request.messages[0].content;assert.match(content[0].text,/user confirmed.*fixed circle/);assert.equal(content[1].source.data,Buffer.from('reference').toString('base64'));assert.match(content[2].text,/Current camera/);assert.equal(content[3].source.data,Buffer.from('current').toString('base64'));
+ assert.match(request.system,/Do not ignore new objects/);
+});
+
+test("printer references survive restart",async()=>{
+ const {mkdtempSync,rmSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'spoolside-bed-')),dbFile=join(dir,'reference.sqlite');
+ try{const first=setup({dbFile});const c=await first.d.captureReference("P1");first.d.teachReference("P1",c.id,true,"fixture");first.done();
+ const reopened=setup({dbFile});try{assert.equal(reopened.d.reference("P1").note,"fixture");assert.deepEqual(reopened.d.reference("P1").jpeg,Buffer.from("jpg"));}finally{reopened.done();}}
+ finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('a reference saved during a camera check invalidates the old in-flight verdict',async()=>{
+ const s=setup();let release;const waiting=new Promise(r=>release=r);let calls=0;
+ try{s.d.bedCheck=async(_jpeg,_kind,ref)=>{calls++;if(calls===1)await waiting;return {empty:!!ref,reason:'checked'};};
+ const checking=s.d.lookAtBed('P1',null);await new Promise(r=>setImmediate(r));const c=await s.d.captureReference('P1');s.d.teachReference('P1',c.id,true,'fixture');release();
+ assert.equal((await checking).empty,true);assert.equal(calls,2);
+ }finally{s.done();}
 });

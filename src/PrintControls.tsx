@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus } from "lucide-react";
 import type { Asset } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
@@ -173,11 +173,8 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   );
 }
 
-export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: string) => void; title?: string }) {
-  const [printing, setPrinting] = useState<LibraryFile | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
-  const { files, refresh } = useLibrary();
+export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf" }: { notify: (m: string) => void; onUploaded?: () => void; label?: string }) {
+  const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const upload = async (list: FileList | null) => {
     const picked = Array.from(list || []);
@@ -197,9 +194,20 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
       notify((e as Error).message);
     } finally {
       setUploading(false);
-      refresh();
+      onUploaded?.();
     }
   };
+  return <>
+    <button className="secondary upload-button" disabled={uploading} onClick={() => input.current?.click()}><Upload size={16} /> {uploading ? "Uploading…" : label}</button>
+    <input ref={input} aria-label={label} type="file" accept=".3mf" multiple hidden disabled={uploading} onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+  </>;
+}
+
+export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: string) => void; title?: string }) {
+  const [printing, setPrinting] = useState<LibraryFile | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
+  const { files, refresh } = useLibrary();
   const remove = async (f: LibraryFile) => {
     if (!window.confirm(`Remove ${f.name} from the library?`)) return;
     await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message));
@@ -209,10 +217,7 @@ export function PrintLibrary({ notify, title = "Print library" }: { notify: (m: 
     <section className="panel print-library" aria-label="Print library">
       <div className="section-top">
         <h2>{title}</h2>
-        <label className="secondary upload-button">
-          <Upload size={16} /> {uploading ? "Uploading…" : "Upload .3mf"}
-          <input type="file" accept=".3mf" multiple hidden disabled={uploading} onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
-        </label>
+        <PrintUploadButton notify={notify} onUploaded={refresh} />
       </div>
       {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files from Orca or Bambu Studio (File → Export → Export all sliced file). Each plate becomes its own print.</p></div>}
       <ul className="sliced-grid">

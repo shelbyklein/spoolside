@@ -94,12 +94,13 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
 
 // The phone home screen: the spool floating on the pool, with printers and orders at a glance as pills.
 // Tap a printer for its details, or a card to open that page.
-export function WaterHome({ attention, machines, orders, loading, bedsToClear = [], openPrinter, openOrder, go }: {
+export function WaterHome({ attention, tools, machines, orders, loading, bedsToClear = [], openPrinter, openOrder, go }: {
   bedsToClear?: string[];
   machines: Machine[];
   orders: Order[];
   loading: boolean;
   attention?: React.ReactNode;
+  tools?: React.ReactNode;
   openPrinter: (id: string) => void;
   openOrder: (id: string) => void;
   go: (tab: string) => void;
@@ -114,6 +115,7 @@ export function WaterHome({ attention, machines, orders, loading, bedsToClear = 
           <FloatingSpool />
         </header>
         {attention}
+        {tools && <div className="home-tools">{tools}</div>}
         <div className="home-pills">
           {machines.map((m) => {
             const needsClear = bedsToClear.includes(m.id);

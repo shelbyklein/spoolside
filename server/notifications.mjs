@@ -70,6 +70,10 @@ export class Notifications {
       this.db.prepare('DELETE FROM push_deliveries WHERE created<? OR attempts>=8').run(this.now()-48*3600000);
       const rows=this.db.prepare('SELECT d.*,s.subscription FROM push_deliveries d JOIN push_subscriptions s ON s.id=d.device WHERE due<=? LIMIT 30').all(this.now());
       for(const row of rows) {
+        if (JSON.parse(row.payload).kind === 'printOpportunity') {
+          const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(this.now()));
+          if(hour<9 || hour>=23) continue;
+        }
         try {await this.send(JSON.parse(row.subscription),row.payload);this.db.prepare('DELETE FROM push_deliveries WHERE event=? AND device=?').run(row.event,row.device);}
         catch(e) {
           if([404,410].includes(e.statusCode))this.remove(row.device);

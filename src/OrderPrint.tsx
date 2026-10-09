@@ -189,13 +189,13 @@ export function useDispatch(enabled: boolean) {
 }
 
 // "AMS 3 is free: print the iPhone 12 Case for #10177?"
-export function OfferCards({ offers, held = [], onPrint, onDismiss, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; water?: boolean }) {
+export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; water?: boolean }) {
   if (!offers.length && !held.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
       {held.map((h) => (
         <p key={h.printer} className="held-note">
-          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes.
+          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes. {onTeach && <button className="text-button" onClick={() => onTeach(h.printer,h.printerName)}>Teach bed check</button>}
         </p>
       ))}
       {offers.map((o) => (

@@ -84,3 +84,11 @@ test('print-finished preferences route ratings and clear disabled pending alerts
  service.broadcast({id:'done:3',title:'Print finished',body:'Rate it',url:'/printers',kind:'printFinished'});
  await service.drain();assert.equal(sent.length,1);assert.equal(service.device(device.id).preferences.printFinished,false);db.close();
 });
+
+test('queued print opportunities respect quiet hours without silencing completion alerts',async()=>{
+ const db=new DatabaseSync(':memory:');let now=Date.UTC(2026,9,9,3);const sent=[];
+ const n=new Notifications(db,{vapid,now:()=>now,send:async(_s,p)=>sent.push(JSON.parse(p))});n.register(sub,{newOrders:false,changes:false,printFinished:true});
+ n.broadcast({id:'offer:1',title:'Free',kind:'printOpportunity'});n.broadcast({id:'done:1',title:'Done',kind:'printFinished'});
+ await n.drain();assert.deepEqual(sent.map(s=>s.kind),['printFinished']);
+ now=Date.UTC(2026,9,9,13);await n.drain();assert.equal(sent.at(-1).kind,'printOpportunity');db.close();
+});

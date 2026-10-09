@@ -538,6 +538,15 @@ export function createApp({
   });
   // Free printers offered the next order piece, and the automatic printing toggle.
   app.get("/api/dispatch", (_req, res) => res.set("Cache-Control", "no-store").json(dispatcher ? dispatcher.view() : { auto: false, vision: false, offers: [] }));
+  app.post("/api/dispatch/:printer/reference/capture", async (req,res) => {
+    try {if(!dispatcher)return res.sendStatus(503);res.json(await dispatcher.captureReference(req.params.printer));}catch(e){fail(res,e);}
+  });
+  app.get("/api/dispatch/:printer/reference/:capture/photo.jpg", (req,res) => {
+    try {if(!dispatcher)return res.sendStatus(503);res.set("Cache-Control","no-store").type("jpeg").send(dispatcher.referencePhoto(req.params.printer,req.params.capture).jpeg);}catch(e){fail(res,e);}
+  });
+  app.post("/api/dispatch/:printer/reference", (req,res) => {
+    try {if(!dispatcher)return res.sendStatus(503);const result=dispatcher.teachReference(req.params.printer,req.body?.capture,req.body?.clear,req.body?.note);res.json(result);void dispatcher.tick().catch(()=>{});}catch(e){fail(res,e);}
+  });
   app.post("/api/dispatch/auto", (req, res) => {
     try {
       if (!dispatcher) return res.sendStatus(503);

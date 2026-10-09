@@ -1,3 +1,4 @@
+import { FileCheck2, FileX2 } from 'lucide-react';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
@@ -209,7 +210,7 @@ function AssemblyGrid({items,search,assets,arranging,onReorder,onOpenAssembly,on
     <button className="secondary" aria-label={`Move ${a.name} later`} disabled={i===ids.length-1} onClick={()=>move(a.id,i+1)}>→</button>
    </div>:<details className="tile-parts">
     <summary>Parts <span>{a.components.reduce((n,c)=>n+c.quantity,0)}</span></summary>
-    <div className="part-chips-list">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);return <button key={c.assetId} className="part-chip" style={chipStyle(asset?.categoryColor)} disabled={!asset} onClick={()=>onOpenAsset(c.assetId)}>{asset?.name || 'Missing asset'}{c.quantity>1?` × ${c.quantity}`:''}</button>;})}</div>
+    <ul className="assembly-part-list">{a.components.map(c=>{const asset=assets.find(x=>x.id===c.assetId);const available=!!asset?.hasStl;return <li key={c.assetId}><button disabled={!asset} onClick={()=>onOpenAsset(c.assetId)} title={available ? 'STL available to slice' : 'STL missing — upload a file to slice this part'}><span className="assembly-part-swatch" style={{background:c.color || asset?.categoryColor || DEFAULT_PART_COLOR}} /><span className="assembly-part-name">{asset?.name || 'Missing asset'}</span>{c.quantity>1&&<small>×{c.quantity}</small>}<span className={`assembly-part-file ${available?'available':'missing'}`} aria-label={available?'STL available to slice':'STL missing'}>{available?<FileCheck2 size={15}/>:<FileX2 size={15}/>}</span></button></li>;})}</ul>
     <button className="text-button" onClick={()=>onEdit(a)}>Edit assembly</button>
    </details>}
   </section>;})}</div>;

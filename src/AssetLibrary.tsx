@@ -288,6 +288,22 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
 
 const STYLES = ["Handheld", "DS", "Classic", "3DS", "N64", "MAME", "Keyboard"];
 // Adds a new library item from an STL, with an optional matching design file.
+export function AssetUploadButton({notify, onUploaded}: {notify: (message: string) => void; onUploaded?: () => void}) {
+  const [open, setOpen] = useState(false), [categories, setCategories] = useState<Category[]>([]), [loading, setLoading] = useState(false);
+  const show = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/categories");
+      if (!r.ok) throw Error("Could not load asset categories. Try again.");
+      const list = await r.json(); setCategories(Array.isArray(list) ? list : []); setOpen(true);
+    } catch (e) { notify((e as Error).message); } finally { setLoading(false); }
+  };
+  return <>
+    <button className="secondary" disabled={loading} onClick={show}><Upload size={16} /> {loading ? "Loading…" : "Upload asset"}</button>
+    {open && createPortal(<UploadDialog categories={categories} onClose={() => setOpen(false)} notify={notify} onAdded={() => {setOpen(false);onUploaded?.();}} />, document.body)}
+  </>;
+}
+
 function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Category[]; onClose: () => void; onAdded: (a: Asset) => void; notify: (m: string) => void }) {
   const [stl, setStl] = useState<File | null>(null),
     [design, setDesign] = useState<File | null>(null),

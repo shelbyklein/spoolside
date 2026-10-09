@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 // Store colorway names to the color looked for among loaded spools (matches the app's print dialog).
@@ -23,6 +24,10 @@ export class Dispatcher {
     Object.assign(this, { printers, plans, library, orderPrints, watcher, notifications, bedCheck, shrink, now });
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS dispatch_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS bed_references (printer TEXT PRIMARY KEY, jpeg BLOB NOT NULL, note TEXT NOT NULL, confirmed INTEGER NOT NULL)");
+    this.referenceCaptures = new Map();
+    this.referenceRevisions = new Map();
+    this.prompted = new Map();
     this.offers = new Map(); // printer -> offer
     this.snoozed = new Map(); // printer -> { offerId, until }
     this.tried = new Map(); // offerId -> { at, reason }
@@ -91,7 +96,7 @@ export class Dispatcher {
           if (!bed.empty) { this.held.set(serial, { printer: serial, printerName: view.name, reason: bed.reason }); offer = null; }
           else this.held.delete(serial);
         } else this.held.delete(serial);
-        if (!offer) { this.offers.delete(serial); if (!free) this.snoozed.delete(serial); continue; }
+        if (!offer) { this.prompted.delete(serial); this.offers.delete(serial); if (!free) this.snoozed.delete(serial); continue; }
         taken.add(`${offer.orderId}:${offer.assetId}`);
         const prior = this.offers.get(serial);
         const fresh = prior?.id !== offer.id;
@@ -99,8 +104,11 @@ export class Dispatcher {
         const snooze = this.snoozed.get(serial);
         if (snooze && (snooze.offerId !== offer.id || this.now() > snooze.until)) this.snoozed.delete(serial);
         if (this.auto && !this.snoozed.has(serial) && (await this.tryAuto(serial, this.offers.get(serial)))) continue;
-        if (fresh && !this.snoozed.has(serial))
-          this.notifications?.broadcast({ id: `offer:${offer.id}`, title: `${offer.printerName} is free`, body: `Print the ${offer.pieceName} for ${offer.orderNumber} (${offer.colorway})?`, url: "/" });
+        const hour = Number(new Intl.DateTimeFormat("en-US", {timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(this.now()));
+        if (hour >= 9 && hour < 23 && this.prompted.get(serial) !== offer.id && !this.snoozed.has(serial)) {
+          this.notifications?.broadcast({ id: `offer:${offer.id}`, kind:"printOpportunity", title: `${offer.printerName} is free`, body: `Print the ${offer.pieceName} for ${offer.orderNumber} (${offer.colorway})?`, url: "/" });
+          this.prompted.set(serial, offer.id);
+        }
       }
     } catch (e) {
       console.error("Dispatcher:", e.message);
@@ -108,18 +116,55 @@ export class Dispatcher {
       this.busy = false;
     }
   }
+  reference(serial) {
+    const r = this.db.prepare("SELECT jpeg,note FROM bed_references WHERE printer=?").get(serial);
+    return r ? {jpeg:Buffer.from(r.jpeg),note:r.note} : null;
+  }
+  idleForReference(serial) {
+    const status = this.printers.statuses().find(p=>p.serial===serial);
+    if (!status?.view.connected || status.view.stale || !IDLE.includes(status.view.rawState) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) throw Error("The printer must be idle and connected to teach its empty bed");
+    return this.watcher.lastFor(serial)?.id || "none";
+  }
+  async captureReference(serial) {
+    const job = this.idleForReference(serial);
+    const {jpeg,brightness} = await this.shrink(await this.printers.cameraFrame(serial));
+    if (brightness < 18) throw Error("The photo is too dark. Light the bed and try again.");
+    if (this.idleForReference(serial) !== job) throw Error("The printer changed while taking the photo. Try again.");
+    const capture={id:randomUUID(),jpeg,job,at:this.now()};
+    this.referenceCaptures.set(serial,capture);
+    return {id:capture.id,at:capture.at};
+  }
+  referencePhoto(serial,id) {
+    const c=this.referenceCaptures.get(serial);
+    if (!c || c.id!==id || this.now()-c.at>5*60000) throw Error("This photo expired. Take a fresh photo.");
+    return c;
+  }
+  teachReference(serial,id,clear,note) {
+    if (clear !== true) throw Error("Confirm that the photographed bed is completely clear");
+    const capture=this.referencePhoto(serial,id);
+    if (this.idleForReference(serial)!==capture.job) throw Error("The printer changed since this photo. Take another photo.");
+    const text=typeof note === "string" ? note.trim().slice(0,300) : "";
+    this.db.prepare("INSERT INTO bed_references VALUES (?,?,?,?) ON CONFLICT(printer) DO UPDATE SET jpeg=excluded.jpeg,note=excluded.note,confirmed=excluded.confirmed").run(serial,capture.jpeg,text,this.now());
+    this.referenceCaptures.delete(serial);
+    this.beds.delete(serial);
+    this.referenceRevisions.set(serial,(this.referenceRevisions.get(serial)||0)+1);
+    const offer=this.offers.get(serial);if(offer)this.tried.delete(offer.id);
+    return {ok:true};
+  }
   async lookAtBed(serial, last) {
     if (!this.bedCheck) return { empty: true, reason: "" };
+    const revision=this.referenceRevisions.get(serial)||0;
     const key = last ? `${last.id}:${last.outcome}` : "none";
     const seen = this.beds.get(serial);
     if (seen?.key === key && (seen.empty || this.now() - seen.at < RECHECK)) return seen;
     let result;
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
-      result = brightness < 18 ? { empty: false, reason: "Too dark to see the bed" } : await this.bedCheck(jpeg, "routine");
+      result = brightness < 18 ? { empty: false, reason: "Too dark to see the bed" } : await this.bedCheck(jpeg, "routine", this.reference(serial));
     } catch {
       result = { empty: false, reason: "Couldn't see the bed" };
     }
+    if(revision !== (this.referenceRevisions.get(serial)||0)) return this.lookAtBed(serial,last);
     const seenNow = { key, at: this.now(), ...result };
     this.beds.set(serial, seenNow);
     return seenNow;
@@ -137,7 +182,7 @@ export class Dispatcher {
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
       if (brightness < 18) return block("Too dark to check the bed");
-      bed = await this.bedCheck(jpeg, "confirm");
+      bed = await this.bedCheck(jpeg, "confirm", this.reference(serial));
     } catch {
       return block("Couldn't check the bed");
     }
@@ -203,7 +248,7 @@ export class Dispatcher {
 // Asks Claude whether the build plate in a camera photo is completely empty.
 // `models` maps "routine" (offer checks) and "confirm" (right before an automatic start) to model ids.
 export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
-  return async (jpeg, kind = "confirm") => {
+  return async (jpeg, kind = "confirm", reference = null) => {
     const model = models[kind] || models.confirm;
     const r = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -211,10 +256,10 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
       body: JSON.stringify({
         model,
         max_tokens: 300,
-        system: "You check a Bambu Lab A1 mini's build plate through its fixed wide-angle camera before a print starts unattended. The bed slides front to back, so it can appear at different positions. Anything left on the plate (a finished part, a strand, a tool) will be hit by the nozzle. Say the bed is empty only if you can see the whole plate and nothing is on it. If part of the plate is out of view, too dark, or you're unsure, say it is not empty.",
+        system: "You check a Bambu Lab A1 mini's build plate through its fixed wide-angle camera before a print starts unattended. The bed slides front to back, so it can appear at different positions. Anything left on the plate (a finished part, a strand, a tool) will be hit by the nozzle. Say the bed is empty only if you can see the whole plate and nothing is on it. If part of the plate is out of view, too dark, or you're unsure, say it is not empty. When given a user-confirmed empty-bed reference from this exact printer, compare fixed printer fixtures and surroundings to it. Those unchanged fixtures are not leftover print parts. The reference does not prove the current bed is clear: judge the current photo independently, accounting for the bed position. Do not ignore new objects or parts.",
         tools: [{ name: "report", description: "Report whether the build plate is empty.", input_schema: { type: "object", properties: { empty: { type: "boolean" }, reason: { type: "string", description: "One short sentence, e.g. 'A red case is still on the plate.'" } }, required: ["empty", "reason"] } }],
         tool_choice: { type: "tool", name: "report" },
-        messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty?" }] }],
+        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:"}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty?" }] }],
       }),
       signal: AbortSignal.timeout(60000),
     });
