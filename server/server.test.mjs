@@ -51,6 +51,7 @@ test("login, protected API, origin rejection, cookie and logout", async () => {
     });
     assert.equal(response.status, 303);
     const cookie = response.headers.get("set-cookie").split(";")[0];
+    assert.match(response.headers.get("set-cookie"), /Max-Age=2592000/);
     assert.match(response.headers.get("set-cookie"), /HttpOnly/);
     assert.match(response.headers.get("set-cookie"), /SameSite=Strict/);
     const status = await fetch(base + "/api/status", {
@@ -174,3 +175,24 @@ test("app pages have their own URLs and survive sign-in", async () => {
   }
 });
 
+
+
+test("PIN sessions last thirty days, renew with use, and expire after inactivity", async (t) => {
+  let now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  const day = 24*60*60*1000, salt = "e".repeat(32);
+  const {app,close} = createApp({pinHash:salt+":"+scryptSync("12345678",salt,64).toString("hex"),origin:"http://localhost",secure:false});
+  const server = app.listen(0,"127.0.0.1"); await new Promise(r=>server.once("listening",r));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  try {
+    const login=await fetch(base+"/login",{method:"POST",headers:{Origin:"http://localhost"},body:new URLSearchParams({pin:"12345678"}),redirect:"manual"});
+    const cookie=login.headers.get("set-cookie").split(";")[0];
+    const check=()=>fetch(base+"/api/status",{headers:{Cookie:cookie}});
+    assert.equal((await check()).headers.get("set-cookie"),null,"no cookie or DB renewal on each request");
+    now+=29*day;
+    const renewed=await check(); assert.equal(renewed.status,200);
+    assert.match(renewed.headers.get("set-cookie"),/Max-Age=2592000/);
+    now+=29*day;assert.equal((await check()).status,200,"use extends beyond the original thirty days");
+    now+=31*day;assert.equal((await check()).status,401,"expired sessions are not revived");
+  } finally {await new Promise(r=>server.close(r));close();}
+});

@@ -44,6 +44,8 @@ export function createApp({
   app.use(express.urlencoded({ extended: false, limit: "4kb" }));
   app.use(express.json({ limit: "2mb" }));
 
+  const sessionAge = 30 * 24 * 60 * 60 * 1000;
+  const renewAfter = 24 * 60 * 60 * 1000;
   const cookieName = secure ? "__Host-spoolside" : "spoolside";
   app.use((req, res, next) => {
     res.set({
@@ -123,14 +125,14 @@ export function createApp({
     const token = randomBytes(32).toString("hex");
     db.prepare("INSERT INTO sessions VALUES (?,?)").run(
       createHash("sha256").update(token).digest("hex"),
-      now + 7 * 24 * 60 * 60 * 1000,
+      now + sessionAge,
     );
     res.cookie(cookieName, token, {
       httpOnly: true,
       secure,
       sameSite: "strict",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: sessionAge,
     });
     res.redirect(303, safeNext(req.body?.next) || "/");
   });
@@ -149,6 +151,13 @@ export function createApp({
       if (req.path.startsWith("/api/") || req.method !== "GET")
         return res.status(401).json({ error: "Sign in required" });
       return res.redirect(303, APP_PAGE.test(req.path) ? `/login?next=${encodeURIComponent(req.path)}` : "/login");
+    }
+    // Renew active sign-ins once daily; existing seven-day sessions extend on their next visit.
+    // An expired or logged-out token never reaches this branch.
+    const now = Date.now();
+    if (session.expires - now < sessionAge - renewAfter && req.path !== "/logout") {
+      db.prepare("UPDATE sessions SET expires=? WHERE token=?").run(now + sessionAge, createHash("sha256").update(raw).digest("hex"));
+      res.cookie(cookieName, raw, { httpOnly: true, secure, sameSite: "strict", path: "/", maxAge: sessionAge });
     }
     req.sessionToken = raw;
     next();
