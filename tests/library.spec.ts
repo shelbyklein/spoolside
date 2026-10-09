@@ -82,3 +82,12 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
 
 });
+
+test('library print slot mapping initializes after async plates load and accepts slot changes',async({page})=>{
+ await page.route('**/api/**',async r=>{const path=new URL(r.request().url()).pathname;
+ if(path==='/api/library'){await new Promise(resolve=>setTimeout(resolve,100));return r.fulfill({json:[{id:'slice',name:'Handheld Plus',created:'',plates:[{index:1,minutes:73,grams:28,filaments:[{id:1,type:'TPU-AMS',color:'#ff0000'}]}]}]});}
+ if(path==='/api/workspace')return r.fulfill({json:{machines:[{id:'p1',name:'AMS 3',connected:true,rawState:'IDLE',trays:[{slot:0,type:'TPU-AMS',color:'#ff0000'},{slot:1,type:'TPU-AMS',color:'#000000'}]}]}});
+ return r.fulfill({json:[]});});
+ await page.goto('/library/sliced');await page.getByRole('button',{name:'Print',exact:true}).click();const d=page.getByRole('dialog',{name:'Print Handheld Plus'}),slot=d.getByLabel('AMS slot for filament 1');
+ await expect(slot).toHaveValue('0');await slot.selectOption('1');await expect(slot).toHaveValue('1');await d.getByLabel('Build plate is clear').check();await expect(d.getByRole('button',{name:'Start print',exact:true})).toBeEnabled();
+});

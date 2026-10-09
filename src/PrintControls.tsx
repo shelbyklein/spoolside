@@ -98,7 +98,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   const trays = (machine.trays || []).filter((t) => t.type);
   useEffect(() => {
     if (plate) setMapping(defaultMapping(plate, machine.trays));
-  }, [fileId, plateIndex]);
+  }, [fileId, plateIndex, plate]);
   if (!files) return null;
   if (!files.length && !last) return <><BedCheck machine={machine} /><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
   const start = async () => {
@@ -154,7 +154,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
           {useAms && plate.filaments.map((f) => (
             <label key={f.id} className="slot-row">
               <span><span className="color-dot" style={{ background: f.color }} /> {f.type} <span aria-hidden="true">→</span> <span className="color-dot" style={{ background: trays.find((t) => t.slot === mapping[f.id - 1])?.color || "transparent" }} /></span>
-              <select aria-label={`AMS slot for filament ${f.id}`} value={mapping[f.id - 1] ?? -1} onChange={(e) => setMapping(mapping.map((m, i) => (i === f.id - 1 ? Number(e.target.value) : m)))}>
+              <select aria-label={`AMS slot for filament ${f.id}`} value={mapping[f.id - 1] ?? -1} onChange={(e) => setMapping(previous => { const next = Array.from({length: Math.max(previous.length, f.id)}, (_, i) => previous[i] ?? -1); next[f.id - 1] = Number(e.target.value); return next; })}>
                 <option value={-1} disabled>Choose slot</option>
                 {trays.map((t) => <option key={t.slot} value={t.slot}>Slot {t.slot + 1} · {t.type}</option>)}
               </select>
