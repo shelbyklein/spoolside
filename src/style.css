@@ -2411,3 +2411,6 @@ footer .tiny-dot {
 @media (prefers-reduced-motion: reduce) { .import-bar.indeterminate > span { animation: none; width: 100%; opacity: 0.4; } }
 .import-done { display: flex; align-items: center; gap: 8px; color: #17655d; font-weight: 600; }
 .import-dialog .watch-actions a.primary { display: inline-flex; align-items: center; text-decoration: none; }
+.library-check { font-size: 14px; font-weight: 600; }
+.on-water .library-check { color: #fff; }
+.library-check-plate { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #eef3f2; aspect-ratio: auto !important; }

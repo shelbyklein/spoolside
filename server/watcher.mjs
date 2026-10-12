@@ -91,12 +91,8 @@ export class PrintWatcher {
         this.set(id, { plan: 1 });
       }
     } catch {}
-    const w = this.row(id);
-    if (w.external && this.library && !this.library.forJob(serial, w.job, plate)) {
-      this.notifications?.broadcast({ id: `watch:${id}:import`, title: `New print on ${view.name}`,
-        body: `Add ${w.job.replace(/(\.gcode)?\.3mf$/i, "")} to your sliced-print library?`, url: `/printers?import=${id}` });
-    }
-    return w;
+    // A print started elsewhere is offered for the library at the end, alongside its rating and photo.
+    return this.row(id);
   }
   dismissImport(id) {
     const w = this.row(id);
@@ -172,7 +168,9 @@ export class PrintWatcher {
     this.notifications?.broadcast({
       id: `watch:${watch.id}:end`,
       title: `${watch.job} ${endedAs === "finished" ? "finished" : "stopped"} on ${watch.printer_name}`,
-      body: "Tap to rate it: good or failed, with an optional note.",
+      body: watch.external && this.library && !this.library.forJob(serial, watch.job, watch.plate)
+        ? "Tap to rate it and save it to your library."
+        : "Tap to rate it: good or failed, with an optional note.",
       kind: "printFinished",
       url: `/printers?rate=${watch.id}`,
     });

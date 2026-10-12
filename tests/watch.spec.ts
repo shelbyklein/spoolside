@@ -25,7 +25,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
       posts.push(url.pathname + ' ' + (route.request().postData() || ''));
       if (url.pathname.endsWith('/dismiss-import')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, importDismissed: true } : w);
-      if (url.pathname.endsWith('/library') || url.pathname.endsWith('/library?wait=0')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, inLibrary: true } : w);
+      if (url.pathname.endsWith('/library')) { const id = url.pathname.split('/')[3]; watches = watches.map(w => w.id === id ? { ...w, inLibrary: true } : w); recent = recent.map(w => w.id === id ? { ...w, inLibrary: true } : w); }
       if (url.pathname.endsWith('false-alarm')) watches = watches.map((w) => (w.printer === 'p1' ? { ...w, alert: null, mode: 'warn' } : w));
       if (url.pathname.endsWith('note')) {
         const id = url.pathname.split('/')[3], body = route.request().postDataJSON();
@@ -34,8 +34,9 @@ test('the print watcher shows alerts and asks how finished prints went', async (
       }
       if (url.pathname.endsWith('outcome')) {
         const id = url.pathname.split('/')[3], body = route.request().postDataJSON();
+        const answered = watches.find((w) => w.id === id);
         watches = watches.filter((w) => w.id !== id);
-        recent = recent.map((w) => (w.id === id ? { ...w, note: body.note } : w));
+        recent = answered ? [{ ...answered, outcome: body.success ? 'success' : 'failed', note: body.note }, ...recent] : recent.map((w) => (w.id === id ? { ...w, note: body.note } : w));
       }
       return route.fulfill({ json: {} });
     }
@@ -45,22 +46,14 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await page.goto('https://spoolside.shelbyklein.com/');
   const home = page.getByRole('region', { name: 'Spoolside home' });
   const alert = home.getByRole('article', { name: 'Conductive alert' });
-  const importing=home.getByRole('article',{name:'Add Touch Pin to library?'});
-  await expect(importing).toContainText('Started outside Spoolside');
-  await importing.screenshot({path:'handoff/spoolside-external-import-prompt.png'});
-  await importing.getByRole('button',{name:'Not now'}).click();
-  await expect(importing).toHaveCount(0);
+  // Prints started elsewhere aren't interrupted with a library prompt; it comes with the rating.
+  await expect(home.getByText('Add this print to the library?')).toHaveCount(0);
   await expect(alert).toContainText('Spoolside paused Conductive');
   await expect(alert).toContainText('Spaghetti around the part.');
   const ask = home.getByRole('article', { name: 'How did Bridge go?' });
   await expect(ask).toContainText('Finished on AMS 3');
   await ask.screenshot({path:'handoff/spoolside-review-add-library.png'});
-  await ask.getByRole('button', {name:'Add to library'}).click();
-  const importDialog = page.getByRole('dialog', { name: 'Add Bridge to library' });
-  await expect(importDialog).toContainText('Added to Sliced prints, with AMS 3 as its printer.');
-  await importDialog.getByRole('button', { name: 'Done' }).click();
-  await expect(importDialog).toHaveCount(0);
-  await expect(ask.getByRole('button', {name:'Add to library'})).toHaveCount(0);
+  await expect(ask.getByLabel('Also add this plate to the library')).toBeChecked();
   await expect(ask.getByRole('button', {name:'Came out fine'})).toBeVisible();
   await ask.screenshot({ path: 'handoff/spoolside-outcome-icons.png' });
   await ask.getByRole('button', { name: 'Notes', exact: true }).click();
@@ -77,6 +70,11 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect.poll(() => workspaceLoads).toBeGreaterThan(beforeOutcome);
   await expect(ask).toHaveCount(0);
   expect(posts).toContain('/api/watches/22222222-2222-4222-8222-222222222222/outcome {"success":true,"note":"Calibration run"}');
+  const importDialog = page.getByRole('dialog', { name: 'Add Bridge to library' });
+  await expect(importDialog).toContainText('Added to Sliced prints, with AMS 3 as its printer.');
+  expect(posts.some((p) => p.startsWith('/api/watches/22222222-2222-4222-8222-222222222222/library'))).toBe(true);
+  await importDialog.getByRole('button', { name: 'Done' }).click();
+  await expect(importDialog).toHaveCount(0);
   await page.goto('https://spoolside.shelbyklein.com/printers?rate=33333333-3333-4333-8333-333333333333');
   const stopped = page.getByRole('article', { name: 'How did DS Top go?' });
   await expect(stopped).toHaveClass(/rating-target/);

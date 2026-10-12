@@ -167,7 +167,7 @@ export function useWatches(enabled: boolean) {
 
 // Alerts first, then "how did it go?" for finished prints. Renders nothing when all is quiet.
 export function WatchAttention({ watches, refresh, notify, water = false }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void; water?: boolean }) {
-  const [busy, setBusy] = useState(""), [failing, setFailing] = useState(""), [noting, setNoting] = useState(""), [succeeding, setSucceeding] = useState("");
+  const [busy, setBusy] = useState(""), [failing, setFailing] = useState(""), [noting, setNoting] = useState(""), [succeeding, setSucceeding] = useState(""), [addToLibrary, setAddToLibrary] = useState<Record<string, boolean>>({});
   const act = async (key: string, run: () => Promise<unknown>, done: string) => {
     setBusy(key);
     try {
@@ -189,25 +189,14 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
     card?.scrollIntoView({block:"center"});
     card?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
   }, [rating, watches]);
-  const importing = new URLSearchParams(window.location.search).get("import");
-  useEffect(() => {
-    if (importing) document.getElementById(`import-${importing}`)?.scrollIntoView({block:"center"});
-  }, [importing, watches]);
   const alerts = watches.filter((w) => !w.ended && w.alert);
   const asks = watches.filter((w) => w.ended && !w.outcome);
-  const imports = watches.filter(w => w.external && w.inLibrary === false && !w.importDismissed);
-  if (!alerts.length && !asks.length && !imports.length) return null;
+  // Rating a print that isn't in the library also offers to save its sliced plate (ticked by default).
+  const wantsLibrary = (w: Watch) => w.inLibrary === false && !w.importing && (addToLibrary[w.id] ?? true);
+  const saveToLibrary = (w: Watch) => { if (wantsLibrary(w)) startImport(w, refresh); };
+  if (!alerts.length && !asks.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
-      {imports.map(w => <article id={`import-${w.id}`} key={`import-${w.id}`} className="watch-card" aria-label={`Add ${jobName(w.job)} to library?`}>
-        <h3>Add this print to the library?</h3>
-        <p className="watch-job">{jobName(w.job)} · {w.printerName}</p>
-        <p>Started outside Spoolside. Save its sliced plate for printing again.</p>
-        <div className="watch-actions">
-          <ImportButton primary watch={w} refresh={refresh} notify={notify} />
-          <button className="secondary" disabled={!!busy || !!w.importing} onClick={() => act(w.id + "dismiss", () => post(`/api/watches/${w.id}/dismiss-import`), "Skipped this print.")}>Not now</button>
-        </div>
-      </article>)}
       {alerts.map((w) => (
         <article key={w.id} className="watch-card alert" aria-label={`${w.printerName} alert`}>
           <h3><AlertTriangle size={17} /> {w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}</h3>
@@ -230,13 +219,19 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
-          {w.inLibrary === false && (!w.external || w.importDismissed) && <ImportButton watch={w} refresh={refresh} notify={notify} />}
+          {w.inLibrary === false && (w.importing ? <ImportButton watch={w} refresh={refresh} /> : (
+            <label className="check-row library-check">
+              <input type="checkbox" checked={wantsLibrary(w)} onChange={(e) => setAddToLibrary({ ...addToLibrary, [w.id]: e.target.checked })} />
+              {w.plan && <img className="library-check-plate" src={photo(w, "plan.png")!} alt="" />}
+              Also add this plate to the library
+            </label>
+          ))}
           {noting === w.id ? (
             <FailureNote general initial={w.note || ""} label="Save note" busy={!!busy} onCancel={() => setNoting("")} onSave={(note) => act(w.id + "note", () => saveNote(w.id, note), "Note saved.").then(() => setNoting(""))} />
           ) : succeeding === w.id ? (
-            <FailureNote general initial={w.note || ""} label="Save as successful" busy={!!busy} onCancel={() => setSucceeding("")} onSave={(note) => act(w.id + "yes", () => saveOutcome(w.id, true, note), "Saved as successful.").then(() => setSucceeding(""))} />
+            <FailureNote general initial={w.note || ""} label="Save as successful" busy={!!busy} onCancel={() => setSucceeding("")} onSave={(note) => act(w.id + "yes", () => saveOutcome(w.id, true, note).then(() => saveToLibrary(w)), "Saved as successful.").then(() => setSucceeding(""))} />
           ) : failing === w.id ? (
-            <FailureNote initial={w.note || ""} label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note), "Saved as failed.").then(() => setFailing(""))} />
+            <FailureNote initial={w.note || ""} label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note).then(() => saveToLibrary(w)), "Saved as failed.").then(() => setFailing(""))} />
           ) : (
             <div className="watch-actions">
               <button className="primary icon-only" aria-label="Came out fine" title="Came out fine" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
