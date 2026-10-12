@@ -53,7 +53,8 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   const ask = home.getByRole('article', { name: 'How did Bridge go?' });
   await expect(ask).toContainText('Finished on AMS 3');
   await ask.screenshot({path:'handoff/spoolside-review-add-library.png'});
-  await expect(ask.getByLabel('Also add this plate to the library')).toBeChecked();
+  await expect(ask.getByLabel('Also add this plate to the library')).not.toBeChecked();
+  await ask.getByLabel('Also add this plate to the library').check();
   await expect(ask.getByRole('button', {name:'Came out fine'})).toBeVisible();
   await ask.screenshot({ path: 'handoff/spoolside-outcome-icons.png' });
   await ask.getByRole('button', { name: 'Notes', exact: true }).click();

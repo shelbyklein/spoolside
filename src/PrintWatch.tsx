@@ -191,8 +191,8 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
   }, [rating, watches]);
   const alerts = watches.filter((w) => !w.ended && w.alert);
   const asks = watches.filter((w) => w.ended && !w.outcome);
-  // Rating a print that isn't in the library also offers to save its sliced plate (ticked by default).
-  const wantsLibrary = (w: Watch) => w.inLibrary === false && !w.importing && (addToLibrary[w.id] ?? true);
+  // Rating a print that isn't in the library also offers to save its sliced plate (unticked until you choose).
+  const wantsLibrary = (w: Watch) => w.inLibrary === false && !w.importing && (addToLibrary[w.id] ?? false);
   const saveToLibrary = (w: Watch) => { if (wantsLibrary(w)) startImport(w, refresh); };
   if (!alerts.length && !asks.length) return null;
   return (
