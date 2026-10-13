@@ -2425,3 +2425,20 @@ footer .tiny-dot {
 .asset-slices-choose { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
 .asset-slices-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .asset-slices-actions select { min-height: 40px; padding: 0 10px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 14px; color: var(--navy); background: #fff; }
+/* PlayCase > Inventory: cases and faceplates on hand, by color. */
+.inventory { padding-bottom: 14px; }
+.inventory-toolbar { display: flex; align-items: center; gap: 8px; padding: 16px 20px 12px; }
+.inventory-toolbar .search-field { flex: 1; max-width: 360px; }
+.inventory-add-color input { min-height: 40px; width: 140px; padding: 0 10px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 14px; }
+.inventory-scroll { overflow-x: auto; padding: 0 20px; }
+.inventory table { border-collapse: collapse; min-width: 100%; font-size: 14px; }
+.inventory th, .inventory td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.inventory thead th { position: sticky; top: 0; background: #fff; color: var(--muted); font-size: 12px; font-weight: 600; }
+.inventory thead th .color-dot { vertical-align: -1px; }
+.inventory th[scope="row"], .inventory thead th:first-child { position: sticky; left: 0; z-index: 1; background: #fff; text-align: left; font-weight: 600; color: var(--navy); }
+.inventory-group th { padding-top: 14px; text-align: left !important; color: var(--muted) !important; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.inventory-count { width: 56px; min-height: 36px; padding: 0 6px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; color: var(--navy); background: #fff; }
+.inventory-count:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.inventory-total { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.inventory > .plate-meta { padding: 10px 20px 0; }
+@media (max-width: 760px) { .inventory-toolbar, .inventory-scroll, .inventory > .plate-meta { padding-left: 12px; padding-right: 12px; } .inventory-count { width: 48px; } }

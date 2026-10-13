@@ -9,6 +9,7 @@ import { AssetLibrary, AssetUploadButton } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
+import { Inventory } from "./Inventory";
 import { OrderPrintDialog, OfferCards, AutoPrintSetting, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
 import { SpoolList } from "./LoadedSpools";
@@ -145,6 +146,7 @@ function tabFromPath() {
   const segment = window.location.pathname.split("/")[1] || "";
   if(segment.toLowerCase() === "orders") return "Orders";
   if(segment.toLowerCase() === "library") return "Library";
+  if(segment.toLowerCase() === "inventory") return "Inventory";
   const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
   if (match) return match.name === "PlayCase" ? "Orders" : match.name;
   return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
@@ -578,7 +580,7 @@ function App() {
             <React.Fragment key={t.name}>
             <button
               key={t.name}
-              className={(tab === t.name || (t.name === "PlayCase" && ["Orders","Library"].includes(tab))) ? "nav-item selected" : "nav-item"}
+              className={(tab === t.name || (t.name === "PlayCase" && ["Orders","Library","Inventory"].includes(tab))) ? "nav-item selected" : "nav-item"}
               onClick={() => {
                 setTab(t.name === "PlayCase" ? "Orders" : t.name);
                 setSelected(null);
@@ -588,7 +590,7 @@ function App() {
               <span>{t.name}</span>
               {t.name === "Queue" && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
             </button>
-            {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button></div>}
+            {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button><button className={tab === "Inventory" ? "selected" : ""} onClick={() => setTab("Inventory")}>Inventory</button></div>}
             </React.Fragment>
           ))}
         </nav>
@@ -613,13 +615,13 @@ function App() {
         <div className="main-content">
           <div className="page-heading">
             <div>
-              <h1>{["Orders","Library"].includes(tab) ? "PlayCase" : tab}</h1>
+              <h1>{["Orders","Library","Inventory"].includes(tab) ? "PlayCase" : tab}</h1>
             </div>
             <div className="page-actions">
               {/* Pages put their own header controls here (Library's section tabs). */}
               <div id="page-heading-slot" className="page-heading-slot" />
               {tab === "Overview" && overviewUploads}
-              {remote && tab !== "Library" && (
+              {remote && !["Library", "Inventory"].includes(tab) && (
                 <button
                   className={`secondary icon-only${refreshing ? " spinning" : ""}`}
                   aria-label="Refresh orders"
@@ -633,7 +635,7 @@ function App() {
                   <RefreshCw size={17} />
                 </button>
               )}
-              {!["Settings", "Orders", "Library", "Personal"].includes(tab) && !(remote && tab === "Queue") && (
+              {!["Settings", "Orders", "Library", "Inventory", "Personal"].includes(tab) && !(remote && tab === "Queue") && (
                 <button
                   className="secondary"
                   onClick={() => {
@@ -721,9 +723,10 @@ function App() {
               {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
-          {["Orders","Library"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active" : ""}>Library</button></div>}
+          {["Orders","Library","Inventory"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active" : ""}>Library</button><button onClick={() => setTab("Inventory")} className={tab === "Inventory" ? "active" : ""}>Inventory</button></div>}
           {tab === "Personal" && <PersonalLibrary notify={setNotice} />}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}
+          {tab === "Inventory" && (remote ? <Inventory notify={setNotice} /> : <div className="empty"><p>Inventory is available on the live site.</p></div>)}
           {tab === "Orders" && (
             <Orders
               openOrderId={focusedOrder}

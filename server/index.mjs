@@ -8,6 +8,7 @@ import { Library } from "./library.mjs";
 import { Assets } from "./assets.mjs";
 import { PrintWatcher, claudeVision, shrinkFrame } from "./watcher.mjs";
 import { OrderPrints } from "./orderprints.mjs";
+import { Inventory } from "./inventory.mjs";
 import { Dispatcher, claudeBedCheck } from "./dispatch.mjs";
 import { MODELS } from "./watcher.mjs";
 import { orderPrintPlan } from "./readiness.mjs";
@@ -56,6 +57,7 @@ const assets = new Assets(
   process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   process.env.SPOOLSIDE_ASSET_DIR || "/data/assets",
 );
+const inventory = new Inventory(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite");
 const orderPrints = new OrderPrints(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite");
 // Watches every print; vision checks run once an Anthropic API key is set in the server's .env.
 const watcher = new PrintWatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", process.env.SPOOLSIDE_WATCH_DIR || "/data/watch", {
@@ -97,6 +99,7 @@ const { app, close } = createApp({
   watcher,
   orderPrints,
   dispatcher,
+  inventory,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   pinHash: process.env.SPOOLSIDE_PIN_HASH,
   origin: process.env.SPOOLSIDE_ORIGIN || "https://spoolside.shelbyklein.com",
@@ -122,6 +125,7 @@ for (const signal of ["SIGTERM", "SIGINT"])
       assets.close();
       watcher.close();
       orderPrints.close();
+      inventory.close();
       dispatcher.close();
       workspace?.close();
       close();
