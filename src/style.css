@@ -2463,3 +2463,21 @@ footer .tiny-dot {
 .asset-section-title small { color: var(--muted); font-size: 12px; font-weight: 500; }
 .asset-section:first-of-type .asset-section-title { margin-top: 6px; }
 .asset-group h3 small { color: var(--muted); font-weight: 500; }
+
+/* Sort menu: one per sortable list, remembered per device. */
+.sort-select { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; min-width: 0; color: #5e7178; }
+.sort-select svg { position: absolute; left: 9px; pointer-events: none; }
+.sort-select select { padding-left: 29px; min-width: 0; max-width: 100%; }
+.sliced-filter-summary .sort-select { margin-left: auto; }
+.fleet-heading { gap: 8px; }
+.fleet-heading h2 { margin-right: auto; }
+.orders-toolbar .sort-select select { font-size: 12px; padding-top: 10px; padding-bottom: 10px; }
+.inventory-toolbar .sort-select select, .personal-library .sort-select select { min-height: 38px; font-size: 13px; }
+/* On phones the orders sort is an icon button; tapping it opens the native picker. */
+@media (max-width: 760px) {
+  .orders-toolbar .sort-select { flex: none; }
+  .orders-toolbar .sort-select select { width: 42px; min-height: 44px; padding: 0; color: transparent; -webkit-appearance: none; appearance: none; }
+  .orders-toolbar .sort-select svg { left: 13px; }
+}
+@media (max-width: 760px) { .orders-toolbar .sort-select option { color: #435c67; } }
+.sliced-filters .sort-select select { flex: none; width: auto; }

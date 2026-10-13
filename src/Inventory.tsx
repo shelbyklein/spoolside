@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { useSort, byName } from "./sort";
 
 type Item = { kind: "case" | "faceplate"; id: string; name: string; counts: Record<string, number> };
 type Data = { colors: string[]; items: Item[]; updated: number | null };
@@ -33,9 +34,19 @@ function CountCell({ value, label, onSave }: { value: number; label: string; onS
 // PlayCase > Inventory: finished cases and faceplates on hand, by color.
 export function Inventory({ notify }: { notify: (m: string) => void }) {
   const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false), [kind, setKind] = useState<"all" | Item["kind"]>("all");
+  const total = (i: Item) => Object.values(i.counts).reduce((n, c) => n + c, 0);
+  const sorting = useSort<Item>("inventory", "inventory", [
+    { id: "name", label: "Name (A–Z)", compare: (a, b) => byName(a.name, b.name) },
+    { id: "name-desc", label: "Name (Z–A)", compare: (a, b) => byName(b.name, a.name) },
+    { id: "most", label: "Most on hand", compare: (a, b) => total(b) - total(a) || byName(a.name, b.name) },
+    { id: "fewest", label: "Fewest on hand", compare: (a, b) => total(a) - total(b) || byName(a.name, b.name) },
+  ]);
+  const [loads, setLoads] = useState(0);
   useEffect(() => {
-    fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then(setData).catch(() => notify("Couldn't load inventory"));
+    fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => { setData(d); setLoads((n) => n + 1); }).catch(() => notify("Couldn't load inventory"));
   }, []);
+  // Rows keep their place while counts are typed in; they re-sort when the sort changes or the page loads.
+  const order = useMemo(() => sorting.sort(data?.items || []).map((i) => `${i.kind}|${i.id}`), [sorting.id, loads, data?.items.length]);
   if (!data) return <div className="empty"><p>Loading inventory…</p></div>;
   const save = (item: Item, color: string, count: number) => {
     // Show it right away; the server's copy settles it.
@@ -46,8 +57,8 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
     if (!adding.trim()) return setAddOpen(false);
     send("POST", "/api/inventory/colors", { color: adding }).then((d) => { setData(d); setAdding(""); setAddOpen(false); }).catch((e) => notify(e.message));
   };
-  const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && i.name.toLowerCase().includes(query.toLowerCase()));
-  const total = (i: Item) => Object.values(i.counts).reduce((n, c) => n + c, 0);
+  const place = (i: Item) => order.indexOf(`${i.kind}|${i.id}`);
+  const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && i.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => place(a) - place(b));
   const group = (kind: Item["kind"], label: string) => {
     const rows = shown.filter((i) => i.kind === kind);
     if (!rows.length) return null;
@@ -76,6 +87,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
           <Search size={17} />
           <input aria-label="Search inventory" placeholder={kind === "case" ? "Search cases" : kind === "faceplate" ? "Search faceplates" : "Search cases and faceplates"} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
+        {sorting.menu}
         {addOpen ? (
           <form className="inventory-add-color" onSubmit={(e) => { e.preventDefault(); addColor(); }}>
             <input autoFocus aria-label="New color" placeholder="Color name" maxLength={30} value={adding} onChange={(e) => setAdding(e.target.value)} onBlur={addColor} />

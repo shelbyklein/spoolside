@@ -3,6 +3,7 @@ import { Assemblies } from "./Assemblies";
 import { requestPartThumb } from "./assemblySnapshot";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSort, byName } from "./sort";
 import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
@@ -99,16 +100,23 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       ),
     [assets, type, status, search],
   );
+  const latest = (list: Asset[]) => Math.max(0, ...list.map((a) => Date.parse(a.updated) || 0));
+  const attention = (list: Asset[]) => list.filter((a) => a.status !== "Up to date" || needsDesign(a)).length;
+  const sorting = useSort<[string, Asset[]]>("assets", "assets", [
+    { id: "name", label: "Name (A–Z)", compare: ([a], [b]) => byName(a, b) },
+    { id: "name-desc", label: "Name (Z–A)", compare: ([a], [b]) => byName(b, a) },
+    { id: "updated", label: "Recently updated", compare: ([, a], [, b]) => latest(b) - latest(a) },
+    { id: "attention", label: "Needs attention first", compare: ([a, x], [b, y]) => attention(y) - attention(x) || byName(a, b) },
+  ]);
   const groups = useMemo(() => {
     const map = new Map<string, Asset[]>();
     for (const a of visible) map.set(`${a.type}|${groupOf(a)}`, [...(map.get(`${a.type}|${groupOf(a)}`) || []), a]);
-    return [...map]
-      .sort(([a], [b]) => {
-        const rank = (k: string) => SECTIONS.findIndex((x) => k.startsWith(`${x.type}|`));
-        return rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true });
-      })
+    // Types keep their section order; the chosen sort orders the groups inside each one.
+    const rank = (k: string) => SECTIONS.findIndex((x) => k.startsWith(`${x.type}|`));
+    return sorting.sort([...map])
+      .sort(([a], [b]) => rank(a) - rank(b))
       .map(([key, list]): [string, Asset[]] => [key, list.sort((a, b) => Number(b.status === "Up to date") - Number(a.status === "Up to date"))]);
-  }, [visible]);
+  }, [visible, sorting.id]);
   const open = assets?.find((a) => a.id === openId) || null;
   const save = async (a: Asset, patch: Partial<Asset>) => {
     const r = await fetch(`/api/assets/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
@@ -143,6 +151,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
           <option>Missing design</option>
         </select>
+        {sorting.menu}
         <div className="segmented view-toggle" role="radiogroup" aria-label="View">
           {(["cards", "list"] as const).map((v) => (
             <button key={v} role="radio" aria-checked={view === v} aria-label={v === "cards" ? "Card view" : "List view"} className={view === v ? "selected" : ""} onClick={() => { setView(v); localStorage.setItem("spoolside-library-view", v); }}>

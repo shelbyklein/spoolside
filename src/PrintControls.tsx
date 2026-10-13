@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, useRef } from "react";
 import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, X } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
+import { useSort, byName } from "./sort";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
 export type LibraryFile = { scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
@@ -221,6 +222,18 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
     const parts=linked(f), text=[f.name,...parts.map(a=>a.name)].join(" ").toLowerCase();
     return text.includes(query.trim().toLowerCase()) && (!printerFilter || (printerFilter==='override'?!!f.printer:printerFilter==='unassigned'?!f.preferredPrinter:f.preferredPrinter===printerFilter)) && (!typeFilter || (typeFilter==='unlinked'?!parts.length:parts.some(a=>a.type===typeFilter))) && (!categoryFilter || parts.some(a=>a.category===categoryFilter)) && (!materialFilter || f.plates.some(p=>p.filaments.some(x=>x.type===materialFilter)));
   });
+  const minutes=(f:LibraryFile)=>f.plates.reduce((n,p)=>n+p.minutes,0), grams=(f:LibraryFile)=>f.plates.reduce((n,p)=>n+p.grams,0), added=(f:LibraryFile)=>Date.parse(f.updated||f.created)||0;
+  const sorting=useSort<LibraryFile>(`sliced-${scope}`,"prints",[
+    {id:"name",label:"Name (A–Z)",compare:(a,b)=>byName(a.name,b.name)},
+    {id:"name-desc",label:"Name (Z–A)",compare:(a,b)=>byName(b.name,a.name)},
+    {id:"newest",label:"Newest first",compare:(a,b)=>added(b)-added(a)},
+    {id:"oldest",label:"Oldest first",compare:(a,b)=>added(a)-added(b)},
+    {id:"shortest",label:"Shortest print",compare:(a,b)=>minutes(a)-minutes(b)},
+    {id:"longest",label:"Longest print",compare:(a,b)=>minutes(b)-minutes(a)},
+    {id:"lightest",label:"Least filament",compare:(a,b)=>grams(a)-grams(b)},
+    {id:"heaviest",label:"Most filament",compare:(a,b)=>grams(b)-grams(a)},
+  ]);
+  const sorted=visible&&sorting.sort(visible);
   const filtered=!!(query||printerFilter||typeFilter||categoryFilter||materialFilter);
   const reset=()=>{setQuery("");setPrinterFilter("");setTypeFilter("");setCategoryFilter("");setMaterialFilter("");};
   const remove = async (f: LibraryFile) => {
@@ -241,11 +254,11 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
         <select aria-label="Filter by part type" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">All part types</option>{types.map(t=><option key={t} value={t}>{t}</option>)}<option value="unlinked">No linked assets</option></select>
         <select aria-label="Filter by category" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">All categories</option>{categories.filter(c=>(files||[]).some(f=>linked(f).some(a=>a.category===c.id))).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select aria-label="Filter by material" value={materialFilter} onChange={e=>setMaterialFilter(e.target.value)}><option value="">All materials</option>{materials.map(m=><option key={m} value={m}>{m}</option>)}</select>
-        <div className="sliced-filter-summary"><small>{visible?.length} of {files.length} prints</small>{filtered&&<button className="text-button" onClick={reset}>Clear filters</button>}</div>
+        <div className="sliced-filter-summary"><small>{visible?.length} of {files.length} prints</small>{filtered&&<button className="text-button" onClick={reset}>Clear filters</button>}{sorting.menu}</div>
       </div>}
       {!!files?.length && !visible?.length && <p className="sliced-no-matches" role="status">No prints match these filters. Try another filter or clear them.</p>}
       <ul className="sliced-grid">
-        {visible?.map((f) => (
+        {sorted?.map((f) => (
           <li key={f.id} className="sliced-card">
             <div className="sliced-thumb">
               <button className="sliced-thumb-open" aria-label={`View ${f.name} in 3D`} onClick={() => setViewing(f)}><SlicedPreview file={f} /></button>

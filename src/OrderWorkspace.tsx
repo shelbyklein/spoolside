@@ -3,6 +3,7 @@ import { Search, ShoppingBag, ArrowUpRight, Truck, Check, CircleAlert, Printer }
 import { OrderContents } from "./OrderContents";
 import { type Order, type PrintGroup, initialOrders, isOpenOrder, storeStatus } from "./order-model";
 import { OrderPrintButtons } from "./OrderPrint";
+import { useSort } from "./sort";
 export { initialOrders };
 
 // Pirate Ship imports Processing orders from WooCommerce; it has no per-order link or API.
@@ -51,7 +52,12 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
   const focus = orders.find((o) => o.id === openOrderId);
   const [search, setSearch] = useState(focus ? focus.number : ""),
     [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
-  const visible = orders.filter((o) => {
+  // Oldest first by default: the next to fulfill on top.
+  const sorting = useSort<Order>("orders", "orders", [
+    { id: "oldest", label: "Oldest first", compare: (a, b) => orderNumber(a) - orderNumber(b) },
+    { id: "newest", label: "Newest first", compare: (a, b) => orderNumber(b) - orderNumber(a) },
+  ]);
+  const visible = sorting.sort(orders.filter((o) => {
     const status = o.commercial.toLowerCase();
     const match =
       filter === "All orders" ||
@@ -61,7 +67,7 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
       (filter === "Shipped" && ["shipped", "completed", "delivered"].includes(status));
     const text = `${o.number} ${o.items.map((i) => `${i.name} ${i.variant} ${i.phone || ""} ${i.colorway || ""}`).join(" ")}`;
     return match && text.toLowerCase().includes(search.toLowerCase());
-  }).sort((a, b) => orderNumber(a) - orderNumber(b)); // oldest first: the next to fulfill on top
+  }));
   return (
     <section className="orders-workspace">
       <div className="order-source">
@@ -85,6 +91,7 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
         <select aria-label="Filter orders" value={filter} onChange={(e) => setFilter(e.target.value)}>
           {FILTERS.map((s) => <option key={s}>{s}</option>)}
         </select>
+        {sorting.menu}
         <span>{visible.length} of {orders.length} orders</span>
       </div>
       <div className="orders-list">

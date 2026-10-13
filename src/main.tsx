@@ -50,6 +50,7 @@ import "./style.css";
 import { Orders, initialOrders, OrderRow } from "./OrderWorkspace";
 import { type Job, type Order, productionAllowed, isOpenOrder } from "./order-model";
 import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
+import { useSort, byName } from "./sort";
 
 const initialMachines: Machine[] = [
   {
@@ -253,6 +254,14 @@ function App() {
     [online, setOnline] = useState(navigator.onLine),
     [hosted, setHosted] = useState(false),
     [install, setInstall] = useState<any>(null);
+  const busyRank = (m: Machine) => ({ Printing: 0, Paused: 1, Offline: 3 } as Record<string, number>)[m.state] ?? 2;
+  // "1h 5m" or "8 min" left; idle printers sort last.
+  const minutesLeft = (m: Machine) => m.state !== "Printing" && m.state !== "Paused" ? Infinity : (Number(/(\d+)\s*h/.exec(m.remaining)?.[1] || 0) * 60 + Number(/(\d+)\s*m/.exec(m.remaining)?.[1] || 0));
+  const printerSort = useSort<Machine>("printers", "printers", [
+    { id: "name", label: "Name (A–Z)", compare: (a, b) => byName(a.name, b.name) },
+    { id: "status", label: "Printing first", compare: (a, b) => busyRank(a) - busyRank(b) || byName(a.name, b.name) },
+    { id: "soonest", label: "Finishing soonest", compare: (a, b) => minutesLeft(a) - minutesLeft(b) || busyRank(a) - busyRank(b) || byName(a.name, b.name) },
+  ]);
   useEffect(() => {
     fetch("/api/status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -705,9 +714,10 @@ function App() {
                   <option>Offline</option>
                   <option>Paused</option>
                 </select>
+                {printerSort.menu}
               </div>
               <PrinterCards
-                machines={machines.filter((m) => filter === "All printers" || m.state === filter)}
+                machines={printerSort.sort(machines.filter((m) => filter === "All printers" || m.state === filter))}
                 live={remote}
                 onOpen={openDetail}
               />
