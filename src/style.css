@@ -2455,3 +2455,6 @@ footer .tiny-dot {
 .gcode-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 13px; }
 .gcode-progress input { flex: 1; accent-color: var(--teal); }
 .gcode-progress small { width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+.inventory-toolbar { flex-wrap: wrap; }
+.inventory-kinds { flex: none; }
+@media (max-width: 760px) { .inventory-kinds { width: 100%; } .inventory-kinds button { flex: 1; } }

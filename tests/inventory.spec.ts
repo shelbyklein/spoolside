@@ -26,6 +26,13 @@ test('PlayCase inventory: counts per case and faceplate type, by color, saved as
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0]).toEqual({ kind: 'case', id: 'c16', color: 'Grey', count: 4 });
   await expect(inv.getByRole('row', { name: /iPhone 16 Pro Max/ }).locator('.inventory-total')).toHaveText('4');
+  await inv.getByRole('tab', { name: 'Faceplates' }).click();
+  await expect(inv.getByRole('row', { name: /iPhone 16 Pro Max/ })).toHaveCount(0);
+  await expect(inv.getByLabel('DS Red')).toBeVisible();
+  await inv.getByRole('tab', { name: 'Cases' }).click();
+  await expect(inv.getByLabel('DS Red')).toHaveCount(0);
+  await expect(inv.getByLabel('iPhone 16 Pro Max Grey')).toHaveValue('4');
+  await inv.getByRole('tab', { name: 'All' }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'handoff/spoolside-inventory-mobile.png' });
   await context.close();

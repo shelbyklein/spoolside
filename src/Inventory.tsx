@@ -32,7 +32,7 @@ function CountCell({ value, label, onSave }: { value: number; label: string; onS
 
 // PlayCase > Inventory: finished cases and faceplates on hand, by color.
 export function Inventory({ notify }: { notify: (m: string) => void }) {
-  const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false);
+  const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false), [kind, setKind] = useState<"all" | Item["kind"]>("all");
   useEffect(() => {
     fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then(setData).catch(() => notify("Couldn't load inventory"));
   }, []);
@@ -46,7 +46,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
     if (!adding.trim()) return setAddOpen(false);
     send("POST", "/api/inventory/colors", { color: adding }).then((d) => { setData(d); setAdding(""); setAddOpen(false); }).catch((e) => notify(e.message));
   };
-  const shown = data.items.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()));
+  const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && i.name.toLowerCase().includes(query.toLowerCase()));
   const total = (i: Item) => Object.values(i.counts).reduce((n, c) => n + c, 0);
   const group = (kind: Item["kind"], label: string) => {
     const rows = shown.filter((i) => i.kind === kind);
@@ -67,9 +67,14 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
   return (
     <section className="panel inventory" aria-label="Inventory">
       <div className="inventory-toolbar">
+        <div className="segmented inventory-kinds" role="tablist" aria-label="Show">
+          {([["all", "All"], ["case", "Cases"], ["faceplate", "Faceplates"]] as const).map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? "active" : ""} onClick={() => setKind(k)}>{label}</button>
+          ))}
+        </div>
         <label className="search-field">
           <Search size={17} />
-          <input aria-label="Search inventory" placeholder="Search cases and faceplates" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input aria-label="Search inventory" placeholder={kind === "case" ? "Search cases" : kind === "faceplate" ? "Search faceplates" : "Search cases and faceplates"} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
         {addOpen ? (
           <form className="inventory-add-color" onSubmit={(e) => { e.preventDefault(); addColor(); }}>
