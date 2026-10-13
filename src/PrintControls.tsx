@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info } from "lucide-react";
+import { lazy, Suspense, useEffect, useState, useRef } from "react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, X } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 
@@ -206,6 +206,7 @@ export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", s
 export function PrintLibrary({ notify, title = "Print library", scope = "playcase", fileIds }: { notify: (m: string) => void; title?: string; scope?: "playcase" | "personal"; fileIds?: string[] }) {
   const [printing, setPrinting] = useState<LibraryFile | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [viewing, setViewing] = useState<LibraryFile | null>(null);
   useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
   const { files: allFiles, refresh } = useLibrary(scope);
   const files=allFiles?.filter(f=>!fileIds || fileIds.includes(f.id));
@@ -247,7 +248,7 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
         {visible?.map((f) => (
           <li key={f.id} className="sliced-card">
             <div className="sliced-thumb">
-              <SlicedPreview file={f} />
+              <button className="sliced-thumb-open" aria-label={`View ${f.name} in 3D`} onClick={() => setViewing(f)}><SlicedPreview file={f} /></button>
               <PrintDetails file={f} onSaved={refresh} notify={notify} />
               {!fileIds && <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>}
             </div>
@@ -266,6 +267,7 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
         ))}
       </ul>
       {printing && <LibraryPrintDialog file={printing} notify={notify} onClose={() => setPrinting(null)} />}
+      {viewing && <PlateViewer file={viewing} assets={assets} onClose={() => setViewing(null)} />}
     </section>
   );
 }
@@ -304,6 +306,52 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
       <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button>
     </form></div>}
   </>;
+}
+
+const GcodeViewer = lazy(() => import("./GcodeViewer"));
+const StlViewer = lazy(() => import("./StlViewer"));
+
+// A sliced plate in 3D: its toolpath from the G-code, and the linked assets' models when there are any.
+function PlateViewer({ file, assets, onClose }: { file: LibraryFile; assets: Asset[]; onClose: () => void }) {
+  const [plateIndex, setPlateIndex] = useState(file.plates[0]?.index);
+  const plate = file.plates.find((p) => p.index === plateIndex) || file.plates[0];
+  const linked = (plate?.coverage || []).map((c) => assets.find((a) => a.id === c.assetId)).filter((a): a is Asset => !!a && a.hasStl !== false);
+  const [view, setView] = useState<"toolpath" | "model">("toolpath");
+  const color = plate?.filaments[0]?.color || "#e0201b";
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, []);
+  if (!plate) return null;
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal plate-viewer" role="dialog" aria-modal="true" aria-label={`${file.name} in 3D`} onClick={(e) => e.stopPropagation()}>
+        <div className="section-top">
+          <h3>{file.name}</h3>
+          <button className="icon-button" aria-label="Close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <p className="plate-meta">{file.plates.length > 1 ? `Plate ${plate.index} · ` : ""}{duration(plate.minutes)} · {plate.grams} g</p>
+        <div className="plate-viewer-tabs">
+          {file.plates.length > 1 && (
+            <select aria-label="Plate" value={plate.index} onChange={(e) => setPlateIndex(Number(e.target.value))}>
+              {file.plates.map((p) => <option key={p.index} value={p.index}>Plate {p.index}</option>)}
+            </select>
+          )}
+          <div className="segmented" role="tablist">
+            <button role="tab" aria-selected={view === "toolpath"} className={view === "toolpath" ? "active" : ""} onClick={() => setView("toolpath")}>Toolpath</button>
+            <button role="tab" aria-selected={view === "model"} className={view === "model" ? "active" : ""} disabled={!linked.length} title={linked.length ? undefined : "Link assets to this plate to see their models"} onClick={() => setView("model")}>Model</button>
+          </div>
+        </div>
+        <Suspense fallback={<div className="stl-viewer" />}>
+          {view === "toolpath" || !linked.length
+            ? <GcodeViewer key={`${file.id}:${plate.index}`} url={`/api/library/${file.id}/plates/${plate.index}/toolpath`} color={color} />
+            : <StlViewer urls={linked.map((a) => `/api/assets/${a.id}/stl`)} colors={linked.map(() => color)} />}
+        </Suspense>
+        {view === "model" && linked.length > 0 && <p className="plate-meta">{linked.map((a) => a.name).join(" · ")}</p>}
+      </div>
+    </div>
+  );
 }
 
 // The slicer's picture of the plate, from inside the sliced file.

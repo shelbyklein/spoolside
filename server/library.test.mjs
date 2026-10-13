@@ -274,3 +274,12 @@ test('a slow or failing import keeps going in the background and reports progres
   } finally {server.close();close();library.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 
+
+test('a plate toolpath keeps extrusion runs and drops travel moves', async () => {
+  const { gcodeToolpath } = await import('./library.mjs');
+  const g = ['M83', 'G1 X10 Y10 Z0.2 F3000 ; travel', 'G1 X20 Y10 E0.5', 'G1 X20 Y20 E0.5', 'G0 X50 Y50', 'G1 X60 Y50 E0.4', 'G1 Z0.4'].join('\n');
+  const p = Array.from(new Int16Array(new Uint8Array(gcodeToolpath(g)).buffer));
+  assert.deepEqual(p, [1000,1000,20, 2000,1000,20, 2000,2000,20, -32768,-32768,-32768, 5000,5000,20, 6000,5000,20, -32768,-32768,-32768]);
+  const abs = Array.from(new Int16Array(new Uint8Array(gcodeToolpath(['M82','G92 E0','G1 X0 Y0 Z1','G1 X1 Y0 E1','G1 X2 Y0 E1','G1 X3 Y0 E2'].join('\n'))).buffer));
+  assert.deepEqual(abs, [0,0,100, 100,0,100, -32768,-32768,-32768, 200,0,100, 300,0,100], 'absolute E: no extrusion when E does not grow');
+});

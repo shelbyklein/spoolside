@@ -111,3 +111,24 @@ test('an asset can upload its sliced print, which is linked to it automatically'
  await expect(slices).toContainText('1h 25m · 38 g');
  expect(patches).toEqual([{plate:1,assetIds:['case-16pm']}]);
 });
+
+test('tapping a sliced print thumbnail opens its plate in 3D',async({page})=>{
+ const file={id:'f1',name:'iPhone 16 Pro Phone Case',size:1,created:'',scope:'playcase',plates:[{index:11,minutes:64,grams:30.59,filaments:[{id:1,type:'TPU-AMS',color:'#ED0000'}],coverage:[]}]};
+ const path=new Int16Array([0,0,20, 1000,0,20, 1000,1000,20, -32768,-32768,-32768, 0,0,40, 1000,1000,40]);
+ let asked='';
+ await page.route('**/api/**',async route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname==='/api/library')return route.fulfill({json:[file]});
+  if(url.pathname.endsWith('/toolpath')){asked=url.pathname;return route.fulfill({contentType:'application/octet-stream',body:Buffer.from(path.buffer)});}
+  return route.fulfill({json:[]});
+ });
+ await page.goto('/library/sliced');
+ await page.getByRole('button',{name:'View iPhone 16 Pro Phone Case in 3D'}).click();
+ const viewer=page.getByRole('dialog',{name:'iPhone 16 Pro Phone Case in 3D'});
+ await expect(viewer.getByLabel('Print progress')).toBeVisible();
+ expect(asked).toBe('/api/library/f1/plates/11/toolpath');
+ await expect(viewer.locator('canvas')).toHaveCount(1);
+ await expect(viewer.getByRole('tab',{name:'Model'})).toBeDisabled();
+ await page.keyboard.press('Escape');
+ await expect(viewer).toHaveCount(0);
+});

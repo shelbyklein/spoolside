@@ -138,6 +138,37 @@ export function inspect3mf(buf) {
   });
   return { plates };
 }
+// The extruded toolpath of a plate's G-code, as runs of points for a 3D preview: Int16 x,y,z in 0.01 mm,
+// with a (-32768,-32768,-32768) marker between runs. Travel moves are left out; arcs are drawn as chords.
+export function gcodeToolpath(gcode) {
+  const out = [], END = -32768, q = (v) => Math.max(-32767, Math.min(32767, Math.round(v * 100)));
+  let x = 0, y = 0, z = 0, e = 0, relativeE = false, open = false;
+  const lines = gcode.split("\n");
+  for (let raw of lines) {
+    const semi = raw.indexOf(";");
+    if (semi >= 0) raw = raw.slice(0, semi);
+    const line = raw.trim();
+    if (!line) continue;
+    const cmd = line.split(/\s+/, 1)[0].toUpperCase();
+    if (cmd === "M83") { relativeE = true; continue; }
+    if (cmd === "M82") { relativeE = false; continue; }
+    if (cmd === "G92") { const m = line.match(/E(-?[\d.]+)/i); if (m) e = Number(m[1]); continue; }
+    if (!["G0", "G1", "G2", "G3"].includes(cmd)) continue;
+    const val = (k) => { const m = line.match(new RegExp(`${k}(-?[\\d.]+)`, "i")); return m ? Number(m[1]) : null; };
+    const nx = val("X") ?? x, ny = val("Y") ?? y, nz = val("Z") ?? z, ne = val("E");
+    const extruding = ne !== null && (relativeE ? ne > 0 : ne > e) && (nx !== x || ny !== y);
+    if (ne !== null) e = relativeE ? e + ne : ne;
+    if (extruding) {
+      if (!open) { out.push(q(x), q(y), q(z)); open = true; }
+      out.push(q(nx), q(ny), q(nz));
+    } else if (open && (nx !== x || ny !== y || nz !== z)) {
+      out.push(END, END, END);
+      open = false;
+    }
+    x = nx; y = ny; z = nz;
+  }
+  return Buffer.from(Int16Array.from(out).buffer);
+}
 export class Library {
   constructor(dbFile, dir) {
     this.dir = dir;
@@ -241,6 +272,19 @@ export class Library {
     const first=entries.get(`Metadata/plate_${file.plates[0]?.index}.gcode`);
     if(first){const header=zipRead(buf,first).toString("utf8").slice(0,30000);for(const k of keys){if(relevant[k]!==undefined)continue;const line=header.match(new RegExp("^;\\s*"+k+"\\s*=\\s*(.+)$","m"));if(line)relevant[k]=line[1].trim();}}
     return {settings:relevant,plates:file.plates};
+  }
+  // A plate's toolpath for the 3D viewer, cached while the file is unchanged.
+  toolpath(id, plate) {
+    const file = this.get(id);
+    if (!file || !file.plates.some((p) => p.index === plate)) return null;
+    const stat = fs.statSync(this.file(id)), key = `${id}:${plate}:${stat.mtimeMs}`;
+    this.toolpaths ??= new Map();
+    if (this.toolpaths.has(key)) return this.toolpaths.get(key);
+    const buf = fs.readFileSync(this.file(id)), entry = zipEntries(buf).get(`Metadata/plate_${plate}.gcode`);
+    const path = entry ? gcodeToolpath(zipRead(buf, entry).toString("utf8")) : null;
+    this.toolpaths.set(key, path);
+    if (this.toolpaths.size > 6) this.toolpaths.delete(this.toolpaths.keys().next().value);
+    return path;
   }
   // The slicer's preview picture of the file's first plate, if it has one.
   preview(id) {

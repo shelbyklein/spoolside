@@ -364,6 +364,13 @@ export function createApp({
       res.json(inventoryView());
     } catch (e) { fail(res, e); }
   });
+  app.get("/api/library/:id/plates/:plate/toolpath", (req, res) => {
+    try {
+      const path = library?.toolpath(req.params.id, Number(req.params.plate));
+      if (!path) return res.status(404).json({ error: "No G-code for that plate" });
+      res.set("Cache-Control", "private, max-age=3600").type("application/octet-stream").send(path);
+    } catch (e) { fail(res, e); }
+  });
   app.get("/api/library/:id/metadata", (req,res)=>{try{res.json(library.metadata(req.params.id));}catch(e){fail(res,e);}});
   app.get("/api/library/:id/preview.png", (req, res) => {
     try {
