@@ -91,3 +91,23 @@ test('library print slot mapping initializes after async plates load and accepts
  await page.goto('/library/sliced');await page.getByRole('button',{name:'Print',exact:true}).click();const d=page.getByRole('dialog',{name:'Print Handheld Plus'}),slot=d.getByLabel('AMS slot for filament 1');
  await expect(slot).toHaveValue('0');await slot.selectOption('1');await expect(slot).toHaveValue('1');await d.getByLabel('Build plate is clear').check();await expect(d.getByRole('button',{name:'Start print',exact:true})).toBeEnabled();
 });
+
+test('an asset can upload its sliced print, which is linked to it automatically',async({page})=>{
+ const asset={id:'case-16pm',name:'iPhone 16 Pro Max Case',type:'Case',category:'',status:'Stale',hasStl:true,generation:3,fit:{phone:'iPhone 16 Pro Max',style:'',size:'',piece:''},designFile:null,source:'Cases/16/iPhone 16 Pro Max Case.stl',note:'',dims:[86.5,168.8,13.6],triangles:30348,bytes:1,updated:new Date().toISOString()};
+ let files:any[]=[];const patches:any[]=[];
+ await page.route('**/api/**',async route=>{
+  const url=new URL(route.request().url()),m=route.request().method();
+  if(url.pathname==='/api/assets')return route.fulfill({json:[asset]});
+  if(url.pathname==='/api/library'&&m==='POST'){const f={id:'f16',name:'iPhone 16 Pro Max Case',size:1,created:'',scope:'playcase',plates:[{index:1,minutes:85,grams:38,filaments:[],coverage:[]}]};files=[f];return route.fulfill({json:[f]});}
+  if(url.pathname==='/api/library')return route.fulfill({json:files});
+  if(url.pathname==='/api/library/f16'&&m==='PATCH'){const b=route.request().postDataJSON();patches.push(b);files=[{...files[0],plates:[{...files[0].plates[0],coverage:b.assetIds.map((assetId:string)=>({assetId,hash:'h'}))}]}];return route.fulfill({json:files[0]});}
+  return route.fulfill({json:[]});
+ });
+ await page.goto('/library');await page.getByRole('tab',{name:'Cases',exact:true}).click();
+ await page.getByRole('button',{name:/^iPhone 16 Pro Max Case/}).first().click();
+ const panel=page.getByRole('dialog',{name:'iPhone 16 Pro Max Case'}),slices=panel.getByRole('region',{name:'Sliced prints'});
+ await expect(slices).toContainText('No sliced print linked yet.');
+ await slices.locator('input[type=file]').setInputFiles({name:'iPhone 16 Pro Max Case.gcode.3mf',mimeType:'application/octet-stream',buffer:Buffer.from('PK')});
+ await expect(slices).toContainText('1h 25m · 38 g');
+ expect(patches).toEqual([{plate:1,assetIds:['case-16pm']}]);
+});

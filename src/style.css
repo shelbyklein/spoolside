@@ -2414,3 +2414,14 @@ footer .tiny-dot {
 .library-check { font-size: 14px; font-weight: 600; }
 .on-water .library-check { color: #fff; }
 .library-check-plate { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #eef3f2; aspect-ratio: auto !important; }
+/* Asset details: its sliced prints. */
+.asset-slices { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; }
+.asset-slices h3 { margin: 0; font-size: 15px; }
+.asset-slices ul { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.asset-slices li { display: flex; align-items: center; gap: 10px; }
+.asset-slices li span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.asset-slices li small { color: var(--muted); font-size: 12px; }
+.asset-slices img { width: 44px; height: 44px; flex: none; object-fit: contain; border-radius: 8px; background: #eef3f2; }
+.asset-slices-choose { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.asset-slices-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.asset-slices-actions select { min-height: 40px; padding: 0 10px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 14px; color: var(--navy); background: #fff; }

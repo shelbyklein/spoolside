@@ -1,4 +1,4 @@
-import { PrintLibrary } from "./PrintControls";
+import { PrintLibrary, AssetSlices } from "./PrintControls";
 import { Assemblies } from "./Assemblies";
 import { requestPartThumb } from "./assemblySnapshot";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -232,6 +232,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               </>}<div><dt>Source</dt><dd>{open.source || "Uploaded"}</dd></div>
               <div><dt>Updated</dt><dd>{new Date(open.updated).toLocaleDateString()}</dd></div>
             </dl>
+            {open.type !== "Phone" && open.hasStl !== false && <AssetSlices asset={open} notify={notify} />}
             {open.hasStl !== false && <a className="secondary download-stl" href={`/api/assets/${open.id}/stl`} download={`${open.name}.stl`}><Download size={16} /> Download STL</a>}
             {open.type === "Phone" && (
               <div className="phone-actions">

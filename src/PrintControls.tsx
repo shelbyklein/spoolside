@@ -361,3 +361,93 @@ function PrintMetadata({file}:{file:LibraryFile}) {
  const show=()=>{setOpen(true);setError("");setData(null);api<{settings:Record<string,unknown>}>(`/api/library/${file.id}/metadata`).then(d=>setData(d.settings)).catch(e=>setError(e.message));};
  return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><section className="plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Print settings for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Escape'&&setOpen(false)}><div className="section-top"><h3>{file.name}</h3><button className="text-button" onClick={()=>setOpen(false)}>Close</button></div><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></section></div>}</>;
 }
+
+// An asset's sliced prints: the plates linked to it, uploading a new sliced file for it (linked automatically),
+// or linking a print already in the library.
+export function AssetSlices({ asset, notify }: { asset: Asset; notify: (m: string) => void }) {
+  const { files, refresh } = useLibrary("playcase");
+  const [uploading, setUploading] = useState(false), [choosing, setChoosing] = useState<{ file: LibraryFile; plate: number }[] | null>(null), [picked, setPicked] = useState<string[]>([]);
+  const linked = (files || []).flatMap((f) => f.plates.filter((p) => (p.coverage || []).some((c) => c.assetId === asset.id)).map((p) => ({ file: f, plate: p })));
+  const link = async (targets: { file: LibraryFile; plate: number }[]) => {
+    for (const { file, plate } of targets) {
+      const current = file.plates.find((p) => p.index === plate)?.coverage?.map((c) => c.assetId) || [];
+      if (current.includes(asset.id)) continue;
+      await api(`/api/library/${file.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plate, assetIds: [...current, asset.id] }) });
+    }
+  };
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const entries = await api<LibraryFile[]>("/api/library", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) }, body: file });
+      const plates = entries.flatMap((f) => f.plates.map((p) => ({ file: f, plate: p.index })));
+      if (plates.length === 1) {
+        await link(plates);
+        notify(`${entries[0].replaced ? "Updated" : "Uploaded"} ${entries[0].name} and linked it to ${asset.name}.`);
+      } else {
+        // Several plates: ask which ones print this asset.
+        setPicked([]);
+        setChoosing(plates);
+        notify(`Split into ${plates.length} plates. Choose the ones that print ${asset.name}.`);
+      }
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setUploading(false);
+      refresh();
+    }
+  };
+  const key = (t: { file: LibraryFile; plate: number }) => `${t.file.id}:${t.plate}`;
+  const others = (files || []).filter((f) => !linked.some((l) => l.file.id === f.id));
+  return (
+    <section className="asset-slices" aria-label="Sliced prints">
+      <h3>Sliced prints</h3>
+      {linked.length === 0 && <p className="plate-meta">No sliced print linked yet.</p>}
+      <ul>
+        {linked.map(({ file, plate }) => (
+          <li key={`${file.id}:${plate.index}`}>
+            <img src={`/api/library/${file.id}/preview.png`} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+            <span><strong>{file.name}</strong><small>{file.plates.length > 1 ? `Plate ${plate.index} · ` : ""}{duration(plate.minutes)} · {plate.grams} g</small></span>
+          </li>
+        ))}
+      </ul>
+      {choosing && (
+        <div className="asset-slices-choose">
+          <p className="plate-meta">Which plates print {asset.name}?</p>
+          {choosing.map((t) => (
+            <label key={key(t)} className="check-row">
+              <input type="checkbox" checked={picked.includes(key(t))} onChange={(e) => setPicked(e.target.checked ? [...picked, key(t)] : picked.filter((k) => k !== key(t)))} />
+              <img src={`/api/library/${t.file.id}/preview.png`} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} /> {t.file.name}
+            </label>
+          ))}
+          <div className="watch-actions">
+            <button className="primary" disabled={!picked.length} onClick={async () => {
+              try { await link(choosing.filter((t) => picked.includes(key(t)))); notify(`Linked to ${asset.name}.`); setChoosing(null); }
+              catch (e) { notify((e as Error).message); }
+              finally { refresh(); }
+            }}>Link selected</button>
+            <button className="text-button" onClick={() => setChoosing(null)}>Skip</button>
+          </div>
+        </div>
+      )}
+      <div className="asset-slices-actions">
+        <label className="secondary upload-button">
+          <Upload size={16} /> {uploading ? "Uploading…" : "Upload sliced print"}
+          <input type="file" accept=".3mf" hidden disabled={uploading} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+        {others.length > 0 && (
+          <select aria-label="Link an existing sliced print" value="" onChange={async (e) => {
+            const file = others.find((f) => f.id === e.target.value);
+            if (!file) return;
+            try { await link(file.plates.map((p) => ({ file, plate: p.index }))); notify(`Linked ${file.name} to ${asset.name}.`); }
+            catch (err) { notify((err as Error).message); }
+            finally { refresh(); }
+          }}>
+            <option value="">Link an existing print…</option>
+            {others.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+        )}
+      </div>
+    </section>
+  );
+}
