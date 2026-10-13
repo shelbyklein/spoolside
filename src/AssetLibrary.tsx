@@ -32,6 +32,11 @@ type Status = "Up to date" | "Stale";
 const STATUSES: Status[] = ["Up to date", "Stale"];
 const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
+// On All, each type gets its own labeled section, in this order.
+const SECTIONS: { type: Asset["type"]; label: string; note?: string }[] = [
+  { type: "Case", label: "Cases" }, { type: "Faceplate", label: "Faceplates" }, { type: "Sleeve", label: "Sleeves" },
+  { type: "Part", label: "Parts" }, { type: "Phone", label: "Phones", note: "3D reference models, not printed" },
+];
 
 // Groups cases and phone references by phone generation, faceplates by style.
 const groupOf = (a: Asset) =>
@@ -98,7 +103,10 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     const map = new Map<string, Asset[]>();
     for (const a of visible) map.set(`${a.type}|${groupOf(a)}`, [...(map.get(`${a.type}|${groupOf(a)}`) || []), a]);
     return [...map]
-      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      .sort(([a], [b]) => {
+        const rank = (k: string) => SECTIONS.findIndex((x) => k.startsWith(`${x.type}|`));
+        return rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true });
+      })
       .map(([key, list]): [string, Asset[]] => [key, list.sort((a, b) => Number(b.status === "Up to date") - Number(a.status === "Up to date"))]);
   }, [visible]);
   const open = assets?.find((a) => a.id === openId) || null;
@@ -149,27 +157,30 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}
       {view === "cards" ? (
-        <>
-          {groups.some(([key]) => !key.startsWith("Part|")) && (
-            <div className="group-cards">
-              {groups.filter(([key]) => !key.startsWith("Part|")).map(([key, list]) => (
-                <GroupCard key={key} title={key.split("|")[1]} assets={list} onOpen={setOpenId} />
-              ))}
-            </div>
-          )}
-          {groups.filter(([key]) => key.startsWith("Part|")).map(([key, list]) => (
-            <section className="part-card-section" key={key} aria-label="Parts">
-              <h3>Parts</h3>
+        SECTIONS.map(({ type: t, label, note }) => {
+          const mine = groups.filter(([key]) => key.startsWith(`${t}|`));
+          if (!mine.length) return null;
+          const heading = type === "All" && <h2 className="asset-section-title">{label}{note && <small>{note}</small>}</h2>;
+          return t === "Part" ? (
+            <section className="part-card-section" key={t} aria-label={label}>
+              {heading || <h3>Parts</h3>}
               <div className="part-cards">
-                {list.map((a) => <PartCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />)}
+                {mine.flatMap(([, list]) => list).map((a) => <PartCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />)}
               </div>
             </section>
-          ))}
-        </>
+          ) : (
+            <section key={t} className="asset-section" aria-label={label}>
+              {heading}
+              <div className="group-cards">
+                {mine.map(([key, list]) => <GroupCard key={key} title={key.split("|")[1]} assets={list} onOpen={setOpenId} />)}
+              </div>
+            </section>
+          );
+        })
       ) : (
         groups.map(([key, list]) => (
           <div className="asset-group" key={key}>
-            <h3>{key.split("|")[1]}</h3>
+            <h3>{key.split("|")[1]}{type === "All" && <small> · {SECTIONS.find((x) => key.startsWith(`${x.type}|`))?.label}</small>}</h3>
             <ul>
               {list.map((a) => (
                 <li key={a.id}>

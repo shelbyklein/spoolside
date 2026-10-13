@@ -2458,3 +2458,8 @@ footer .tiny-dot {
 .inventory-toolbar { flex-wrap: wrap; }
 .inventory-kinds { flex: none; }
 @media (max-width: 760px) { .inventory-kinds { width: 100%; } .inventory-kinds button { flex: 1; } }
+/* Library > Assets on All: a labeled section per type. */
+.asset-section-title { display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px; font-size: 18px; }
+.asset-section-title small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.asset-section:first-of-type .asset-section-title { margin-top: 6px; }
+.asset-group h3 small { color: var(--muted); font-weight: 500; }

@@ -132,3 +132,18 @@ test('tapping a sliced print thumbnail opens its plate in 3D',async({page})=>{
  await page.keyboard.press('Escape');
  await expect(viewer).toHaveCount(0);
 });
+
+test('the All view separates cases and phone models into labeled sections',async({page})=>{
+ const base={status:'Up to date',hasStl:true,generation:3,designFile:null,source:'x',note:'',dims:[1,1,1],triangles:1,bytes:1,updated:''};
+ const assets=[{...base,id:'c12',name:'iPhone 12 Case',type:'Case',fit:{phone:'iPhone 12',style:'',size:'',piece:''}},{...base,id:'p12',name:'iPhone 12',type:'Phone',hasStl:false,fit:{phone:'iPhone 12',style:'',size:'',piece:''}},{...base,id:'ds',name:'DS – Top',type:'Faceplate',fit:{phone:'',style:'DS',size:'Standard',piece:'Top'}}];
+ await page.route('**/api/**',route=>route.fulfill({json:new URL(route.request().url()).pathname==='/api/assets'?assets:[]}));
+ await page.goto('/library');
+ const cases=page.getByRole('region',{name:'Cases'}),phones=page.getByRole('region',{name:'Phones'});
+ await expect(cases.getByRole('heading',{name:'Cases'})).toBeVisible();
+ await expect(phones.getByRole('heading',{name:/Phones/})).toContainText('not printed');
+ await expect(cases).toContainText('iPhone 12');
+ await expect(phones).toContainText('iPhone 12');
+ const order=await page.locator('.asset-section-title').allTextContents();
+ expect(order.map(t=>t.split(/(?=3D)/)[0])).toEqual(['Cases','Faceplates','Phones']);
+ await page.screenshot({path:'handoff/spoolside-library-sections.png',fullPage:true});
+});
