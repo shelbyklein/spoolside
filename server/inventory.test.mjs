@@ -20,6 +20,14 @@ test("inventory lists case models and faceplate types with hand-entered counts b
     assert.throws(() => inv.set("spool", "c16", "Red", 1), /case or faceplate/);
     inv.addColor("purple");
     assert.ok(inv.view({ assets, assemblies }).colors.includes("Purple"));
+    inv.hide("faceplate", "ds", true);
+    v = inv.view({ assets, assemblies });
+    assert.equal(v.items.find((i) => i.id === "ds").hidden, true);
+    assert.deepEqual(v.items.find((i) => i.id === "ds").counts, { Red: 3 }, "hiding keeps the counts");
+    assert.equal(v.items.find((i) => i.id === "c16").hidden, false);
+    inv.hide("faceplate", "ds", false);
+    assert.equal(inv.view({ assets, assemblies }).items.find((i) => i.id === "ds").hidden, false);
+    assert.throws(() => inv.hide("faceplate", "ds", "yes"), /hide or show/);
     inv.set("case", "c16", "Grey", 0);
     assert.deepEqual(inv.view({ assets, assemblies }).items.find((i) => i.id === "c16").counts, {});
   } finally {

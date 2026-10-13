@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Eye, EyeOff, Plus, Search } from "lucide-react";
 import { useSort, byName } from "./sort";
 
-type Item = { kind: "case" | "faceplate"; id: string; name: string; counts: Record<string, number> };
+type Item = { kind: "case" | "faceplate"; id: string; name: string; counts: Record<string, number>; hidden?: boolean };
 type Data = { colors: string[]; items: Item[]; updated: number | null };
 
 // Store colorway names to swatch colors (matches the order print dialog).
@@ -33,7 +33,7 @@ function CountCell({ value, label, onSave }: { value: number; label: string; onS
 
 // PlayCase > Inventory: finished cases and faceplates on hand, by color.
 export function Inventory({ notify }: { notify: (m: string) => void }) {
-  const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false), [kind, setKind] = useState<"all" | Item["kind"]>("all");
+  const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false), [kind, setKind] = useState<"all" | Item["kind"]>("all"), [showHidden, setShowHidden] = useState(false);
   const total = (i: Item) => Object.values(i.counts).reduce((n, c) => n + c, 0);
   const sorting = useSort<Item>("inventory", "inventory", [
     { id: "name", label: "Name (A–Z)", compare: (a, b) => byName(a.name, b.name) },
@@ -53,12 +53,18 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
     setData({ ...data, items: data.items.map((i) => (i === item ? { ...i, counts: { ...i.counts, [color]: count } } : i)) });
     send("PUT", "/api/inventory", { kind: item.kind, id: item.id, color, count }).then(setData).catch((e) => notify(e.message));
   };
+  // Items not sold right now are hidden; their counts are kept.
+  const hide = (item: Item, hidden: boolean) => {
+    setData({ ...data, items: data.items.map((i) => (i === item ? { ...i, hidden } : i)) });
+    send("PUT", "/api/inventory/hidden", { kind: item.kind, id: item.id, hidden }).then(setData).catch((e) => notify(e.message));
+  };
+  const hiddenCount = data.items.filter((i) => i.hidden && (kind === "all" || i.kind === kind)).length;
   const addColor = () => {
     if (!adding.trim()) return setAddOpen(false);
     send("POST", "/api/inventory/colors", { color: adding }).then((d) => { setData(d); setAdding(""); setAddOpen(false); }).catch((e) => notify(e.message));
   };
   const place = (i: Item) => order.indexOf(`${i.kind}|${i.id}`);
-  const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && i.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => place(a) - place(b));
+  const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && (showHidden || !i.hidden) && i.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => place(a) - place(b));
   const group = (kind: Item["kind"], label: string) => {
     const rows = shown.filter((i) => i.kind === kind);
     if (!rows.length) return null;
@@ -66,10 +72,14 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
       <tbody>
         <tr className="inventory-group"><th scope="rowgroup" colSpan={data.colors.length + 2}>{label}</th></tr>
         {rows.map((i) => (
-          <tr key={i.id}>
-            <th scope="row">{i.name}</th>
+          <tr key={i.id} className={i.hidden ? "inventory-hidden" : undefined}>
+            <th scope="row">{i.name}{i.hidden && <small> · not sold</small>}</th>
             {data.colors.map((c) => <td key={c}><CountCell value={i.counts[c] || 0} label={`${i.name} ${c}`} onSave={(n) => save(i, c, n)} /></td>)}
-            <td className="inventory-total">{total(i) || ""}</td>
+            <td className="inventory-hide">
+              <button className="icon-button" aria-label={i.hidden ? `Show ${i.name}` : `Hide ${i.name}`} title={i.hidden ? "Selling again: show it" : "Not selling this: hide it"} onClick={() => hide(i, !i.hidden)}>
+                {i.hidden ? <Eye size={15} /> : <EyeOff size={15} />}
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>
@@ -88,6 +98,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
           <input aria-label="Search inventory" placeholder={kind === "case" ? "Search cases" : kind === "faceplate" ? "Search faceplates" : "Search cases and faceplates"} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
         {sorting.menu}
+        {(hiddenCount > 0 || showHidden) && <button className="text-button inventory-show-hidden" aria-pressed={showHidden} onClick={() => setShowHidden(!showHidden)}>{showHidden ? "Hide not sold" : `Show hidden (${hiddenCount})`}</button>}
         {addOpen ? (
           <form className="inventory-add-color" onSubmit={(e) => { e.preventDefault(); addColor(); }}>
             <input autoFocus aria-label="New color" placeholder="Color name" maxLength={30} value={adding} onChange={(e) => setAdding(e.target.value)} onBlur={addColor} />
@@ -102,7 +113,7 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
             <tr>
               <th scope="col">Item</th>
               {data.colors.map((c) => <th key={c} scope="col"><span className="color-dot" style={{ background: SWATCH[c.toLowerCase()] || "#ccc" }} /> {c}</th>)}
-              <th scope="col">Total</th>
+              <th scope="col" aria-label="Hide" />
             </tr>
           </thead>
           {group("case", "Cases")}

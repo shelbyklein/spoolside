@@ -13,6 +13,11 @@ test('PlayCase inventory: counts per case and faceplate type, by color, saved as
       data = { ...data, items: data.items.map((i: any) => (i.id === b.id ? { ...i, counts: { ...i.counts, [b.color]: b.count } } : i)) };
       return route.fulfill({ json: data });
     }
+    if (url.pathname === '/api/inventory/hidden') {
+      const b = route.request().postDataJSON(); puts.push(b);
+      data = { ...data, items: data.items.map((i: any) => (i.id === b.id ? { ...i, hidden: b.hidden } : i)) };
+      return route.fulfill({ json: data });
+    }
     if (url.pathname === '/api/inventory') return route.fulfill({ json: data });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ json: url.pathname === '/api/watches' ? { vision: false, watches: [] } : {} });
     return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) });
@@ -25,7 +30,7 @@ test('PlayCase inventory: counts per case and faceplate type, by color, saved as
   await inv.getByLabel('iPhone 16 Pro Max Grey').press('Enter');
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0]).toEqual({ kind: 'case', id: 'c16', color: 'Grey', count: 4 });
-  await expect(inv.getByRole('row', { name: /iPhone 16 Pro Max/ }).locator('.inventory-total')).toHaveText('4');
+  await expect(inv.getByRole('columnheader', { name: 'Total' })).toHaveCount(0);
   await inv.getByRole('tab', { name: 'Faceplates' }).click();
   await expect(inv.getByRole('row', { name: /iPhone 16 Pro Max/ })).toHaveCount(0);
   await expect(inv.getByLabel('DS Red')).toBeVisible();
@@ -33,6 +38,18 @@ test('PlayCase inventory: counts per case and faceplate type, by color, saved as
   await expect(inv.getByLabel('DS Red')).toHaveCount(0);
   await expect(inv.getByLabel('iPhone 16 Pro Max Grey')).toHaveValue('4');
   await inv.getByRole('tab', { name: 'All' }).click();
+  // Faceplates not sold right now can be hidden, and brought back.
+  await inv.getByRole('button', { name: 'Hide DS' }).click();
+  await expect.poll(() => puts.at(-1)).toEqual({ kind: 'faceplate', id: 'ds', hidden: true });
+  await expect(inv.getByLabel('DS Red')).toHaveCount(0);
+  await inv.getByRole('button', { name: 'Show hidden (1)' }).click();
+  await expect(inv.getByRole('row', { name: /DS · not sold/ })).toBeVisible();
+  await expect(inv.getByLabel('DS Red')).toHaveValue('2');
+  await inv.getByRole('button', { name: 'Show DS' }).click();
+  await expect.poll(() => puts.at(-1)).toEqual({ kind: 'faceplate', id: 'ds', hidden: false });
+  await inv.getByRole('button', { name: 'Hide not sold' }).click();
+  await expect(inv.getByLabel('DS Red')).toBeVisible();
+  await expect(inv.getByRole('button', { name: /Show hidden/ })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: 'handoff/spoolside-inventory-mobile.png' });
   await context.close();

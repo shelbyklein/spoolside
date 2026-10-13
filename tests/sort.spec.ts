@@ -66,7 +66,7 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
   // Typing a count doesn't move rows under your fingers.
   await page.getByLabel('Pixel 9 Black').fill('9');
   await page.getByLabel('Pixel 9 Black').press('Enter');
-  await expect(page.locator('.inventory tbody tr', { hasText: 'Pixel 9' }).locator('.inventory-total')).toHaveText('9');
+  await expect.poll(() => inventory.items.find((i) => i.id === 'c3')!.counts).toEqual({ Black: 9 });
   await expect(rows).toHaveText(['iPhone 16', 'iPhone 13', 'Pixel 9']);
   await page.reload();
   await expect(rows).toHaveText(['Pixel 9', 'iPhone 16', 'iPhone 13']);

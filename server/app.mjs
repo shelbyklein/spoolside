@@ -357,6 +357,14 @@ export function createApp({
       res.json(inventoryView());
     } catch (e) { fail(res, e); }
   });
+  app.put("/api/inventory/hidden", (req, res) => {
+    try {
+      if (!inventory) return res.sendStatus(503);
+      const { kind, id, hidden } = req.body || {};
+      inventory.hide(kind, id, hidden);
+      res.json(inventoryView());
+    } catch (e) { fail(res, e); }
+  });
   app.post("/api/inventory/colors", (req, res) => {
     try {
       if (!inventory) return res.sendStatus(503);

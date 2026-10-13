@@ -2439,7 +2439,12 @@ footer .tiny-dot {
 .inventory-group th { padding-top: 14px; text-align: left !important; color: var(--muted) !important; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
 .inventory-count { width: 56px; min-height: 36px; padding: 0 6px; border: 1px solid #d4dfe0; border-radius: 8px; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; color: var(--navy); background: #fff; }
 .inventory-count:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
-.inventory-total { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.inventory-hide { width: 36px; }
+.inventory-hide .icon-button { color: var(--muted); opacity: 0.55; }
+.inventory tr:hover .inventory-hide .icon-button, .inventory-hide .icon-button:focus-visible, .inventory-hidden .inventory-hide .icon-button { opacity: 1; }
+.inventory-hidden th[scope="row"], .inventory-hidden .inventory-count { opacity: 0.5; }
+.inventory-hidden th[scope="row"] small { font-weight: 400; color: var(--muted); }
+.inventory-show-hidden { font-size: 13px; white-space: nowrap; }
 .inventory > .plate-meta { padding: 10px 20px 0; }
 @media (max-width: 760px) { .inventory-toolbar, .inventory-scroll, .inventory > .plate-meta { padding-left: 12px; padding-right: 12px; } .inventory-count { width: 48px; } }
 /* Sliced prints: the thumbnail opens a 3D view of the plate. */
