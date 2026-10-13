@@ -50,14 +50,21 @@ const groupOf = (a: Asset) =>
 // Phone references are view-only, so they never need a design file.
 const needsDesign = (a: Asset) => !a.designFile && a.type !== "Phone";
 
-const sectionFromPath = () => window.location.pathname.startsWith("/library/sliced") ? "Sliced prints" : window.location.pathname.startsWith("/library/assemblies") ? "Assemblies" : "Assets";
+export const sectionFromPath = (path = window.location.pathname) => path.startsWith("/library/sliced") ? "Sliced prints" : path.startsWith("/library/assemblies") ? "Assemblies" : "Assets";
+// Library's own sections. The sidebar and the PlayCase menu show them nested under Library.
+export const LIBRARY_SECTIONS = [{ name: "Assets", path: "/library" }, { name: "Assemblies", path: "/library/assemblies" }, { name: "Sliced prints", path: "/library/sliced" }];
+// Go to an address and tell every listener (the app's tab, the library's section) to catch up.
+export const goTo = (path: string) => {
+  if (window.location.pathname !== path) window.history.pushState(null, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
 export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const assemblyReturnPath=useRef(window.location.pathname);
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [designs, setDesigns] = useState<{id:string;name:string;source:string}[]>([]),
-    [section, setSectionState] = useState(sectionFromPath),
+    [section, setSectionState] = useState(() => sectionFromPath()),
     [assets, setAssets] = useState<Asset[] | null>(null),
     [type, setType] = useState<(typeof TYPES)[number]>("All"),
     [status, setStatus] = useState("All"),
@@ -65,8 +72,8 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     [uploading, setUploading] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
   const [headingSlot, setHeadingSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => setHeadingSlot(document.getElementById("page-heading-slot")), []);
-  const setSection = (value:string) => {setSectionState(value);const path=value === "Sliced prints" ? "/library/sliced" : value === "Assemblies" ? "/library/assemblies" : "/library";if(window.location.pathname!==path)window.history.pushState(null,"",path);};
+  useEffect(() => setHeadingSlot(document.getElementById("library-sections-slot")), []);
+  const setSection = (value:string) => {setSectionState(value);goTo(LIBRARY_SECTIONS.find(s=>s.name===value)?.path || "/library");};
   // An open model has its own address: /library/<asset id>.
   const setOpenId = (id: string | null) => {
     const path = id ? `/library/${id}` : (section === "Assemblies" ? assemblyReturnPath.current : "/library");
@@ -125,11 +132,11 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
     setAssets((list) => list?.map((x) => (x.id === a.id ? body : x)) || null);
   };
   const sectionTabs = <div className="segmented library-sections" role="tablist" aria-label="Library section">
-    {["Assets","Assemblies","Sliced prints"].map(s=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
+    {LIBRARY_SECTIONS.map(({name:s})=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
   </div>;
   return (
     <section className="asset-library">
-      {/* The section tabs sit on the right of the page title, in the header's slot. */}
+      {/* The section tabs sit inside the PlayCase menu, right after Library. */}
       {headingSlot ? createPortal(sectionTabs, headingSlot) : sectionTabs}
       {section === "Sliced prints" && <PrintLibrary title="Sliced prints" notify={notify}/>}
       {section === "Assemblies" && colored && <Assemblies assets={colored} onOpen={setOpenId} notify={notify}/>}

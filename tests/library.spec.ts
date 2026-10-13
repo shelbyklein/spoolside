@@ -147,3 +147,23 @@ test('the All view separates cases and phone models into labeled sections',async
  expect(order.map(t=>t.split(/(?=3D)/)[0])).toEqual(['Cases','Faceplates','Phones']);
  await page.screenshot({path:'handoff/spoolside-library-sections.png',fullPage:true});
 });
+
+test('Library sections sit inside the PlayCase menu and under Library in the sidebar', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route('**/api/**', (route) => route.fulfill({ json: /\/api\/(assets|categories|designfiles|assemblies|library)$/.test(route.request().url()) ? [] : {} }));
+  await page.goto('/library/sliced');
+  const menu = page.getByLabel('PlayCase sections');
+  await expect(menu.getByRole('tab', { name: 'Sliced prints' })).toHaveAttribute('aria-selected', 'true');
+  await menu.getByRole('tab', { name: 'Assemblies' }).click();
+  await expect(page).toHaveURL(/\/library\/assemblies$/);
+  const sidebar = page.locator('.library-subnav');
+  await expect(sidebar.getByRole('button', { name: 'Assemblies' })).toHaveClass(/selected/);
+  await sidebar.getByRole('button', { name: 'Sliced prints' }).click();
+  await expect(page).toHaveURL(/\/library\/sliced$/);
+  await expect(menu.getByRole('tab', { name: 'Sliced prints' })).toHaveAttribute('aria-selected', 'true');
+  await page.goBack();
+  await expect(menu.getByRole('tab', { name: 'Assemblies' })).toHaveAttribute('aria-selected', 'true');
+  await menu.getByRole('button', { name: 'Inventory' }).click();
+  await expect(page.locator('.library-subnav')).toHaveCount(0);
+  await expect(menu.getByRole('tab', { name: 'Assets' })).toHaveCount(0);
+});

@@ -5,7 +5,7 @@ import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
 import { PrintControls, PrintLibrary, PrintUploadButton } from "./PrintControls";
-import { AssetLibrary, AssetUploadButton } from "./AssetLibrary";
+import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
@@ -180,12 +180,13 @@ function App() {
   }, []);
   // Each tab has its own address (/orders, /library, …) so pages can be bookmarked and the back button works.
   const setTab = (name: string) => {
-    const path = "/" + name.toLowerCase();
-    if (window.location.pathname !== path) window.history.pushState(null, "", path);
     setTabState(name);
+    goTo("/" + name.toLowerCase());
   };
+  // The address, so the sidebar can show which Library section is open.
+  const [path, setPath] = useState(window.location.pathname);
   useEffect(() => {
-    const onPop = () => setTabState(tabFromPath());
+    const onPop = () => { setTabState(tabFromPath()); setPath(window.location.pathname); };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -599,7 +600,7 @@ function App() {
               <span>{t.name}</span>
               {t.name === "Queue" && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
             </button>
-            {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button><button className={tab === "Inventory" ? "selected" : ""} onClick={() => setTab("Inventory")}>Inventory</button></div>}
+            {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button>{tab === "Library" && <div className="library-subnav">{LIBRARY_SECTIONS.map(s => <button key={s.name} className={sectionFromPath(path) === s.name ? "selected" : ""} onClick={() => goTo(s.path)}>{s.name}</button>)}</div>}<button className={tab === "Inventory" ? "selected" : ""} onClick={() => setTab("Inventory")}>Inventory</button></div>}
             </React.Fragment>
           ))}
         </nav>
@@ -733,7 +734,7 @@ function App() {
               {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
-          {["Orders","Library","Inventory"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active" : ""}>Library</button><button onClick={() => setTab("Inventory")} className={tab === "Inventory" ? "active" : ""}>Inventory</button></div>}
+          {["Orders","Library","Inventory"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active expanded" : ""}>Library</button>{tab === "Library" && <span id="library-sections-slot" className="library-sections-slot" />}<button onClick={() => setTab("Inventory")} className={tab === "Inventory" ? "active" : ""}>Inventory</button></div>}
           {tab === "Personal" && <PersonalLibrary notify={setNotice} />}
           {tab === "Library" && <AssetLibrary notify={setNotice} />}
           {tab === "Inventory" && (remote ? <Inventory notify={setNotice} /> : <div className="empty"><p>Inventory is available on the live site.</p></div>)}
