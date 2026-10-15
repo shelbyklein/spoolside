@@ -190,7 +190,8 @@ test("Claude vision sends the photos and reads the forced report", async () => {
   const result = await vision({ model: MODELS.routine, context: "Job x", images: [{ label: "Now", type: "image/jpeg", data: Buffer.from("jpg") }] });
   assert.deepEqual(result, { verdict: "problem", reason: "Spaghetti." });
   assert.equal(sent.init.headers["x-api-key"], "sk-test");
-  assert.equal(sent.body.tool_choice.name, "report");
+  assert.equal(sent.body.tool_choice.type, "auto", "forced tools are refused by newer models");
+  assert.equal(sent.body.tools[0].name, "report");
   assert.equal(sent.body.messages[0].content.filter((c) => c.type === "image")[0].source.data, Buffer.from("jpg").toString("base64"));
   const failing = claudeVision("sk-test", async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "invalid x-api-key" } }) }));
   await assert.rejects(failing({ model: "m", context: "", images: [] }), /invalid x-api-key/);

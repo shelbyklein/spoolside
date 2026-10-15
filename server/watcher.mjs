@@ -278,13 +278,13 @@ export function claudeVision(apiKey, fetchImpl = fetch) {
   return async ({ model, images, context }) => {
     const content = [{ type: "text", text: context }];
     for (const img of images) content.push({ type: "text", text: img.label }, { type: "image", source: { type: "base64", media_type: img.type, data: img.data.toString("base64") } });
-    content.push({ type: "text", text: "Does the live photo show a failed print?" });
+    content.push({ type: "text", text: "Does the live photo show a failed print? Answer by calling the report tool." });
     const r = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        max_tokens: 400,
+        max_tokens: 1024,
         system: SYSTEM,
         tools: [{
           name: "report",
@@ -298,7 +298,8 @@ export function claudeVision(apiKey, fetchImpl = fetch) {
             required: ["verdict", "reason"],
           },
         }],
-        tool_choice: { type: "tool", name: "report" },
+        // Newer models refuse a forced tool, so the tool is offered and the prompt asks for it.
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content }],
       }),
       signal: AbortSignal.timeout(60000),

@@ -252,11 +252,12 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        max_tokens: 300,
+        max_tokens: 1024,
         system: "You check a Bambu Lab A1 mini's build plate through its fixed wide-angle camera before a print starts unattended. The bed slides front to back, so it can appear at different positions. Anything left on the plate (a finished part, a strand, a tool) will be hit by the nozzle. Say the bed is empty only if you can see the whole plate and nothing is on it. If part of the plate is out of view, too dark, or you're unsure, say it is not empty. When given a user-confirmed empty-bed reference from this exact printer, compare fixed printer fixtures and surroundings to it. Those unchanged fixtures are not leftover print parts. The reference does not prove the current bed is clear: judge the current photo independently, accounting for the bed position. Do not ignore new objects or parts.",
         tools: [{ name: "report", description: "Report whether the build plate is empty.", input_schema: { type: "object", properties: { empty: { type: "boolean" }, reason: { type: "string", description: "One short sentence, e.g. 'A red case is still on the plate.'" } }, required: ["empty", "reason"] } }],
-        tool_choice: { type: "tool", name: "report" },
-        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:"}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty?" }] }],
+        // Newer models refuse a forced tool, so the tool is offered and the prompt asks for it.
+        tool_choice: { type: "auto" },
+        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:"}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
       }),
       signal: AbortSignal.timeout(60000),
     });
