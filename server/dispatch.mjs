@@ -84,9 +84,9 @@ export class Dispatcher {
       const taken = this.watcher.inFlight();
       for (const tag of this.orderPrints.pending.values()) for (const a of tag.assetIds) taken.add(`${tag.orderId}:${a}`);
       for (const { serial, view } of this.printers.statuses()) {
-        // Idle isn't free: a finished print is still on the bed until someone answers how it went.
+        // A finished printer is free once the camera sees an empty bed; a review isn't needed.
         const last = this.watcher.lastFor(serial);
-        const cleared = !last || (last.ended && last.outcome);
+        const cleared = !last || !!last.ended;
         const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial);
         let offer = free ? this.candidate(view, taken) : null;
         // Before offering, look at the bed: an empty result holds until the next print; anything else is
@@ -174,9 +174,6 @@ export class Dispatcher {
     const last = this.tried.get(offer.id);
     if (last && this.now() - last.at < RETRY) return false;
     const block = (reason) => { this.tried.set(offer.id, { at: this.now(), reason }); offer.autoBlocked = reason; return false; };
-    // Offers already wait for an answer; automatic starts also need one to exist at all.
-    const previous = this.watcher.lastFor(serial);
-    if (!previous?.outcome) return block("Answer how the last print went first");
     if (!this.bedCheck) return block("Camera checks need the vision key");
     let bed;
     try {
@@ -225,7 +222,7 @@ export class Dispatcher {
     const available = [];
     for (const {serial, view} of this.printers.statuses()) {
       const last = this.watcher.lastFor(serial);
-      if (!view.connected || view.stale || !IDLE.includes(view.rawState) || (last && (!last.ended || !last.outcome)) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) continue;
+      if (!view.connected || view.stale || !IDLE.includes(view.rawState) || (last && !last.ended) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) continue;
       const bed = this.beds.get(serial), key = last ? `${last.id}:${last.outcome}` : "none";
       if (this.bedCheck && (!bed?.empty || bed.key !== key)) continue;
       for (const {order} of this.plans()) {

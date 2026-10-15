@@ -78,24 +78,29 @@ test("non-TPU-for-AMS spools, busy printers and assembled orders are never offer
   }
 });
 
-test("automatic printing starts only after the last print was answered and the bed looks empty", async () => {
+test("automatic printing needs only an empty bed, not a review of the last print", async () => {
   const unanswered = setup({ last: { ended: 1, outcome: null } });
   try {
     unanswered.d.setAuto(true);
     await unanswered.d.tick();
-    assert.equal(unanswered.started.length, 0);
-    assert.equal(unanswered.d.view().offers.length, 0, "a finished print still on the bed means the printer isn't free");
-    assert.equal(unanswered.pushes.length, 0);
-    assert.equal(unanswered.d.view().available.length,0);
+    assert.equal(unanswered.started.length, 1, "an unreviewed finished print doesn't hold the printer once the bed looks empty");
   } finally {
     unanswered.done();
+  }
+  const stillPrinting = setup({ last: { ended: null, outcome: null } });
+  try {
+    stillPrinting.d.setAuto(true);
+    await stillPrinting.d.tick();
+    assert.equal(stillPrinting.started.length, 0, "a print that hasn't ended still holds the printer");
+    assert.equal(stillPrinting.d.view().offers.length, 0);
+  } finally {
+    stillPrinting.done();
   }
   const neverWatched = setup({ last: null });
   try {
     neverWatched.d.setAuto(true);
     await neverWatched.d.tick();
-    assert.equal(neverWatched.started.length, 0, "no answered print yet: offer only");
-    assert.match(neverWatched.d.view().offers[0].autoBlocked, /Answer how the last print went/);
+    assert.equal(neverWatched.started.length, 1, "no print history: the camera check decides");
   } finally {
     neverWatched.done();
   }
