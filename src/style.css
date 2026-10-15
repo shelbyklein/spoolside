@@ -2413,7 +2413,10 @@ footer .tiny-dot {
 .import-dialog .watch-actions a.primary { display: inline-flex; align-items: center; text-decoration: none; }
 .library-check { font-size: 14px; font-weight: 600; }
 .on-water .library-check { color: #fff; }
-.library-check-plate { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #eef3f2; aspect-ratio: auto !important; }
+/* Two columns: the plate as a square on the left, the checkbox and its label on the right. */
+.library-check.with-plate { display: grid; grid-template-columns: minmax(96px, 38%) 1fr; align-items: center; gap: 16px; }
+.library-check-text { display: flex; align-items: flex-start; gap: 9px; line-height: 1.4; }
+.watch-card .library-check-plate { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; border-radius: 10px; background: #eef3f2; }
 /* Asset details: its sliced prints. */
 .asset-slices { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; }
 .asset-slices h3 { margin: 0; font-size: 15px; }

@@ -220,10 +220,12 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
           {w.inLibrary === false && (w.importing ? <ImportButton watch={w} refresh={refresh} /> : (
-            <label className="check-row library-check">
-              <input type="checkbox" checked={wantsLibrary(w)} onChange={(e) => setAddToLibrary({ ...addToLibrary, [w.id]: e.target.checked })} />
+            <label className={`check-row library-check${w.plan ? " with-plate" : ""}`}>
               {w.plan && <img className="library-check-plate" src={photo(w, "plan.png")!} alt="" />}
-              Also add this plate to the library
+              <span className="library-check-text">
+                <input type="checkbox" checked={wantsLibrary(w)} onChange={(e) => setAddToLibrary({ ...addToLibrary, [w.id]: e.target.checked })} />
+                Also add this plate to the library
+              </span>
             </label>
           ))}
           {noting === w.id ? (
