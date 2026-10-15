@@ -219,12 +219,23 @@ export function AutoPrintSetting({ auto, vision, onChange }: { auto: boolean; vi
     <section className="auto-print" aria-label="Automatic printing">
       <h2>Automatic printing</h2>
       <label className="check-row">
-        <input type="checkbox" checked={auto} onChange={(e) => onChange(e.target.checked)} /> Start the next order piece on a free printer without asking
+        <input type="checkbox" checked={auto} onChange={(e) => onChange(e.target.checked)} /> Print the next thing in the queue on a free printer without asking
       </label>
       <p className="plate-meta">
-        Only with a Bambu TPU for AMS spool close to the order's color loaded, and only after you've answered how that printer's last print went and a camera check sees an empty bed. Otherwise you get the usual prompt.
+        Only with a Bambu TPU for AMS spool close to the order's color loaded, and only when a camera check sees an empty bed. Otherwise you get the usual prompt.
         {!vision && " Camera checks need the vision key, so nothing starts by itself until it's added."}
       </p>
     </section>
+  );
+}
+
+// The same setting as a switch on the Print queue.
+export function AutoPrintSwitch({ auto, vision, onChange }: { auto: boolean; vision: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="auto-switch" title="Starts the next queued piece when a printer is free, the right filament is loaded, and the camera sees an empty bed">
+      <input type="checkbox" role="switch" aria-label="Auto-print next in queue" checked={auto} disabled={!vision} onChange={(e) => onChange(e.target.checked)} />
+      <span className="auto-switch-track" aria-hidden="true"><span /></span>
+      <span>Auto-print next{!vision && " (needs vision key)"}</span>
+    </label>
   );
 }

@@ -131,9 +131,19 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await expect(card).toHaveCount(0);
   expect(posts[0][0]).toBe('/api/dispatch/red/dismiss');
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByLabel('Start the next order piece on a free printer without asking').check();
-  await expect(page.getByLabel('Start the next order piece on a free printer without asking')).toBeChecked();
+  await page.getByLabel('Print the next thing in the queue on a free printer without asking').check();
+  await expect(page.getByLabel('Print the next thing in the queue on a free printer without asking')).toBeChecked();
   expect(posts[1]).toEqual(['/api/dispatch/auto', { on: true }]);
+  // The same setting is a switch on the Print queue, with why a free printer is waiting.
+  await page.getByRole('navigation').getByRole('button', { name: /^Queue/ }).click();
+  const queue = page.getByRole('region', { name: 'Order print queue' });
+  const toggle = queue.getByRole('switch', { name: 'Auto-print next in queue' });
+  await expect(toggle).toBeChecked();
+  await expect(queue).toContainText('AMS 2 is waiting: A grey case is still on the plate.');
+  await queue.locator('.section-top').screenshot({ path: 'handoff/spoolside-queue-auto-switch.png' });
+  await queue.getByText('Auto-print next').click();
+  await expect(toggle).not.toBeChecked();
+  expect(posts[2]).toEqual(['/api/dispatch/auto', { on: false }]);
   await page.unrouteAll({ behavior: "wait" });
   await context.close();
 });

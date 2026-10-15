@@ -10,7 +10,7 @@ import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
 import { PrinterCards } from "./PrinterCards";
 import { Inventory } from "./Inventory";
-import { OrderPrintDialog, OfferCards, AutoPrintSetting, useDispatch, type Offer } from "./OrderPrint";
+import { OrderPrintDialog, OfferCards, AutoPrintSetting, AutoPrintSwitch, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
 import { SpoolList } from "./LoadedSpools";
 import { useWatches, WatchAttention, WatchStatus, RecentPrints, ImportDialogHost } from "./PrintWatch";
@@ -234,6 +234,7 @@ function App() {
   const dismissOffer = (o: Offer) => dispatch.dismiss(o.printer).catch((e) => setNotice(e.message));
   const [training, setTraining] = useState<{id:string;name:string}|null>(null);
   const teachBed = (id:string,name:string) => {setSelected(null);setTraining({id,name});};
+  const setAutoPrint = (on: boolean) => dispatch.setAuto(on).then(() => setNotice(on ? "Auto-print is on: free printers start the next queued piece when the bed looks clear." : "Auto-print is off.")).catch((e) => setNotice(e.message));
   const offers = remote ? <OfferCards offers={dispatch.offers} held={dispatch.held} onTeach={teachBed} onPrint={printOffer} onDismiss={dismissOffer} /> : null;
   const printOrder = remote ? (order: Order, group: PrintGroup) => setPrinting({ orderId: order.id, group }) : undefined;
   const tickPiece = remote
@@ -730,7 +731,7 @@ function App() {
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
-              {tab !== "Filament" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} /> : queue)}
+              {tab !== "Filament" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
               {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
@@ -785,7 +786,7 @@ function App() {
                 <ShoppingBag size={16} /> View orders
               </button>
               {remote && <NotificationSettings />}
-              {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={(on) => dispatch.setAuto(on).then(() => setNotice(on ? "Automatic printing is on." : "Automatic printing is off.")).catch((e) => setNotice(e.message))} />}
+              {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />}
               <h2>App updates</h2>
               <p>Checks for updates when you reopen the app. Refresh here to get the latest version now.</p>
               <RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} />

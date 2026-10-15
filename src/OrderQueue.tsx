@@ -1,9 +1,11 @@
 import type { Order, PrintGroup } from './order-model';
 import type { QueueEntry } from './live-workspace';
-export function OrderQueue({ entries, orders, abbreviated, onPrint, onOpen }: { entries: QueueEntry[]; orders: Order[]; abbreviated: boolean; onPrint: (order: Order, group: PrintGroup) => void; onOpen: () => void }) {
+import type { ReactNode } from 'react';
+export function OrderQueue({ entries, orders, abbreviated, onPrint, onOpen, control, held = [] }: { entries: QueueEntry[]; orders: Order[]; abbreviated: boolean; onPrint: (order: Order, group: PrintGroup) => void; onOpen: () => void; control?: ReactNode; held?: { printer: string; printerName: string; reason: string }[] }) {
   const shown = abbreviated ? entries.slice(0, 5) : entries;
   return <section className="panel order-queue" aria-label="Order print queue">
-    <div className="section-top"><div><h2>Print queue</h2><p>Remaining order prints · oldest first</p></div><span>{entries.length} needed</span></div>
+    <div className="section-top"><div><h2>Print queue</h2><p>Remaining order prints · oldest first</p></div><div className="queue-top-right">{control}<span>{entries.length} needed</span></div></div>
+    {control && held.map(h => <p key={h.printer} className="queue-held">{h.printerName} is waiting: {h.reason}</p>)}
     {!entries.length && <p className="queue-empty">No order prints waiting. New processing orders appear here automatically.</p>}
     {shown.map((entry, i) => {
       const order = orders.find(o => o.id === entry.orderId);
