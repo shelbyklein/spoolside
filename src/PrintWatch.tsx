@@ -1,5 +1,6 @@
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AlertTriangle, Check, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
+import { AlertTriangle, Check, ClipboardCheck, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -103,7 +104,7 @@ export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[
   const pct = p?.total ? Math.min(100, Math.round((p.bytes / p.total) * 100)) : null;
   const stage = !p || p.stage === "connecting" ? "Connecting to the printer…" : p.stage === "downloading" ? "Copying the sliced file from the printer" : "Saving to your library…";
   return (
-    <div className="modal-backdrop" onClick={close}>
+    <div className="modal-backdrop import-backdrop" onClick={close}>
       <div className="modal import-dialog" role="dialog" aria-modal="true" aria-label={`Add ${jobName(watch.job)} to library`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && close()}>
         <div className="section-top">
           <h3>Add to library</h3>
@@ -182,13 +183,16 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
   };
   const focusedRating = useRef("");
   const rating = new URLSearchParams(window.location.search).get("rate");
+  const [reviewing, setReviewing] = useState(false);
+  // A notification's link opens the reviews straight away.
+  useEffect(() => { if (rating && watches.some(w=>w.id===rating && w.ended && !w.outcome)) setReviewing(true); }, [rating, watches]);
   useEffect(() => {
-    if (!rating || focusedRating.current === rating || !watches.some(w=>w.id===rating && w.ended && !w.outcome)) return;
+    if (!rating || !reviewing || focusedRating.current === rating || !watches.some(w=>w.id===rating && w.ended && !w.outcome)) return;
     const card=document.getElementById(`rate-${rating}`);
     if (card) focusedRating.current = rating;
     card?.scrollIntoView({block:"center"});
     card?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
-  }, [rating, watches]);
+  }, [rating, watches, reviewing]);
   const alerts = watches.filter((w) => !w.ended && w.alert);
   const asks = watches.filter((w) => w.ended && !w.outcome);
   // Rating a print that isn't in the library also offers to save its sliced plate (unticked until you choose).
@@ -213,10 +217,20 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           </div>
         </article>
       ))}
+      {asks.length > 0 && (
+        <button className="review-summary" onClick={() => setReviewing(true)}>
+          <ClipboardCheck size={18} />
+          <span><strong>{asks.length === 1 ? "1 print to review" : `${asks.length} prints to review`}</strong><small>Optional · helps the watcher learn</small></span>
+        </button>
+      )}
+      {reviewing && asks.length > 0 && createPortal(
+        <div className="modal-backdrop" onClick={() => setReviewing(false)}>
+          <div className="modal review-dialog" role="dialog" aria-modal="true" aria-label="Print reviews" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && setReviewing(false)}>
+            <div className="section-top"><h2>Print reviews <span>{asks.length}</span></h2><button className="icon-button" aria-label="Close" onClick={() => setReviewing(false)}><X size={18} /></button></div>
       {asks.map((w) => (
         <article id={`rate-${w.id}`} key={w.id} className={`watch-card${rating===w.id ? " rating-target" : ""}`} aria-label={`Print review: ${jobName(w.job)}`}>
-          <h3>Print review</h3>
-          <p className="watch-job"><strong>{jobName(w.job)}</strong> · {w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
+          <h3>{jobName(w.job)}</h3>
+          <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
           {w.inLibrary === false && (w.importing ? <ImportButton watch={w} refresh={refresh} /> : (
@@ -250,6 +264,10 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
           )}
         </article>
       ))}
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

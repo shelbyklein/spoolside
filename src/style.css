@@ -2522,3 +2522,18 @@ footer .tiny-dot {
 .auto-switch:has(input:disabled) { opacity: .5; cursor: not-allowed; }
 .queue-held { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: #fdf1e3; color: #70420c; font-size: 13px; }
 @media (max-width: 760px) { .order-queue .section-top { flex-wrap: wrap; gap: 10px; } .queue-top-right { width: 100%; justify-content: space-between; } }
+
+/* Print reviews: a summary button opens them in a modal. */
+.review-summary { justify-content: flex-start; gap: 12px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--navy); text-align: left; }
+.review-summary svg { color: var(--teal); flex: none; }
+.review-summary span { display: flex; flex-direction: column; gap: 2px; }
+.review-summary strong { font-size: 14px; }
+.review-summary small { color: var(--muted); font-size: 12px; }
+.on-water .review-summary { border-color: rgba(255,255,255,.16); background: rgba(2,36,46,.42); color: #fff; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.on-water .review-summary svg, .on-water .review-summary small { color: rgba(255,255,255,.8); }
+.review-dialog { display: flex; flex-direction: column; gap: 14px; width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border-radius: 18px; background: #f5f8f7; }
+.review-dialog .section-top { display: flex; align-items: center; justify-content: space-between; }
+.review-dialog h2 { margin: 0; font-size: 20px; }
+.review-dialog h2 span { margin-left: 6px; padding: 2px 8px; border-radius: 6px; background: #e6eded; color: #5e7178; font-size: 12px; vertical-align: middle; }
+@media (max-width: 760px) { .review-dialog { padding: 16px; } }
+.import-backdrop { z-index: 110; }
