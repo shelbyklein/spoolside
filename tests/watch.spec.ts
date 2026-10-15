@@ -24,6 +24,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
     if (/^\/api\/watches\/[^/]+\/[^/]+\.jpg$/.test(url.pathname)) return route.fulfill({ contentType: 'image/png', body: pixel });
     if (route.request().method() === 'POST' && url.pathname.startsWith('/api/watches/')) {
       posts.push(url.pathname + ' ' + (route.request().postData() || ''));
+      if (url.pathname.endsWith('/skip')) watches = watches.filter(w => w.id !== url.pathname.split('/')[3]);
       if (url.pathname.endsWith('/dismiss-import')) watches = watches.map(w => w.id === url.pathname.split('/')[3] ? { ...w, importDismissed: true } : w);
       if (url.pathname.endsWith('/library')) { const id = url.pathname.split('/')[3]; watches = watches.map(w => w.id === id ? { ...w, inLibrary: true } : w); recent = recent.map(w => w.id === id ? { ...w, inLibrary: true } : w); }
       if (url.pathname.endsWith('false-alarm')) watches = watches.map((w) => (w.printer === 'p1' ? { ...w, alert: null, mode: 'warn' } : w));
@@ -50,7 +51,8 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(home.getByText('Add this print to the library?')).toHaveCount(0);
   await expect(alert).toContainText('Spoolside paused Conductive');
   await expect(alert).toContainText('Spaghetti around the part.');
-  const ask = home.getByRole('article', { name: 'How did Bridge go?' });
+  const ask = home.getByRole('article', { name: 'Print review: Bridge' });
+  await expect(ask.getByRole('heading', { name: 'Print review' })).toBeVisible();
   await expect(ask).toContainText('Finished on AMS 3');
   await ask.screenshot({path:'handoff/spoolside-review-add-library.png'});
   await expect(ask.getByLabel('Also add this plate to the library')).not.toBeChecked();
@@ -77,7 +79,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await importDialog.getByRole('button', { name: 'Done' }).click();
   await expect(importDialog).toHaveCount(0);
   await page.goto('https://spoolside.shelbyklein.com/printers?rate=33333333-3333-4333-8333-333333333333');
-  const stopped = page.getByRole('article', { name: 'How did DS Top go?' });
+  const stopped = page.getByRole('article', { name: 'Print review: DS Top' });
   await expect(stopped).toHaveClass(/rating-target/);
   await expect(stopped.getByRole('button', { name: 'Came out fine' })).toBeFocused();
   await page.screenshot({path:'handoff/spoolside-notification-rating.png',fullPage:true});
@@ -86,6 +88,13 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await stopped.getByRole('button', { name: 'Save as failed' }).click();
   await expect(stopped).toHaveCount(0);
   expect(posts).toContain('/api/watches/33333333-3333-4333-8333-333333333333/outcome {"success":false,"note":"Corner lifted on the left"}');
+  // A review can also be deleted in one tap, without a rating or notes.
+  watches = [...watches, { ...watches[0], id: '55555555-5555-4555-8555-555555555555', printer: 'p5', printerName: 'Desk', job: 'Spare.gcode.3mf', ended: now - 100000, endedAs: 'finished', external: false, alert: null, check: null }];
+  await page.reload();
+  const spare = page.getByRole('article', { name: 'Print review: Spare' });
+  await spare.getByRole('button', { name: 'Delete review' }).click();
+  await expect(spare).toHaveCount(0);
+  expect(posts).toContain('/api/watches/55555555-5555-4555-8555-555555555555/skip {}');
   await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   await alert.getByRole('button', { name: 'False alarm, resume' }).click();
   await expect(alert).toHaveCount(0);

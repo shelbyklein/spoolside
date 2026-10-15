@@ -481,6 +481,15 @@ export function createApp({
       fail(res, e);
     }
   });
+  app.post("/api/watches/:id/skip", (req, res) => {
+    try {
+      if (!watcher) return res.sendStatus(404);
+      res.json(watcher.skip(req.params.id));
+      dispatcher?.tick();
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.post("/api/watches/:id/false-alarm", async (req, res) => {
     try {
       if (!watcher) return res.sendStatus(404);

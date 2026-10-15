@@ -199,6 +199,18 @@ export class PrintWatcher {
     this.prune();
     return this.view(this.row(id));
   }
+  // Deleted without a rating: the card goes away and the printer counts as reviewed, but nothing is learned from it.
+  skip(id) {
+    const watch = this.row(id);
+    if (!watch || !watch.ended) throw Object.assign(Error("Unknown print"), { status: 404 });
+    if (watch.order_id && this.orderPrints && watch.credited) {
+      this.orderPrints.add(watch.order_id, JSON.parse(watch.assets || "[]"), -1);
+      this.set(id, { credited: 0 });
+    }
+    this.set(id, { outcome: "skipped" });
+    this.prune();
+    return this.view(this.row(id));
+  }
   async falseAlarm(id) {
     const watch = this.row(id);
     if (!watch?.alert || watch.ended) throw Object.assign(Error("Nothing to dismiss"), { status: 404 });
@@ -242,7 +254,7 @@ export class PrintWatcher {
   list() {
     const rows = this.db.prepare("SELECT id FROM print_watches WHERE ended IS NULL OR (outcome IS NULL AND ended>?) ORDER BY started DESC").all(this.now() - 3 * 24 * 60 * MINUTE);
     // The latest answered prints, for each printer's history.
-    const recent = this.db.prepare("SELECT id FROM print_watches WHERE outcome IS NOT NULL ORDER BY ended DESC LIMIT 30").all();
+    const recent = this.db.prepare("SELECT id FROM print_watches WHERE outcome IS NOT NULL AND outcome<>'skipped' ORDER BY ended DESC LIMIT 30").all();
     return { vision: !!this.vision, watches: rows.map((r) => this.view(this.row(r.id))), recent: recent.map((r) => this.view(this.row(r.id))) };
   }
 }

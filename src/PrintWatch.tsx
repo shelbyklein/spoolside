@@ -10,7 +10,7 @@ export type Watch = {
   started: number;
   ended: number | null;
   endedAs: "finished" | "stopped" | "ended" | null;
-  outcome: "success" | "failed" | null;
+  outcome: "success" | "failed" | "skipped" | null;
   note?: string | null;
   inLibrary?: boolean;
   external?: boolean;
@@ -214,9 +214,9 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
         </article>
       ))}
       {asks.map((w) => (
-        <article id={`rate-${w.id}`} key={w.id} className={`watch-card${rating===w.id ? " rating-target" : ""}`} aria-label={`How did ${jobName(w.job)} go?`}>
-          <h3>How did {jobName(w.job)} go?</h3>
-          <p className="watch-job">{w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
+        <article id={`rate-${w.id}`} key={w.id} className={`watch-card${rating===w.id ? " rating-target" : ""}`} aria-label={`Print review: ${jobName(w.job)}`}>
+          <h3>Print review</h3>
+          <p className="watch-job"><strong>{jobName(w.job)}</strong> · {w.endedAs === "finished" ? "Finished" : "Stopped"} on {w.printerName} · {ago(w.ended!)}</p>
           {photo(w, w.check?.final) && <img src={photo(w, w.check?.final)!} alt={`Camera photo of ${w.printerName} after the print`} loading="lazy" />}
           {w.note && <p className="recent-print-note">{w.note}</p>}
           {w.inLibrary === false && (w.importing ? <ImportButton watch={w} refresh={refresh} /> : (
@@ -240,9 +240,12 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
                 <Check size={18} />
               </button>
               <button className="secondary icon-only" aria-label="Failed" title="Failed" disabled={!!busy} onClick={() => setFailing(w.id)}>
-                <Trash2 size={18} />
+                <X size={18} />
               </button>
               <button className="secondary" disabled={!!busy} onClick={() => setNoting(w.id)}><NotebookPen size={15} /> Notes</button>
+              <button className="text-button watch-delete" aria-label="Delete review" title="Delete without rating" disabled={!!busy} onClick={() => act(w.id + "skip", () => post(`/api/watches/${w.id}/skip`), "Review deleted.")}>
+                <Trash2 size={16} /> Delete
+              </button>
             </div>
           )}
         </article>

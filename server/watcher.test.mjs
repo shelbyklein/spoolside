@@ -95,6 +95,11 @@ test("a print is watched, paused after two problem checks, and asks for its outc
     assert.throws(() => s.watcher.note(w.id, 4), /Notes are text/);
     assert.equal(s.watcher.outcome(w.id, true).outcome, "success");
     assert.equal(s.watcher.list().watches.length, 0, "answered prints leave the list");
+    s.watcher.set(w.id, { outcome: null });
+    assert.equal(s.watcher.skip(w.id).outcome, "skipped");
+    assert.equal(s.watcher.list().watches.length, 0, "deleted reviews leave the list");
+    assert.ok(!s.watcher.list().recent.some((r) => r.id === w.id), "and aren't shown as rated");
+    s.watcher.outcome(w.id, true);
     // The next run of the same job is compared with this one.
     s.state.raw = "RUNNING";
     s.state.progress = 48;
