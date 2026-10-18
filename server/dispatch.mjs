@@ -161,6 +161,16 @@ export class Dispatcher {
     const offer=this.offers.get(serial);if(offer)this.tried.delete(offer.id);
     return {ok:true};
   }
+  // One careful look right now, for a print started by hand.
+  async checkBedNow(serial) {
+    try {
+      const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
+      if (brightness < 18) return { empty: false, reason: "It's too dark to see the bed." };
+      return await this.bedCheck(jpeg, "confirm", this.reference(serial));
+    } catch {
+      return { empty: false, reason: "The camera couldn't get a photo of the bed." };
+    }
+  }
   async lookAtBed(serial, last) {
     if (!this.bedCheck) return { empty: true, reason: "" };
     const revision=this.referenceRevisions.get(serial)||0;

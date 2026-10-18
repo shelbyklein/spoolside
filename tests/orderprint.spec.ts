@@ -25,7 +25,13 @@ test('order rows print their case and faceplates on the best-matching printer', 
     if (url.pathname === '/api/workspace') return route.fulfill({ json: state });
     if (url.pathname === '/api/library') return route.fulfill({ json: [{ id: 'f-case', name: 'iPhone 12 Case', size: 1, created: now, plates: [{ index: 1, minutes: 80, grams: 33, filaments: [{ id: 1, type: 'TPU-AMS', color: '#ED0000' }] }] }] });
     if (url.pathname.endsWith('.jpg') || url.pathname.endsWith('.png')) return route.fulfill({ contentType: 'image/png', body: pixel });
-    if (url.pathname.startsWith('/api/orders/')) { posts.push([url.pathname, route.request().postDataJSON()]); return route.fulfill({ json: { ok: true } }); }
+    if (url.pathname.startsWith('/api/orders/')) {
+      const body = route.request().postDataJSON();
+      posts.push([url.pathname, body]);
+      // The camera holds the first start; "start anyway" goes through.
+      if (url.pathname.endsWith('/print') && !body.bedClear) return route.fulfill({ status: 409, json: { error: 'The camera sees something on the bed: A grey case is still on the plate.', bed: true } });
+      return route.fulfill({ json: { ok: true } });
+    }
     if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: false, watches: [] } });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 404, json: {} });
     return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) });
@@ -54,11 +60,16 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await expect(dialog.getByLabel('Printer').locator('option[value="pla"]')).toContainText('no TPU loaded');
   await expect(dialog.getByLabel('AMS slot for filament 1')).toHaveValue('1');
   const start = dialog.getByRole('button', { name: 'Start print on AMS 3' });
-  await expect(start).toBeDisabled();
-  await dialog.getByLabel('Build plate is clear').check();
+  await expect(dialog.getByLabel('Build plate is clear')).toHaveCount(0);
   await start.click();
+  const held = dialog.getByRole('alert');
+  await expect(held).toContainText('A grey case is still on the plate.');
+  await dialog.screenshot({ path: 'handoff/spoolside-bed-held.png' });
+  expect(posts[0]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: false }]);
+  await held.getByRole('button', { name: 'The bed is clear, start anyway' }).click();
   await expect(dialog).toHaveCount(0);
-  expect(posts[0]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: true }]);
+  expect(posts[1]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: true }]);
+  posts.splice(0, 1);
   await page.getByRole('navigation').getByRole('button', { name: 'PlayCase', exact: true }).click();
   await row.getByRole('checkbox', { name: 'Classic faceplate printed' }).click();
   await expect.poll(() => posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);

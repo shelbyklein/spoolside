@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Play, Printer, X } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import type { Order, PrintGroup } from "./order-model";
-import { BedCheck, useLibrary } from "./PrintControls";
+import { BedHeld, useLibrary } from "./PrintControls";
 
 // Store colorway names to the color Spoolside looks for among the loaded spools.
 const COLORWAYS: Record<string, string> = {
@@ -71,7 +71,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
   const printer = machines.find((m) => m.id === printerId);
   const trays = (printer?.trays || []).filter((t) => t.type);
   const [mapping, setMapping] = useState<number[]>([]);
-  const [level, setLevel] = useState(true), [clear, setClear] = useState(false), [sending, setSending] = useState(false);
+  const [level, setLevel] = useState(true), [held, setHeld] = useState<string | null>(null), [sending, setSending] = useState(false);
   const useAms = trays.length > 0;
   // Every filament on the plate prints in the order's colorway: the closest loaded spool.
   useEffect(() => {
@@ -86,15 +86,17 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
     return () => document.removeEventListener("keydown", key);
   }, [sending]);
   const match = printer && target ? closestTray(printer, target, material) : null;
-  const send = async () => {
+  const send = async (anyway = false) => {
     setSending(true);
+    setHeld(null);
     try {
       const r = await fetch(`/api/orders/${order.id}/print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ group: group.key, printer: printerId, plate: `${next.fileId}:${next.plate}`, useAms, amsMapping: mapping, bedLevelling: level, bedClear: clear }),
+        body: JSON.stringify({ group: group.key, printer: printerId, plate: `${next.fileId}:${next.plate}`, useAms, amsMapping: mapping, bedLevelling: level, bedClear: anyway }),
       });
       const body = await r.json().catch(() => ({}));
+      if (body.bed) return setHeld(body.error);
       if (!r.ok) throw Error(body.error || "Couldn't start the print");
       notify(`Printing ${next.name} for ${order.number} on ${printer?.name}.`);
       onSent();
@@ -145,11 +147,10 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
             {useAms && match && match.off >= WRONG_MATERIAL && <p className="order-print-warn">{printer?.name} has no {family(material)} loaded. This plate is sliced for {family(material)}.</p>}
             {useAms && match && match.off > FAR && match.off < WRONG_MATERIAL && <p className="order-print-warn">No spool close to {colorway} is loaded in {printer?.name}. Check the slot before printing.</p>}
             <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
-            {printer && <BedCheck machine={printer} />}
-            <label className="check-row"><input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} /> Build plate is clear</label>
-            <button className="primary" disabled={!clear || sending || !plate || (useAms && mapping.some((m) => m < 0))} onClick={send}>
-              <Play size={16} /> {sending ? "Sending to printer…" : `Start print on ${printer?.name || "printer"}`}
+            <button className="primary" disabled={sending || !plate || (useAms && mapping.some((m) => m < 0))} onClick={() => send()}>
+              <Play size={16} /> {sending ? "Checking the bed…" : `Start print on ${printer?.name || "printer"}`}
             </button>
+            {held && <BedHeld reason={held} busy={sending} onAnyway={() => send(true)} />}
           </>
         )}
       </div>

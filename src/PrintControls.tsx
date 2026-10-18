@@ -41,6 +41,16 @@ export function defaultMapping(plate: Plate, trays: Machine["trays"] = []) {
   return mapping;
 }
 
+// The camera saw something on the bed: say what, and let you start anyway once you've looked.
+export function BedHeld({ reason, busy, onAnyway }: { reason: string; busy: boolean; onAnyway: () => void }) {
+  return (
+    <div className="bed-held" role="alert">
+      <p>{reason}</p>
+      <button className="secondary" disabled={busy} onClick={onAnyway}>The bed is clear, start anyway</button>
+    </div>
+  );
+}
+
 export function PrintControls({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
   const [busy, setBusy] = useState(false);
   const act = async (action: "pause" | "resume" | "stop") => {
@@ -198,7 +208,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
     // Printers with no AMS loaded print from the external spool.
     [useAms, setUseAms] = useState(() => (machine.trays || []).some((t) => t.type)),
     [level, setLevel] = useState(true),
-    [clear, setClear] = useState(false),
+    [held, setHeld] = useState<string | null>(null),
     [sending, setSending] = useState(false);
   useEffect(() => {
     if (last && justPrinted && !fileId) setFileId(LAST);
@@ -210,19 +220,23 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
     if (plate) setMapping(defaultMapping(plate, machine.trays));
   }, [fileId, plateIndex, plate]);
   if (!files) return null;
-  if (!files.length && !last) return <><BedCheck machine={machine} /><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
-  const start = async () => {
+  if (!files.length && !last) return <><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
+  // The server looks at the bed with the camera first; `anyway` skips that once you've checked yourself.
+  const start = async (anyway = false) => {
     if (!file || !plate) return;
     setSending(true);
+    setHeld(null);
     try {
       const again = fileId === LAST;
-      await api(`/api/printers/${machine.id}/${again ? "reprint" : "print"}`, {
+      const r = await fetch(`/api/printers/${machine.id}/${again ? "reprint" : "print"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...(again ? {} : { fileId }), plate: plate.index, amsMapping: mapping, useAms, bedLevelling: level, bedClear: clear }),
+        body: JSON.stringify({ ...(again ? {} : { fileId }), plate: plate.index, amsMapping: mapping, useAms, bedLevelling: level, bedClear: anyway }),
       });
+      const body = await r.json().catch(() => ({}));
+      if (body.bed) return setHeld(body.error);
+      if (!r.ok) throw Error(body.error || "Request failed");
       notify(`Started ${file.name}${again ? " again" : ""} on ${machine.name}.`);
-      setClear(false);
       onSent?.();
     } catch (e) {
       notify((e as Error).message);
@@ -272,11 +286,10 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
           ))}
           {!useAms && <p className="plate-meta">Prints from the external spool{machine.external ? ` (${machine.external.type})` : ""}.</p>}
           <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
-          <BedCheck machine={machine} />
-          <label className="check-row"><input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} /> Build plate is clear</label>
-          <button className="primary" disabled={!clear || sending || (useAms && plate.filaments.some((f) => (mapping[f.id - 1] ?? -1) < 0))} onClick={start}>
-            <Play size={16} /> {sending ? "Sending to printer…" : "Start print"}
+          <button className="primary" disabled={sending || (useAms && plate.filaments.some((f) => (mapping[f.id - 1] ?? -1) < 0))} onClick={() => start()}>
+            <Play size={16} /> {sending ? "Checking the bed…" : "Start print"}
           </button>
+          {held && <BedHeld reason={held} busy={sending} onAnyway={() => start(true)} />}
         </>
       )}
     </div>
@@ -508,23 +521,6 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
     </div></div>}
   </div>;
 }
-
-// A fresh photo from the printer's camera, to confirm the bed is empty before starting.
-export function BedCheck({ machine }: { machine: Machine }) {
-  const [stamp, setStamp] = useState(() => Date.now()), [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const refresh = () => { setState("loading"); setStamp(Date.now()); };
-  return (
-    <figure className="bed-check">
-      <img key={stamp} src={`/api/printers/${machine.id}/camera.jpg?t=${stamp}`} alt={`Camera view of ${machine.name}'s bed`} onLoad={() => setState("ready")} onError={() => setState("error")} hidden={state !== "ready"} />
-      {state !== "ready" && <div className="bed-check-placeholder">{state === "loading" ? "Getting a photo of the bed…" : "Camera unavailable"}</div>}
-      <figcaption>
-        <span>{state === "ready" ? `Bed photo · ${new Date(stamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Bed photo"}</span>
-        <button type="button" className="text-button" onClick={refresh} disabled={state === "loading"}><RefreshCw size={14} /> Refresh</button>
-      </figcaption>
-    </figure>
-  );
-}
-
 
 function PrintMetadata({file}:{file:LibraryFile}) {
  const [open,setOpen]=useState(false),[data,setData]=useState<Record<string,unknown>|null>(null),[error,setError]=useState("");

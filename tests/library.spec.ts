@@ -37,7 +37,7 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await page.route('**/api/**',async route=>{
  const url=new URL(route.request().url()).pathname;
  if(url==='/api/workspace')return route.fulfill({json:{machines:[{id:'idle',name:'Membrane',connected:true,stale:false,rawState:'IDLE',state:'Ready',trays:[],external:{type:'TPU',color:'#000000'}}]}});
- if(url==='/api/printers/idle/print') { const body=route.request().postDataJSON();expect(body.fileId).toBe('slice');expect(body.bedClear).toBe(true);return route.fulfill({json:{ok:true}}); }
+ if(url==='/api/printers/idle/print') { const body=route.request().postDataJSON();expect(body.fileId).toBe('slice');expect(body.bedClear).toBe(false);return route.fulfill({json:{ok:true}}); }
  if(url==='/api/assets')return route.fulfill({json:[asset,...extra]});
  if(url==='/api/library')return route.fulfill({json:[file]});
  if(url==='/api/library/slice'){
@@ -69,9 +69,8 @@ test('sliced prints are a library section with editable per-plate asset coverage
  await page.getByRole('button',{name:'Print',exact:true}).click();
  const print=page.getByRole('dialog',{name:'Print Touch pins'});
  await expect(print.getByLabel('Printer')).toHaveValue('idle');
- await expect(print.getByRole('button',{name:'Start print',exact:true})).toBeDisabled();
+ await expect(print.getByLabel('Build plate is clear')).toHaveCount(0);
  await page.screenshot({path:'handoff/spoolside-card-print-dialog.png',fullPage:true});
- await print.getByLabel('Build plate is clear').check();
  await print.getByRole('button',{name:'Start print',exact:true}).click();
  await expect(print).toHaveCount(0);
  file={...file,preferredPrinter:'busy'};
@@ -89,7 +88,7 @@ test('library print slot mapping initializes after async plates load and accepts
  if(path==='/api/workspace')return r.fulfill({json:{machines:[{id:'p1',name:'AMS 3',connected:true,rawState:'IDLE',trays:[{slot:0,type:'TPU-AMS',color:'#ff0000'},{slot:1,type:'TPU-AMS',color:'#000000'}]}]}});
  return r.fulfill({json:[]});});
  await page.goto('/library/sliced');await page.getByRole('button',{name:'Print',exact:true}).click();const d=page.getByRole('dialog',{name:'Print Handheld Plus'}),slot=d.getByLabel('AMS slot for filament 1');
- await expect(slot).toHaveValue('0');await slot.selectOption('1');await expect(slot).toHaveValue('1');await d.getByLabel('Build plate is clear').check();await expect(d.getByRole('button',{name:'Start print',exact:true})).toBeEnabled();
+ await expect(slot).toHaveValue('0');await slot.selectOption('1');await expect(slot).toHaveValue('1');await expect(d.getByRole('button',{name:'Start print',exact:true})).toBeEnabled();
 });
 
 test('an asset can upload its sliced print, which is linked to it automatically',async({page})=>{

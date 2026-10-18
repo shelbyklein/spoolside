@@ -2589,3 +2589,7 @@ footer .tiny-dot {
 .repeat-card strong { font-size: 13px; }
 .repeat-card small { overflow: hidden; color: #2f6f68; font-size: 12px; text-overflow: ellipsis; }
 .repeat-card .text-button { flex: none; color: #b42318; font-size: 13px; }
+/* A manual start held by the camera's bed check. */
+.bed-held { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: #fdf1e3; color: #70420c; }
+.bed-held p { margin: 0; font-size: 13px; }
+.bed-held .secondary { align-self: flex-start; }

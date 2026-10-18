@@ -244,7 +244,7 @@ export function createApp({
     try {await notifications.test(req.params.id);res.json({ok:true});}
     catch(e){res.status(400).json({error:e.message});}
   });
-  const fail = (res, e) => res.status(e.status || 400).json({ error: e.message });
+  const fail = (res, e) => res.status(e.status || 400).json({ error: e.message, ...(e.bed ? { bed: true } : {}) });
   app.get("/api/designfiles",(_req,res)=>res.json(assets?.designs() || []));
   app.post("/api/designfiles",express.raw({type:"application/octet-stream",limit:"150mb"}),(req,res)=>{try{if(!assets)return res.sendStatus(503);res.json(assets.addDesign(JSON.parse(decodeURIComponent(String(req.get("x-design")||"{}"))),req.body));}catch(e){fail(res,e);}});
   app.get("/api/designfiles/:id/download",(req,res)=>{try{const file=assets.designFile(req.params.id);res.download(file.path,file.meta.name);}catch(e){fail(res,e);}});
@@ -526,8 +526,15 @@ export function createApp({
     }
   });
   // Checks a start request against the file's sliced plates.
-  const checkStart = (plates, { plate, amsMapping, useAms, bedClear }) => {
-    if (bedClear !== true) throw Error("Confirm the build plate is clear");
+  // Before a print you start by hand, the camera checks the bed. `bedClear: true` is "Start anyway".
+  const ensureBedClear = async (serial, bedClear) => {
+    if (bedClear === true) return;
+    const bedError = (message) => Object.assign(Error(message), { status: 409, bed: true });
+    if (!dispatcher?.bedCheck) throw bedError("The camera can't check the bed, so confirm it's clear yourself.");
+    const bed = await dispatcher.checkBedNow(String(serial));
+    if (!bed.empty) throw bedError(`The camera sees something on the bed: ${bed.reason}`);
+  };
+  const checkStart = (plates, { plate, amsMapping, useAms }) => {
     const plateInfo = plates.find((p) => p.index === plate);
     if (!plateInfo) throw Error("Choose a sliced plate");
     const slots = plateInfo.filaments.length ? Math.max(...plateInfo.filaments.map((f) => f.id)) : 0;
@@ -572,6 +579,7 @@ export function createApp({
       const last = await printers.lastPrint(req.params.id);
       if (!last) throw Object.assign(Error("The last print isn't on the printer anymore"), { status: 404 });
       checkStart(last.plates, req.body || {});
+      await ensureBedClear(req.params.id, req.body?.bedClear);
       await printers.reprint(req.params.id, { plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
@@ -584,6 +592,7 @@ export function createApp({
       const file = library?.get(String(fileId));
       if (!file) throw Error("Choose a file from the library");
       checkStart(file.plates, req.body || {});
+      await ensureBedClear(req.params.id, req.body?.bedClear);
       await printers.startPrint(req.params.id, {
         localFile: library.file(file.id),
         name: file.name,
@@ -617,6 +626,7 @@ export function createApp({
       const file = library.get(next.fileId);
       if (!file) throw Error("That sliced print is no longer in the library");
       checkStart(file.plates, { ...req.body, plate: next.plate });
+      await ensureBedClear(printer, req.body?.bedClear);
       // Everything this plate makes that the order still needs gets credited when it comes out fine.
       const covered = new Set((file.plates.find((p) => p.index === next.plate)?.coverage || []).map((c) => c.assetId));
       const assetIds = [...new Set(plan.flatMap((g) => g.pieces).filter((p) => covered.has(p.assetId) && p.done < p.needed).map((p) => p.assetId))];

@@ -35,7 +35,10 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     },
   };
   const salt = "b".repeat(32);
-  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library });
+  // The camera answers from this list, one look per manual start.
+  const beds = [{ empty: false, reason: "Four white parts are on the plate." }, { empty: true, reason: "Clear." }];
+  const dispatcher = { bedCheck: () => {}, checkBedNow: async () => beds.shift() || { empty: true, reason: "Clear." }, tick: async () => {} };
+  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library, dispatcher });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -50,8 +53,14 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     assert.equal(bad.status, 400);
     const print = (body) => fetch(base + "/api/printers/P1/print", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const base_ = { fileId: file.id, plate: 1, useAms: true, amsMapping: [2, -1, 3] };
-    assert.match((await (await print(base_)).json()).error, /plate is clear/);
+    // The camera checks the bed before a manual start; "Start anyway" (bedClear) skips it.
+    const held = await print(base_);
+    assert.equal(held.status, 409);
+    assert.deepEqual(await held.json(), { error: "The camera sees something on the bed: Four white parts are on the plate.", bed: true });
     assert.match((await (await print({ ...base_, bedClear: true, amsMapping: [2] })).json()).error, /AMS slot/);
+    assert.equal(calls.length, 0);
+    assert.equal((await print(base_)).status, 200, "a clear bed starts without asking");
+    calls.length = 0;
     assert.equal((await print({ ...base_, bedClear: true })).status, 200);
     assert.equal(calls[0][1], "P1");
     assert.deepEqual(calls[0][2].amsMapping, [2, -1, 3]);
@@ -61,7 +70,8 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     assert.equal(last.name, "Touch Pin");
     assert.equal(await (await fetch(base + "/api/printers/P2/last-print", { headers })).json(), null);
     const reprint = (id, body) => fetch(base + `/api/printers/${id}/reprint`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    assert.match((await (await reprint("P1", { plate: 1, useAms: true, amsMapping: [2, -1, 3] })).json()).error, /plate is clear/);
+    beds.push({ empty: false, reason: "A strand is on the plate." });
+    assert.match((await (await reprint("P1", { plate: 1, useAms: true, amsMapping: [2, -1, 3] })).json()).error, /A strand is on the plate/);
     assert.match((await (await reprint("P1", { plate: 2, bedClear: true, useAms: false })).json()).error, /sliced plate/);
     assert.equal((await reprint("P2", { plate: 1, bedClear: true })).status, 404);
     assert.equal((await reprint("P1", { plate: 1, bedClear: true, useAms: true, amsMapping: [2, -1, 3] })).status, 200);
@@ -163,7 +173,7 @@ test("an order's Print button sends its next plate and remembers the order", asy
     assert.equal(group.label, "case");
     const body = { group: group.key, printer: "P1", plate: `${file.id}:1`, useAms: true, amsMapping: [2, -1, 3], bedClear: true };
     const send = (b) => fetch(base + "/api/orders/o1/print", { method: "POST", headers, body: JSON.stringify(b) });
-    assert.match((await (await send({ ...body, bedClear: false })).json()).error, /plate is clear/);
+    assert.match((await (await send({ ...body, bedClear: false })).json()).error, /confirm it's clear yourself/);
     assert.equal((await send({ ...body, plate: "other:1" })).status, 409);
     assert.equal(calls.length, 0);
     assert.equal((await send(body)).status, 200);
