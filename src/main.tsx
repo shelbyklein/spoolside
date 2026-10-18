@@ -8,7 +8,7 @@ import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats } from "./Pr
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
-import { PrinterCards } from "./PrinterCards";
+import { PrinterCards, CameraFeed, jobName } from "./PrinterCards";
 import { Inventory } from "./Inventory";
 import { OrderPrintDialog, OfferCards, AutoPrintSetting, AutoPrintSwitch, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
@@ -913,48 +913,55 @@ function App() {
             >
               <X />
             </button>
-            <Printer size={38} />
-            <h2>{current.name}</h2>
-            <p>Bambu Lab A1 mini</p>
-            <span className={`status ${current.state.toLowerCase()}`}>
-              <span />
-              {current.state}
-            </span>
-            <h3>{current.job}</h3>
-            <dl>
-              <div>
-                <dt>Progress</dt>
-                <dd>{current.progress}%</dd>
+            <header className="detail-head">
+              <h2>{current.name}</h2>
+              <span className={`status ${current.state.toLowerCase()}`}>
+                <span />
+                {current.state}
+              </span>
+              <p>Bambu Lab A1 mini</p>
+            </header>
+            {/* Camera first; beside it, the job and four reading cards. */}
+            <div className="detail-top">
+              <div className="detail-camera"><CameraFeed machine={current} live={remote} /></div>
+              <div className="detail-info">
+                <h3>{current.job ? jobName(current.job) : "No print information"}</h3>
+                <dl className="detail-cards">
+                  <div className="detail-card">
+                    <dt>Progress</dt>
+                    <dd>
+                      <strong>{current.progress}%</strong>
+                      <span className="mini-progress"><i style={{ width: `${current.progress}%` }} /></span>
+                      <small>{current.state === "Printing" || current.state === "Paused" ? `${current.remaining} left` : "Not printing"}</small>
+                    </dd>
+                  </div>
+                  <div className="detail-card">
+                    <dt>Filament</dt>
+                    <dd>{remote ? <SpoolList machine={current} /> : current.material}</dd>
+                  </div>
+                  <div className="detail-card">
+                    <dt>Nozzle / bed</dt>
+                    <dd>
+                      <strong>
+                        {remote
+                          ? `${current.nozzle ?? "—"}° / ${current.bed ?? "—"}°`
+                          : current.state === "Printing" || current.state === "Paused" ? "220° / 60°" : "—"}
+                      </strong>
+                      <small>Celsius</small>
+                    </dd>
+                  </div>
+                  <div className="detail-card">
+                    <dt>Connection</dt>
+                    <dd>
+                      <strong className={remote && (current.stale || !current.connected) ? "detail-bad" : ""}>
+                        {remote ? (current.stale || !current.connected ? "Disconnected" : "Live LAN") : "Demo"}
+                      </strong>
+                      <small>{remote ? (current.seen ? `Last report ${new Date(current.seen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "No report yet") : "Simulated"}</small>
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt>Time remaining</dt>
-                <dd>{current.remaining}</dd>
-              </div>
-              <div>
-                <dt>Filament</dt>
-                <dd>{remote ? <SpoolList machine={current} /> : current.material}</dd>
-              </div>
-              <div>
-                <dt>Nozzle / bed</dt>
-                <dd>
-                  {current.state === "Printing" || current.state === "Paused"
-                    ? remote
-                      ? `${current.nozzle ?? "—"}°C / ${current.bed ?? "—"}°C`
-                      : "220°C / 60°C"
-                    : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt>Connection</dt>
-                <dd>
-                  {remote
-                    ? current.stale || !current.connected
-                      ? "Stale / disconnected"
-                      : "Live LAN"
-                    : "Demo · simulated"}
-                </dd>
-              </div>
-            </dl>
+            </div>
             {!remote &&
               (current.state === "Printing" || current.state === "Paused") && (
                 <button className="primary" onClick={() => toggle(current.id)}>
@@ -972,9 +979,7 @@ function App() {
             {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
             {remote && current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "") && <button className="text-button" onClick={() => teachBed(current.id,current.name)}>Teach bed check</button>}
             {remote && <PrintControls machine={current} notify={setNotice} />}
-            <p className="detail-note">
-              {remote ? `Last report: ${current.seen ? new Date(current.seen).toLocaleTimeString() : "not received"}. ${current.error || ""}` : "These readings are examples. Live printer controls will be available after a bridge is connected."}
-            </p>
+            {(!remote || current.error) && <p className="detail-note">{remote ? current.error : "These readings are examples. Live printer controls will be available after a bridge is connected."}</p>}
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace
             </button>

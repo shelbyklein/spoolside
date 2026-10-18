@@ -2560,3 +2560,25 @@ footer .tiny-dot {
 /* Printer card: this printer is repeating a print. */
 .printer-card-repeat { display: flex; align-items: center; gap: 5px; overflow: hidden; padding: 5px 8px; border-radius: 8px; background: #e1f1ee; color: #0f5f57; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .printer-card-repeat svg { flex: none; }
+
+/* Printer details: camera on the left, job and four reading cards on the right. */
+.detail-panel { width: min(980px, 100%); padding: 28px 32px 28px; }
+.detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-right: 40px; margin-bottom: 18px; }
+.detail-head h2 { margin: 0; font-size: 26px; }
+.detail-head p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; }
+.detail-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 18px; }
+.detail-camera .printer-feed { border-radius: 14px; }
+.detail-info { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.detail-panel .detail-info h3 { margin: 0; font-size: 17px; overflow-wrap: anywhere; }
+.detail-panel dl.detail-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+.detail-panel dl.detail-cards > div.detail-card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-top: 1px solid var(--line); border-radius: 12px; background: #f7faf9; min-width: 0; }
+.detail-panel .detail-card dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.detail-panel .detail-card dd { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; min-width: 0; }
+.detail-card dd strong { color: var(--navy); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.detail-card dd small { color: var(--muted); font-size: 12px; }
+.detail-card .detail-bad { color: #c2410c; }
+.detail-card .mini-progress { width: 100%; margin: 2px 0; }
+@media (max-width: 760px) {
+  .detail-panel { padding: 22px 18px 22px; }
+  .detail-top { grid-template-columns: 1fr; }
+}

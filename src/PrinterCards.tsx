@@ -3,11 +3,11 @@ import { Printer, Repeat, Thermometer, VideoOff } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import { SpoolChips } from "./LoadedSpools";
 
-const jobName = (job: string) => job.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " ");
+export const jobName = (job: string) => job.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " ");
 const temp = (t?: number | null) => (t == null ? "—" : Math.round(t) + "°");
 
 // The printer's camera, refreshed every 2 s (about the A1 mini's own frame rate) while the card is on screen.
-function CameraFeed({ machine, live }: { machine: Machine; live: boolean }) {
+export function CameraFeed({ machine, live }: { machine: Machine; live: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(false);
   const [frame, setFrame] = useState<{ src: string; at: number } | null>(null);
