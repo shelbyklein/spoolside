@@ -683,6 +683,9 @@ function App() {
           )}
           <div className={tab === "Overview" ? "overview-split" : undefined}>
           {tab === "Overview" && (
+            <div className="overview-main">
+            {/* The queue leads the first column: what needs printing, above the orders it comes from. */}
+            {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
             <section className="overview-orders" aria-label="PlayCase orders overview">
               <div className="section-top">
                 <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2></div>
@@ -695,6 +698,7 @@ function App() {
               </div>
               {overviewOrders.length > 10 && <p className="overview-order-more">Showing the 10 oldest of {overviewOrders.length} open orders.</p>}
             </section>
+            </div>
           )}
           {(tab === "Overview" || tab === "Printers") && (
             <div className="fleet-column">
@@ -727,7 +731,7 @@ function App() {
           )}
           </div>
           {tab === "Printers" && remote && <PrintLibrary notify={setNotice} />}
-          {(tab === "Overview" || tab === "Queue" || tab === "Filament") && (
+          {(tab === "Queue" || tab === "Filament" || (tab === "Overview" && !remote)) && (
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
