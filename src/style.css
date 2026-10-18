@@ -2577,8 +2577,15 @@ footer .tiny-dot {
 .detail-card dd strong { color: var(--navy); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .detail-card dd small { color: var(--muted); font-size: 12px; }
 .detail-card .detail-bad { color: #c2410c; }
-.detail-card .mini-progress { width: 100%; margin: 2px 0; }
+.detail-card .mini-progress { width: 100%; max-width: none; height: 5px; border-radius: 3px; overflow: hidden; margin: 2px 0; }
 @media (max-width: 760px) {
   .detail-panel { padding: 22px 18px 22px; }
   .detail-top { grid-template-columns: 1fr; }
 }
+/* Printer details: compact card while the printer is repeating its print. */
+.repeat-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #9fd3cb; border-radius: 12px; background: #eef8f6; color: #0f5f57; }
+.repeat-card svg { flex: none; }
+.repeat-card div { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.repeat-card strong { font-size: 13px; }
+.repeat-card small { overflow: hidden; color: #2f6f68; font-size: 12px; text-overflow: ellipsis; }
+.repeat-card .text-button { flex: none; color: #b42318; font-size: 13px; }

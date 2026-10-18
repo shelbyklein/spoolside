@@ -4,7 +4,7 @@ import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
-import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats } from "./PrintControls";
+import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats, RepeatCard } from "./PrintControls";
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
@@ -727,7 +727,7 @@ function App() {
                 machines={printerSort.sort(machines.filter((m) => filter === "All printers" || m.state === filter))}
                 live={remote}
                 onOpen={openDetail}
-                repeats={repeats}
+                repeats={repeats || []}
               />
             </div>
           )}
@@ -925,6 +925,7 @@ function App() {
             <div className="detail-top">
               <div className="detail-camera"><CameraFeed machine={current} live={remote} /></div>
               <div className="detail-info">
+                {repeats?.filter((r) => r.printer === current.id).map((r) => <RepeatCard key={r.printer} repeat={r} printerName={current.name} notify={setNotice} />)}
                 <h3>{current.job ? jobName(current.job) : "No print information"}</h3>
                 <dl className="detail-cards">
                   <div className="detail-card">
@@ -944,7 +945,7 @@ function App() {
                     <dd>
                       <strong>
                         {remote
-                          ? `${current.nozzle ?? "—"}° / ${current.bed ?? "—"}°`
+                          ? `${current.nozzle == null ? "—" : Math.round(current.nozzle)}° / ${current.bed == null ? "—" : Math.round(current.bed)}°`
                           : current.state === "Printing" || current.state === "Paused" ? "220° / 60°" : "—"}
                       </strong>
                       <small>Celsius</small>

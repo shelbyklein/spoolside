@@ -31,16 +31,20 @@ test('a printer can repeat its current print each time the bed is cleared', asyn
   await setup.screenshot({ path: 'handoff/spoolside-repeat-setup.png' });
   await setup.getByRole('button', { name: 'Start repeating' }).click();
   expect(posts[0]).toEqual({ plate: 12, amsMapping: [-1], useAms: false, bedLevelling: false, times: 10 });
-  await expect(setup).toContainText('Repeating Membranes plate 12');
-  await expect(setup).toContainText('0 started again of 10');
+  // While repeating, a compact card sits at the top of the details, above the job.
+  const active = details.locator('.detail-info').getByRole('region', { name: 'Repeat print' });
+  await expect(active).toContainText('Repeating · 0 of 10');
+  await expect(active).toContainText('Printing (0 repeated so far)');
+  await expect(details.getByRole('button', { name: 'Repeat this print…' })).toHaveCount(0);
   // The printer card says so too, with what it's doing.
   await page.locator('.detail-overlay').click({ position: { x: 5, y: 5 } });
   const card = page.getByRole('button', { name: 'Membrane, Printing' });
   await expect(card.locator('.printer-card-repeat')).toContainText('Repeating 0/10 · Printing (0 repeated so far)');
   await card.screenshot({ path: 'handoff/spoolside-repeat-card.png' });
   await card.click();
-  await setup.screenshot({ path: 'handoff/spoolside-repeat-active.png' });
-  await setup.getByRole('button', { name: 'Stop repeating' }).click();
+  await page.waitForTimeout(400);
+  await details.locator('.detail-top').screenshot({ path: 'handoff/spoolside-repeat-active.png' });
+  await active.getByRole('button', { name: 'Stop' }).click();
   await expect(details.getByRole('button', { name: 'Repeat this print…' })).toBeVisible();
   await context.close();
 });

@@ -75,9 +75,36 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
 }
 
 type RepeatView = { printer: string; name: string; plate: number; done: number; times: number | null; status: string };
+// The compact card for a printer that's repeating: what it's doing, the count, and Stop.
+export function RepeatCard({ repeat, printerName, notify }: { repeat: RepeatView; printerName: string; notify: (m: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const stop = async () => {
+    setBusy(true);
+    try {
+      await api(`/api/printers/${repeat.printer}/repeat`, { method: "DELETE" });
+      window.dispatchEvent(new Event("spoolside-repeats"));
+      notify(`${printerName} stopped repeating.`);
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="repeat-card" aria-label="Repeat print">
+      <Repeat size={16} />
+      <div>
+        <strong>Repeating{repeat.times ? ` · ${repeat.done} of ${repeat.times}` : repeat.done ? ` · ${repeat.done} so far` : ""}</strong>
+        <small>{repeat.status}</small>
+      </div>
+      <button className="text-button" disabled={busy} onClick={stop}>Stop</button>
+    </section>
+  );
+}
+
 // Which printers are repeating a print, refreshed every 15 s.
 export function useRepeats(enabled: boolean) {
-  const [repeats, setRepeats] = useState<RepeatView[]>([]);
+  const [repeats, setRepeats] = useState<RepeatView[] | null>(enabled ? null : []);
   useEffect(() => {
     if (!enabled) return;
     const load = () => fetch("/api/repeats", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).then((r) => setRepeats(Array.isArray(r) ? r : [])).catch(() => {});
@@ -94,7 +121,12 @@ function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string
   const [repeats, setRepeats] = useState<RepeatView[] | null>(null), [last, setLast] = useState<LastPrint | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [plateIndex, setPlateIndex] = useState(0), [mapping, setMapping] = useState<number[]>([]), [useAms, setUseAms] = useState(() => (machine.trays || []).some((t) => t.type)), [level, setLevel] = useState(false), [times, setTimes] = useState("");
   const load = () => api<RepeatView[]>("/api/repeats").then((r) => setRepeats(Array.isArray(r) ? r : [])).catch(() => setRepeats([]));
-  useEffect(() => { load(); const timer = window.setInterval(load, 15000); return () => clearInterval(timer); }, [machine.id]);
+  useEffect(() => {
+    load();
+    const timer = window.setInterval(load, 15000);
+    window.addEventListener("spoolside-repeats", load);
+    return () => { clearInterval(timer); window.removeEventListener("spoolside-repeats", load); };
+  }, [machine.id]);
   useEffect(() => { api<LastPrint | null>(`/api/printers/${machine.id}/last-print`).then((v) => setLast(v?.plates?.length ? v : null)).catch(() => setLast(null)); }, [machine.id, machine.job]);
   const plate = last?.plates.find((p) => p.index === plateIndex) || last?.plates[0];
   useEffect(() => { if (plate) setMapping(defaultMapping(plate, machine.trays)); }, [plate?.index, last]);
@@ -116,15 +148,8 @@ function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string
       setBusy(false);
     }
   };
-  if (!repeats) return null;
-  if (mine) return (
-    <section className="repeat-print active" aria-label="Repeat print">
-      <div className="repeat-head"><Repeat size={17} /><strong>Repeating {mine.name}</strong></div>
-      <p>{mine.status}</p>
-      <p className="plate-meta">{mine.done} started again{mine.times ? ` of ${mine.times}` : ", until you stop it"} · starts when the camera sees the bed cleared</p>
-      <button className="secondary" disabled={busy} onClick={() => send("DELETE")}>Stop repeating</button>
-    </section>
-  );
+  // An active repeat shows as a compact card at the top of the details (RepeatCard).
+  if (!repeats || mine) return null;
   if (!last || !plate) return null;
   if (!open) return <button className="secondary repeat-open" onClick={() => setOpen(true)}><Repeat size={15} /> Repeat this print…</button>;
   return (
