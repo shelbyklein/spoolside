@@ -188,6 +188,16 @@ test("empty-bed teaching uses an exact fresh confirmed photo without bypassing v
   assert.deepEqual(s.d.referencePhoto("P1",capture.id).jpeg,Buffer.from("jpg"));
   s.d.teachReference("P1",capture.id,true," White circle is a fixture ");
   assert.equal(s.d.reference("P1").note,"White circle is a fixture");
+  assert.equal(s.d.reference("P1").area,null);
+  const marked=await s.d.captureReference("P1");
+  assert.equal(marked.area,null);
+  assert.throws(()=>s.d.teachReference("P1",marked.id,true,"",{left:0,top:0,right:0.02,bottom:1}),/larger box/);
+  s.d.teachReference("P1",marked.id,true,"fixture",{left:0,top:0.44,right:0.57,bottom:1,extra:1});
+  assert.deepEqual(s.d.reference("P1").area,{left:0,top:0.44,right:0.57,bottom:1});
+  const again=await s.d.captureReference("P1");
+  assert.deepEqual(again.area,{left:0,top:0.44,right:0.57,bottom:1},"the box starts where it was");
+  s.d.teachReference("P1",again.id,true,"White circle is a fixture");
+  assert.deepEqual(s.d.reference("P1").area,{left:0,top:0.44,right:0.57,bottom:1},"re-teaching without a box keeps it");
   assert.equal(s.d.reference("other"),null);
   assert.equal(s.d.beds.has("P1"),false);
   await s.d.tick();assert.equal(s.references.at(-1).note,"White circle is a fixture");
@@ -237,7 +247,7 @@ test("bed checks with a plate area send only that part of both photos", async ()
     sent = JSON.parse(init.body);
     return { ok: true, json: async () => ({ content: [{ type: "tool_use", input: { empty: true, reason: "Clear." } }] }) };
   });
-  await check(photo, "confirm", { jpeg: photo, note: "", area: { left: 0, top: 0.5, right: 0.5, bottom: 1 } });
+  await check(photo, "confirm", { jpeg: photo, note: "", area: { left: 0, top: 0.53, right: 0.47, bottom: 1 } });
   const images = sent.messages[0].content.filter((c) => c.type === "image");
   for (const img of images) {
     const { width, height } = await sharp(Buffer.from(img.source.data, "base64")).metadata();

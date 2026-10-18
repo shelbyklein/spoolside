@@ -135,19 +135,26 @@ export class Dispatcher {
     if (this.idleForReference(serial) !== job) throw Error("The printer changed while taking the photo. Try again.");
     const capture={id:randomUUID(),jpeg,job,at:this.now()};
     this.referenceCaptures.set(serial,capture);
-    return {id:capture.id,at:capture.at};
+    // The plate area already marked, so the box starts where it was.
+    return {id:capture.id,at:capture.at,area:this.reference(serial)?.area||null};
   }
   referencePhoto(serial,id) {
     const c=this.referenceCaptures.get(serial);
     if (!c || c.id!==id || this.now()-c.at>5*60000) throw Error("This photo expired. Take a fresh photo.");
     return c;
   }
-  teachReference(serial,id,clear,note) {
+  // `area` marks where the plate is ({left,top,right,bottom} as fractions); undefined keeps the current one, null clears it.
+  teachReference(serial,id,clear,note,area) {
     if (clear !== true) throw Error("Confirm that the photographed bed is completely clear");
+    if (area != null) {
+      const {left,top,right,bottom}=area;
+      if (![left,top,right,bottom].every(n=>typeof n==="number"&&n>=0&&n<=1) || right-left<0.05 || bottom-top<0.05) throw Error("Mark the plate with a larger box");
+    }
     const capture=this.referencePhoto(serial,id);
     if (this.idleForReference(serial)!==capture.job) throw Error("The printer changed since this photo. Take another photo.");
     const text=typeof note === "string" ? note.trim().slice(0,300) : "";
     this.db.prepare("INSERT INTO bed_references (printer,jpeg,note,confirmed) VALUES (?,?,?,?) ON CONFLICT(printer) DO UPDATE SET jpeg=excluded.jpeg,note=excluded.note,confirmed=excluded.confirmed").run(serial,capture.jpeg,text,this.now());
+    if (area !== undefined) this.db.prepare("UPDATE bed_references SET area=? WHERE printer=?").run(area ? JSON.stringify({left:area.left,top:area.top,right:area.right,bottom:area.bottom}) : null, serial);
     this.referenceCaptures.delete(serial);
     this.beds.delete(serial);
     this.referenceRevisions.set(serial,(this.referenceRevisions.get(serial)||0)+1);
@@ -278,8 +285,10 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
   };
 }
 
-// Crops a camera photo to an area given as fractions of the frame ({ left, top, right, bottom }).
-export async function cropArea(jpeg, { left, top, right, bottom }) {
+// Crops a camera photo to an area given as fractions of the frame ({ left, top, right, bottom }),
+// with a little room around it so a part right at the plate's edge isn't cut off.
+export async function cropArea(jpeg, area, pad = 0.03) {
+  const left = Math.max(0, area.left - pad), top = Math.max(0, area.top - pad), right = Math.min(1, area.right + pad), bottom = Math.min(1, area.bottom + pad);
   const { default: sharp } = await import("sharp");
   const { width, height } = await sharp(jpeg).metadata();
   const x = Math.max(0, Math.floor(left * width)), y = Math.max(0, Math.floor(top * height));

@@ -646,7 +646,7 @@ export function createApp({
     try {if(!dispatcher)return res.sendStatus(503);res.set("Cache-Control","no-store").type("jpeg").send(dispatcher.referencePhoto(req.params.printer,req.params.capture).jpeg);}catch(e){fail(res,e);}
   });
   app.post("/api/dispatch/:printer/reference", (req,res) => {
-    try {if(!dispatcher)return res.sendStatus(503);const result=dispatcher.teachReference(req.params.printer,req.body?.capture,req.body?.clear,req.body?.note);res.json(result);void dispatcher.tick().catch(()=>{});}catch(e){fail(res,e);}
+    try {if(!dispatcher)return res.sendStatus(503);const result=dispatcher.teachReference(req.params.printer,req.body?.capture,req.body?.clear,req.body?.note,req.body?.area);res.json(result);void dispatcher.tick().catch(()=>{});}catch(e){fail(res,e);}
   });
   app.post("/api/dispatch/auto", (req, res) => {
     try {

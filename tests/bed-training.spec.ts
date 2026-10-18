@@ -18,8 +18,14 @@ test('held printer can be taught using the displayed photo and explicit confirma
  const save=dialog.getByRole('button',{name:'Save empty-bed reference'});await expect(save).toBeDisabled();
  await expect(dialog.getByRole('img',{name:'AMS 3 bed to confirm'})).toBeVisible();await dialog.getByLabel('This photo shows an empty bed').check();
  await dialog.getByLabel('Note (optional)').fill('White circle is a fixture beside the bed');await expect(save).toBeEnabled();
+ // Drag across the photo to box the plate.
+ const photo=dialog.locator('.plate-box');const b=(await photo.boundingBox())!;
+ await page.mouse.move(b.x+b.width*0.02,b.y+b.height*0.48);await page.mouse.down();await page.mouse.move(b.x+b.width*0.3,b.y+b.height*0.7,{steps:4});await page.mouse.move(b.x+b.width*0.55,b.y+b.height*0.99,{steps:4});await page.mouse.up();
+ await expect(dialog.getByLabel('Marked plate area')).toBeVisible();
+ await dialog.screenshot({path:'handoff/spoolside-mark-plate.png'});
  await page.screenshot({path:'handoff/spoolside-bed-training-mobile.png'});
- await save.click();await expect(dialog).toHaveCount(0);expect(saved).toEqual({capture:'photo-1',clear:true,note:'White circle is a fixture beside the bed'});
+ await save.click();await expect(dialog).toHaveCount(0);expect(saved).toMatchObject({capture:'photo-1',clear:true,note:'White circle is a fixture beside the bed'});
+ expect(saved.area.left).toBeCloseTo(0.02,1);expect(saved.area.top).toBeCloseTo(0.48,1);expect(saved.area.right).toBeCloseTo(0.55,1);expect(saved.area.bottom).toBeCloseTo(0.99,1);
  await page.goto('https://spoolside.shelbyklein.com/overview');
  await page.getByRole('button',{name:/AMS 3/}).first().click();
  const details=page.getByRole('dialog',{name:'AMS 3 details'});await expect(details).toBeVisible();
