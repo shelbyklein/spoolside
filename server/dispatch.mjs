@@ -25,6 +25,8 @@ export class Dispatcher {
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS dispatch_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS bed_references (printer TEXT PRIMARY KEY, jpeg BLOB NOT NULL, note TEXT NOT NULL, confirmed INTEGER NOT NULL)");
+    // The part of the photo where the plate sits, as fractions of the frame: bed checks look only there.
+    if (!this.db.prepare("PRAGMA table_info(bed_references)").all().some((c) => c.name === "area")) this.db.exec("ALTER TABLE bed_references ADD COLUMN area TEXT");
     this.referenceCaptures = new Map();
     this.referenceRevisions = new Map();
     this.prompted = new Map();
@@ -118,8 +120,8 @@ export class Dispatcher {
     }
   }
   reference(serial) {
-    const r = this.db.prepare("SELECT jpeg,note FROM bed_references WHERE printer=?").get(serial);
-    return r ? {jpeg:Buffer.from(r.jpeg),note:r.note} : null;
+    const r = this.db.prepare("SELECT jpeg,note,area FROM bed_references WHERE printer=?").get(serial);
+    return r ? {jpeg:Buffer.from(r.jpeg),note:r.note,area:r.area ? JSON.parse(r.area) : null} : null;
   }
   idleForReference(serial) {
     const status = this.printers.statuses().find(p=>p.serial===serial);
@@ -145,7 +147,7 @@ export class Dispatcher {
     const capture=this.referencePhoto(serial,id);
     if (this.idleForReference(serial)!==capture.job) throw Error("The printer changed since this photo. Take another photo.");
     const text=typeof note === "string" ? note.trim().slice(0,300) : "";
-    this.db.prepare("INSERT INTO bed_references VALUES (?,?,?,?) ON CONFLICT(printer) DO UPDATE SET jpeg=excluded.jpeg,note=excluded.note,confirmed=excluded.confirmed").run(serial,capture.jpeg,text,this.now());
+    this.db.prepare("INSERT INTO bed_references (printer,jpeg,note,confirmed) VALUES (?,?,?,?) ON CONFLICT(printer) DO UPDATE SET jpeg=excluded.jpeg,note=excluded.note,confirmed=excluded.confirmed").run(serial,capture.jpeg,text,this.now());
     this.referenceCaptures.delete(serial);
     this.beds.delete(serial);
     this.referenceRevisions.set(serial,(this.referenceRevisions.get(serial)||0)+1);
@@ -248,6 +250,12 @@ export class Dispatcher {
 export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
   return async (jpeg, kind = "confirm", reference = null) => {
     const model = models[kind] || models.confirm;
+    // With a plate area set, both photos show just the plate.
+    const area = reference?.area;
+    if (area) {
+      jpeg = await cropArea(jpeg, area);
+      reference = { ...reference, jpeg: await cropArea(reference.jpeg, area) };
+    }
     const r = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -258,7 +266,7 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
         tools: [{ name: "report", description: "Report whether the build plate is empty.", input_schema: { type: "object", properties: { empty: { type: "boolean" }, reason: { type: "string", description: "One short sentence, e.g. 'A red case is still on the plate.'" } }, required: ["empty", "reason"] } }],
         // Newer models refuse a forced tool, so the tool is offered and the prompt asks for it.
         tool_choice: { type: "auto" },
-        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:"}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
+        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:" + (area ? " Both photos are cropped to where the plate sits when the printer is idle. If the plate isn't fully inside this crop, say it is not empty." : "")}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
       }),
       signal: AbortSignal.timeout(60000),
     });
@@ -268,4 +276,13 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
     if (typeof input?.empty !== "boolean") throw Error("Vision API gave no answer");
     return { empty: input.empty, reason: String(input.reason || "").slice(0, 200) };
   };
+}
+
+// Crops a camera photo to an area given as fractions of the frame ({ left, top, right, bottom }).
+export async function cropArea(jpeg, { left, top, right, bottom }) {
+  const { default: sharp } = await import("sharp");
+  const { width, height } = await sharp(jpeg).metadata();
+  const x = Math.max(0, Math.floor(left * width)), y = Math.max(0, Math.floor(top * height));
+  const w = Math.min(width - x, Math.ceil((right - left) * width)), h = Math.min(height - y, Math.ceil((bottom - top) * height));
+  return sharp(jpeg).extract({ left: x, top: y, width: w, height: h }).jpeg({ quality: 80 }).toBuffer();
 }

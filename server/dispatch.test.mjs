@@ -227,3 +227,24 @@ test('a reference saved during a camera check invalidates the old in-flight verd
  assert.equal((await checking).empty,true);assert.equal(calls,2);
  }finally{s.done();}
 });
+
+test("bed checks with a plate area send only that part of both photos", async () => {
+  const { claudeBedCheck } = await import("./dispatch.mjs");
+  const { default: sharp } = await import("sharp");
+  const photo = await sharp({ create: { width: 960, height: 600, channels: 3, background: "#808080" } }).jpeg().toBuffer();
+  let sent;
+  const check = claudeBedCheck("k", { confirm: "m" }, async (_url, init) => {
+    sent = JSON.parse(init.body);
+    return { ok: true, json: async () => ({ content: [{ type: "tool_use", input: { empty: true, reason: "Clear." } }] }) };
+  });
+  await check(photo, "confirm", { jpeg: photo, note: "", area: { left: 0, top: 0.5, right: 0.5, bottom: 1 } });
+  const images = sent.messages[0].content.filter((c) => c.type === "image");
+  for (const img of images) {
+    const { width, height } = await sharp(Buffer.from(img.source.data, "base64")).metadata();
+    assert.deepEqual([width, height], [480, 300]);
+  }
+  assert.match(sent.messages[0].content.find((c) => c.type === "text" && c.text.startsWith("Current")).text, /cropped to where the plate sits/);
+  await check(photo, "confirm", { jpeg: photo, note: "" });
+  const { width } = await sharp(Buffer.from(sent.messages[0].content.find((c) => c.type === "image").source.data, "base64")).metadata();
+  assert.equal(width, 960, "no area: the whole photo");
+});
