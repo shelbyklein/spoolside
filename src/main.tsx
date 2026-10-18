@@ -4,7 +4,7 @@ import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
 import { FilamentManager, materialName } from "./FilamentManager";
-import { PrintControls, PrintLibrary, PrintUploadButton } from "./PrintControls";
+import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats } from "./PrintControls";
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
@@ -157,6 +157,7 @@ function App() {
   const remote = window.location.hostname === "spoolside.shelbyklein.com";
   const live = useLiveWorkspace(remote);
   const watch = useWatches(remote);
+  const repeats = useRepeats(remote);
   const dispatch = useDispatch(remote);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => document.documentElement.classList.add("ready"), []);
@@ -726,6 +727,7 @@ function App() {
                 machines={printerSort.sort(machines.filter((m) => filter === "All printers" || m.state === filter))}
                 live={remote}
                 onOpen={openDetail}
+                repeats={repeats}
               />
             </div>
           )}

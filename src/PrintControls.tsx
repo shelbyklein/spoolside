@@ -75,6 +75,20 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
 }
 
 type RepeatView = { printer: string; name: string; plate: number; done: number; times: number | null; status: string };
+// Which printers are repeating a print, refreshed every 15 s.
+export function useRepeats(enabled: boolean) {
+  const [repeats, setRepeats] = useState<RepeatView[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    const load = () => fetch("/api/repeats", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).then((r) => setRepeats(Array.isArray(r) ? r : [])).catch(() => {});
+    load();
+    const timer = window.setInterval(load, 15000);
+    // Turning repeat on or off in a printer's details updates the cards straight away.
+    window.addEventListener("spoolside-repeats", load);
+    return () => { clearInterval(timer); window.removeEventListener("spoolside-repeats", load); };
+  }, [enabled]);
+  return repeats;
+}
 // Repeat this printer's current or last print: it starts again each time the camera sees the bed cleared.
 function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
   const [repeats, setRepeats] = useState<RepeatView[] | null>(null), [last, setLast] = useState<LastPrint | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
@@ -93,6 +107,7 @@ function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string
       setRepeats(await api<RepeatView[]>(`/api/printers/${machine.id}/repeat`, method === "POST"
         ? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plate: plate!.index, amsMapping: mapping, useAms, bedLevelling: level, times: count }) }
         : { method }));
+      window.dispatchEvent(new Event("spoolside-repeats"));
       notify(method === "POST" ? `${machine.name} will repeat ${last!.name} each time the bed is cleared.` : `${machine.name} stopped repeating.`);
       setOpen(false);
     } catch (e) {

@@ -33,6 +33,12 @@ test('a printer can repeat its current print each time the bed is cleared', asyn
   expect(posts[0]).toEqual({ plate: 12, amsMapping: [-1], useAms: false, bedLevelling: false, times: 10 });
   await expect(setup).toContainText('Repeating Membranes plate 12');
   await expect(setup).toContainText('0 started again of 10');
+  // The printer card says so too, with what it's doing.
+  await page.locator('.detail-overlay').click({ position: { x: 5, y: 5 } });
+  const card = page.getByRole('button', { name: 'Membrane, Printing' });
+  await expect(card.locator('.printer-card-repeat')).toContainText('Repeating 0/10 · Printing (0 repeated so far)');
+  await card.screenshot({ path: 'handoff/spoolside-repeat-card.png' });
+  await card.click();
   await setup.screenshot({ path: 'handoff/spoolside-repeat-active.png' });
   await setup.getByRole('button', { name: 'Stop repeating' }).click();
   await expect(details.getByRole('button', { name: 'Repeat this print…' })).toBeVisible();

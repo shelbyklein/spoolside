@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Printer, Thermometer, VideoOff } from "lucide-react";
+import { Printer, Repeat, Thermometer, VideoOff } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import { SpoolChips } from "./LoadedSpools";
 
@@ -68,7 +68,8 @@ function CameraFeed({ machine, live }: { machine: Machine; live: boolean }) {
 }
 
 // One card per printer: its camera, state, job, progress and temperatures. Tap for details and controls.
-export function PrinterCards({ machines, live, onOpen }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void }) {
+export type RepeatStatus = { printer: string; name: string; done: number; times: number | null; status: string };
+export function PrinterCards({ machines, live, onOpen, repeats = [] }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[] }) {
   return (
     <section className="printer-cards" aria-label="Printers">
       {machines.map((m) => {
@@ -85,6 +86,11 @@ export function PrinterCards({ machines, live, onOpen }: { machines: Machine[]; 
                 </span>
               </span>
               <span className="printer-card-job">{m.job ? jobName(m.job) : "No print information"}</span>
+              {repeats.filter((r) => r.printer === m.id).map((r) => (
+                <span key={r.printer} className="printer-card-repeat" title={r.status}>
+                  <Repeat size={13} /> <strong>Repeating</strong>{r.times ? ` ${r.done}/${r.times}` : r.done ? ` · ${r.done} so far` : ""} · {r.status}
+                </span>
+              ))}
               {active && (
                 <>
                   <span className="mini-progress">
