@@ -9,6 +9,7 @@ import { Assets } from "./assets.mjs";
 import { PrintWatcher, claudeVision, shrinkFrame } from "./watcher.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 import { Inventory } from "./inventory.mjs";
+import { Repeater } from "./repeat.mjs";
 import { Dispatcher, claudeBedCheck } from "./dispatch.mjs";
 import { MODELS } from "./watcher.mjs";
 import { orderPrintPlan } from "./readiness.mjs";
@@ -86,6 +87,17 @@ const dispatcher = new Dispatcher(process.env.SPOOLSIDE_DB || "/data/spoolside.s
   },
 });
 const dispatchTimer = setInterval(() => dispatcher.tick(), 30000);
+// Repeats a printer's last print each time the camera sees its bed cleared.
+const repeater = new Repeater(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", {
+  printers,
+  watcher,
+  notifications,
+  shrink: shrinkFrame,
+  bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS) : null,
+  reference: (serial) => dispatcher.reference(serial),
+});
+dispatcher.repeating = (serial) => repeater.active(serial);
+const repeatTimer = setInterval(() => repeater.tick().catch(() => {}), 20000);
 const materials = workspace ? new Materials(workspace.db) : null;
 materials?.refresh();
 const materialTimer=setInterval(()=>materials?.refresh(),6*60*60*1000);
@@ -100,6 +112,7 @@ const { app, close } = createApp({
   orderPrints,
   dispatcher,
   inventory,
+  repeater,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   pinHash: process.env.SPOOLSIDE_PIN_HASH,
   origin: process.env.SPOOLSIDE_ORIGIN || "https://spoolside.shelbyklein.com",
@@ -119,6 +132,8 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(watchTimer);
       clearInterval(pruneTimer);
       clearInterval(dispatchTimer);
+      clearInterval(repeatTimer);
+      repeater.close();
       backup();
       printers.close();
       library.close();

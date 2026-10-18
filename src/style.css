@@ -2537,3 +2537,14 @@ footer .tiny-dot {
 .review-dialog h2 span { margin-left: 6px; padding: 2px 8px; border-radius: 6px; background: #e6eded; color: #5e7178; font-size: 12px; vertical-align: middle; }
 @media (max-width: 760px) { .review-dialog { padding: 16px; } }
 .import-backdrop { z-index: 110; }
+
+/* Printer details: repeat the current print each time the bed is cleared. */
+.repeat-open { margin-top: 10px; }
+.repeat-print { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.repeat-print.active { border-color: #9fd3cb; background: #eef8f6; }
+.repeat-print p { margin: 0; }
+.repeat-print label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
+.repeat-print label.check-row, .repeat-print label.slot-row { flex-direction: row; }
+.repeat-print input[inputmode] { border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; }
+.repeat-head { display: flex; align-items: center; gap: 8px; color: var(--navy); }
+.repeat-head svg { color: var(--teal); }

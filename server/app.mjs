@@ -32,6 +32,7 @@ export function createApp({
   dispatcher,
   importWait = 20000,
   inventory,
+  repeater,
 } = {}) {
   if (
     !pinHash ||
@@ -538,6 +539,29 @@ export function createApp({
       if (!printers) return res.json(null);
       const last = await printers.lastPrint(req.params.id);
       res.set("Cache-Control", "no-store").json(last && { name: last.name, plates: last.plates });
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  // Repeat the printer's last print whenever its bed is cleared.
+  app.get("/api/repeats", (_req, res) => res.set("Cache-Control", "no-store").json(repeater ? repeater.view() : []));
+  app.post("/api/printers/:id/repeat", async (req, res) => {
+    try {
+      if (!repeater) return res.sendStatus(503);
+      const { plate, amsMapping, useAms, bedLevelling, times } = req.body || {};
+      const last = await printers.lastPrint(req.params.id);
+      if (!last) throw Object.assign(Error("This print isn't on the printer's SD card, so it can't be repeated"), { status: 404 });
+      checkStart(last.plates, { plate, amsMapping, useAms, bedClear: true });
+      res.json(await repeater.enable(req.params.id, { plate, amsMapping: useAms ? amsMapping : [], useAms: !!useAms, bedLevelling: bedLevelling !== false, times: times ?? null }));
+      repeater.tick().catch(() => {});
+    } catch (e) {
+      fail(res, e);
+    }
+  });
+  app.delete("/api/printers/:id/repeat", (req, res) => {
+    try {
+      if (!repeater) return res.sendStatus(503);
+      res.json(repeater.disable(req.params.id));
     } catch (e) {
       fail(res, e);
     }

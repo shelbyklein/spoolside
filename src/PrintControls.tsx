@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useRef } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, X } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, X, Repeat } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 import { useSort, byName } from "./sort";
@@ -58,6 +58,7 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
   if (!machine.connected || machine.stale) return null;
   if (["RUNNING", "PREPARE", "PAUSE"].includes(machine.rawState || ""))
     return (
+      <>
       <div className="print-controls">
         {machine.rawState === "PAUSE" ? (
           <button className="primary" disabled={busy} onClick={() => act("resume")}><Play size={16} /> Resume</button>
@@ -66,9 +67,77 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
         )}
         <button className="secondary danger" disabled={busy} onClick={() => act("stop")}><Square size={15} /> Stop</button>
       </div>
+      <RepeatPrint machine={machine} notify={notify} />
+      </>
     );
-  if (["IDLE", "FINISH", "FAILED"].includes(machine.rawState || "")) return <StartPrint machine={machine} notify={notify} />;
+  if (["IDLE", "FINISH", "FAILED"].includes(machine.rawState || "")) return <><RepeatPrint machine={machine} notify={notify} /><StartPrint machine={machine} notify={notify} /></>;
   return null;
+}
+
+type RepeatView = { printer: string; name: string; plate: number; done: number; times: number | null; status: string };
+// Repeat this printer's current or last print: it starts again each time the camera sees the bed cleared.
+function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
+  const [repeats, setRepeats] = useState<RepeatView[] | null>(null), [last, setLast] = useState<LastPrint | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
+  const [plateIndex, setPlateIndex] = useState(0), [mapping, setMapping] = useState<number[]>([]), [useAms, setUseAms] = useState(() => (machine.trays || []).some((t) => t.type)), [level, setLevel] = useState(false), [times, setTimes] = useState("");
+  const load = () => api<RepeatView[]>("/api/repeats").then((r) => setRepeats(Array.isArray(r) ? r : [])).catch(() => setRepeats([]));
+  useEffect(() => { load(); const timer = window.setInterval(load, 15000); return () => clearInterval(timer); }, [machine.id]);
+  useEffect(() => { api<LastPrint | null>(`/api/printers/${machine.id}/last-print`).then((v) => setLast(v?.plates?.length ? v : null)).catch(() => setLast(null)); }, [machine.id, machine.job]);
+  const plate = last?.plates.find((p) => p.index === plateIndex) || last?.plates[0];
+  useEffect(() => { if (plate) setMapping(defaultMapping(plate, machine.trays)); }, [plate?.index, last]);
+  const mine = repeats?.find((r) => r.printer === machine.id);
+  const trays = (machine.trays || []).filter((t) => t.type);
+  const send = async (method: "POST" | "DELETE") => {
+    setBusy(true);
+    try {
+      const count = times.trim() ? Number(times) : null;
+      setRepeats(await api<RepeatView[]>(`/api/printers/${machine.id}/repeat`, method === "POST"
+        ? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plate: plate!.index, amsMapping: mapping, useAms, bedLevelling: level, times: count }) }
+        : { method }));
+      notify(method === "POST" ? `${machine.name} will repeat ${last!.name} each time the bed is cleared.` : `${machine.name} stopped repeating.`);
+      setOpen(false);
+    } catch (e) {
+      notify((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!repeats) return null;
+  if (mine) return (
+    <section className="repeat-print active" aria-label="Repeat print">
+      <div className="repeat-head"><Repeat size={17} /><strong>Repeating {mine.name}</strong></div>
+      <p>{mine.status}</p>
+      <p className="plate-meta">{mine.done} started again{mine.times ? ` of ${mine.times}` : ", until you stop it"} · starts when the camera sees the bed cleared</p>
+      <button className="secondary" disabled={busy} onClick={() => send("DELETE")}>Stop repeating</button>
+    </section>
+  );
+  if (!last || !plate) return null;
+  if (!open) return <button className="secondary repeat-open" onClick={() => setOpen(true)}><Repeat size={15} /> Repeat this print…</button>;
+  return (
+    <section className="repeat-print" aria-label="Repeat print">
+      <div className="repeat-head"><Repeat size={17} /><strong>Repeat {last.name}</strong></div>
+      <p className="plate-meta">After each print, clear the bed. When the camera sees it clear for a minute, the same file starts again from the printer's SD card. It stops if a print fails or is cancelled.</p>
+      {last.plates.length > 1 && (
+        <label>Plate<select aria-label="Repeat plate" value={plate.index} onChange={(e) => setPlateIndex(Number(e.target.value))}>{last.plates.map((p) => <option key={p.index} value={p.index}>Plate {p.index} · {duration(p.minutes)}</option>)}</select></label>
+      )}
+      {trays.length > 0 && <label className="check-row"><input type="checkbox" checked={useAms} onChange={(e) => setUseAms(e.target.checked)} /> Use AMS</label>}
+      {useAms && plate.filaments.map((f) => (
+        <label key={f.id} className="slot-row">
+          <span><span className="color-dot" style={{ background: f.color }} /> {f.type}</span>
+          <select aria-label={`Repeat AMS slot for filament ${f.id}`} value={mapping[f.id - 1] ?? -1} onChange={(e) => setMapping((m) => { const next = [...m]; next[f.id - 1] = Number(e.target.value); return next; })}>
+            <option value={-1} disabled>Choose slot</option>
+            {trays.map((t) => <option key={t.slot} value={t.slot}>Slot {t.slot + 1} · {t.type}</option>)}
+          </select>
+        </label>
+      ))}
+      {!useAms && <p className="plate-meta">Prints from the external spool{machine.external ? ` (${machine.external.type})` : ""}.</p>}
+      <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling before each print</label>
+      <label>How many more times<input aria-label="Repeat times" inputMode="numeric" placeholder="Until I stop it" value={times} onChange={(e) => setTimes(e.target.value.replace(/[^0-9]/g, ""))} /></label>
+      <div className="watch-actions">
+        <button className="primary" disabled={busy || (useAms && plate.filaments.some((f) => (mapping[f.id - 1] ?? -1) < 0))} onClick={() => send("POST")}><Repeat size={15} /> Start repeating</button>
+        <button className="text-button" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </section>
+  );
 }
 
 type LastPrint = { name: string; plates: Plate[] };

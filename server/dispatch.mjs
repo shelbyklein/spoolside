@@ -87,7 +87,8 @@ export class Dispatcher {
         // A finished printer is free once the camera sees an empty bed; a review isn't needed.
         const last = this.watcher.lastFor(serial);
         const cleared = !last || !!last.ended;
-        const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial);
+        // A printer repeating its own print isn't offered order pieces.
+        const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial) && !this.repeating?.(serial);
         let offer = free ? this.candidate(view, taken) : null;
         // Before offering, look at the bed: an empty result holds until the next print; anything else is
         // checked again every few minutes.
@@ -222,7 +223,7 @@ export class Dispatcher {
     const available = [];
     for (const {serial, view} of this.printers.statuses()) {
       const last = this.watcher.lastFor(serial);
-      if (!view.connected || view.stale || !IDLE.includes(view.rawState) || (last && !last.ended) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) continue;
+      if (!view.connected || view.stale || !IDLE.includes(view.rawState) || (last && !last.ended) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial) || this.repeating?.(serial)) continue;
       const bed = this.beds.get(serial), key = last ? `${last.id}:${last.outcome}` : "none";
       if (this.bedCheck && (!bed?.empty || bed.key !== key)) continue;
       for (const {order} of this.plans()) {
