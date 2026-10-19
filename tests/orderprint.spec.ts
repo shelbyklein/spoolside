@@ -17,7 +17,7 @@ test('order rows print their case and faceplates on the best-matching printer', 
     { key: '0:classic', label: 'Classic faceplate', done: true, pieces: [piece('ct', 'Classic – Top', 1)], next: null },
   ];
   const order = { id: 'o1', number: '#10181', placed: 'Oct 7, 2026', commercial: 'processing', refundReview: false, items: [{ id: 'i1', name: 'PlayCase', variant: '', quantity: 1, recipe: [], phone: 'iPhone 12', colorway: 'Red', parts: [] }], assembled: false, packed: false, shipped: false, tracking: '', note: '', printPlan: plan };
-  const state = { revision: 1, orders: [order], printQueue: [{ orderId: order.id, group: plan[0], blocked: null, missing: [] }, { orderId: order.id, group: plan[1], blocked: "Printing / awaiting result", missing: [] }], jobs: [], spools: [], machines, lastSync: now, syncError: null };
+  const state = { revision: 1, orders: [order], printQueue: [{ orderId: order.id, group: plan[0], blocked: null, missing: [] }, { orderId: order.id, group: plan[1], blocked: "Printing now", missing: [] }], jobs: [], spools: [], machines, lastSync: now, syncError: null };
   const posts: any[] = [];
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
   await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
@@ -47,7 +47,7 @@ test('order rows print their case and faceplates on the best-matching printer', 
   await row.screenshot({path:'handoff/spoolside-order-checklist.png'});
   await page.getByRole('navigation').getByRole('button', { name: /^Queue/ }).click();
   const queue = page.getByRole('region', { name: 'Order print queue' });
-  await expect(queue).toContainText('Printing / awaiting result');
+  await expect(queue).toContainText('Printing now');
   await expect(page.getByRole('button', { name: 'Add job' })).toHaveCount(0);
   await page.screenshot({ path: 'handoff/spoolside-order-queue-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 428, height: 926 });

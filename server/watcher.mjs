@@ -51,6 +51,7 @@ export class PrintWatcher {
   }
   // Called every few seconds: starts, checks and ends watches as printers change state.
   async tick() {
+    this.creditFinished();
     for (const { serial, view, data } of this.printers.statuses()) {
       if (!view.connected || this.busy.has(serial)) continue;
       this.busy.add(serial);
@@ -59,6 +60,7 @@ export class PrintWatcher {
         let watch = this.active(serial);
         if (watch && (DONE[raw] || (job && job !== watch.job))) {
           await this.end(watch, DONE[raw] || "ended", serial);
+          this.creditFinished();
           watch = null;
         }
         if (!watch && RUNNING.includes(raw) && job) watch = await this.start(serial, view, data);
@@ -199,14 +201,10 @@ export class PrintWatcher {
     this.prune();
     return this.view(this.row(id));
   }
-  // Deleted without a rating: the card goes away and the printer counts as reviewed, but nothing is learned from it.
+  // Deleted without a rating: the card goes away and nothing is learned from it. Pieces it printed stay counted.
   skip(id) {
     const watch = this.row(id);
     if (!watch || !watch.ended) throw Object.assign(Error("Unknown print"), { status: 404 });
-    if (watch.order_id && this.orderPrints && watch.credited) {
-      this.orderPrints.add(watch.order_id, JSON.parse(watch.assets || "[]"), -1);
-      this.set(id, { credited: 0 });
-    }
     this.set(id, { outcome: "skipped" });
     this.prune();
     return this.view(this.row(id));
@@ -239,10 +237,18 @@ export class PrintWatcher {
       external: !!w.external, importDismissed: !!w.import_dismissed, outcome: w.outcome, note: w.note || null, order: w.order_number || null, mode: w.mode, plan: !!w.plan, check: w.last_check, alert: w.alert && !w.alert.dismissed ? w.alert : null,
     };
   }
-  // Order pieces being printed or waiting for an answer ("orderId:assetId"), so they aren't offered twice.
+  // A print that finished counts its order pieces as printed, no review needed; marking it failed takes them back.
+  creditFinished() {
+    if (!this.orderPrints) return;
+    for (const w of this.db.prepare("SELECT id, order_id, assets FROM print_watches WHERE order_id IS NOT NULL AND ended_as='finished' AND outcome IS NULL AND credited=0").all()) {
+      this.orderPrints.add(w.order_id, JSON.parse(w.assets || "[]"), 1);
+      this.set(w.id, { credited: 1 });
+    }
+  }
+  // Order pieces still printing ("orderId:assetId"), so they aren't offered twice.
   inFlight() {
     const out = new Set();
-    for (const r of this.db.prepare("SELECT order_id, assets FROM print_watches WHERE order_id IS NOT NULL AND (ended IS NULL OR outcome IS NULL)").all())
+    for (const r of this.db.prepare("SELECT order_id, assets FROM print_watches WHERE order_id IS NOT NULL AND ended IS NULL").all())
       for (const a of JSON.parse(r.assets || "[]")) out.add(`${r.order_id}:${a}`);
     return out;
   }

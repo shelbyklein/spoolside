@@ -15,7 +15,7 @@ export function printQueue(orders, taken = new Set()) {
       if (group.done) continue;
       const busy = group.pieces.some(p => p.done < p.needed && taken.has(`${order.id}:${p.assetId}`));
       const missing = group.pieces.filter(p => p.done < p.needed && !p.plates.length).map(p => p.name);
-      rows.push({ orderId: order.id, group, blocked: review ? 'Review order requirements' : busy ? 'Printing / awaiting result' : !group.next ? 'No sliced plate linked' : null, missing });
+      rows.push({ orderId: order.id, group, blocked: review ? 'Review order requirements' : busy ? 'Printing now' : !group.next ? 'No sliced plate linked' : null, missing });
     }
     if (review && !(order.printPlan || []).some(g => !g.done))
       rows.push({ orderId: order.id, group: null, blocked: 'Review order requirements', missing: [] });

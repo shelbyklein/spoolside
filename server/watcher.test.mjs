@@ -197,7 +197,7 @@ test("Claude vision sends the photos and reads the forced report", async () => {
   await assert.rejects(failing({ model: "m", context: "", images: [] }), /invalid x-api-key/);
 });
 
-test("a print sent from an order credits its pieces when it comes out fine", async () => {
+test("a print sent from an order credits its pieces when it finishes; marking it failed takes them back", async () => {
   const { OrderPrints } = await import("./orderprints.mjs");
   const s = setup();
   const prints = new OrderPrints(":memory:", () => 1_000_000_000);
@@ -209,6 +209,8 @@ test("a print sent from an order credits its pieces when it comes out fine", asy
     assert.equal(w.order, "#10181");
     s.state.raw = "FINISH";
     await s.later(60000);
+    assert.deepEqual(prints.all(), { o1: { case: 1 } }, "finishing counts the piece, no review needed");
+    assert.equal(s.watcher.inFlight().size, 0, "so it isn't held as awaiting a result");
     s.watcher.outcome(w.id, true);
     assert.deepEqual(prints.all(), { o1: { case: 1 } });
     s.watcher.outcome(w.id, true);

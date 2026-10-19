@@ -201,7 +201,7 @@ export function createApp({
     const queue = printQueue(orders, reservedPieces(watcher, orderPrints));
     for (const order of orders) for (const group of order.printPlan) {
       const row = queue.find(r => r.orderId === order.id && r.group?.key === group.key);
-      if (row?.blocked === "Printing / awaiting result") group.activity = row.blocked;
+      if (row?.blocked === "Printing now") group.activity = row.blocked;
     }
     return {...snapshot, orders, printQueue: queue};
   };
@@ -633,7 +633,7 @@ export function createApp({
       const ids = assetIds.length ? assetIds : [next.assetId];
       const taken = reservedPieces(watcher, orderPrints);
       if (ids.some(id => taken.has(`${order.id}:${id}`)) || orderPrints.pending.has(String(printer)))
-        throw Object.assign(Error("This piece is already printing or awaiting a result."), { status: 409 });
+        throw Object.assign(Error("This piece is already printing."), { status: 409 });
       orderPrints.sent(String(printer), { orderId: order.id, orderNumber: order.number, assetIds: ids });
       const reservation = orderPrints.pending.get(String(printer));
       try {
