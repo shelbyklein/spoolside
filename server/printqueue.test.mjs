@@ -13,7 +13,7 @@ test('queue derives oldest unfinished orders and keeps missing plates visible', 
 });
 test('active watches and pending sends block duplicate work; unresolved orders remain visible', () => {
  const taken = reservedPieces({inFlight:()=>new Set(['o:case'])}, {pending:new Map([['p',{orderId:'x',assetIds:['top']}]])});
- assert.equal(printQueue([order('o',1,group('case')), order('x',2,group('top'))], taken).every(r=>r.blocked==='Printing / awaiting result'),true);
+ assert.equal(printQueue([order('o',1,group('case')), order('x',2,group('top'))], taken).every(r=>r.blocked==='Printing now'),true);
  assert.equal(printQueue([{id:'review',number:'#3',commercial:'processing',sourceReview:true,printPlan:[]}])[0].blocked, 'Review order requirements');
 });
 
