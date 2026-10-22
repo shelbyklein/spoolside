@@ -90,8 +90,21 @@ export function createApp({
   const loginPage = (error = false, next = "") =>
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Spoolside</h1>${error ? '<p role="alert" class="error">Incorrect PIN, or too many attempts.</p>' : ""}<form action="/login" method="post">${next ? `<input type="hidden" name="next" value="${next}">` : ""}<label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></main></body></html>`;
   app.get("/login", (req, res) => res.type("html").send(loginPage(false, safeNext(req.query.next))));
+  // API keys (for the Spoolside MCP): "Authorization: Bearer <key>" on /api/ requests. Browsers never send
+  // this header on their own, so these requests skip the cookie sign-in and the same-origin check.
+  db.exec("CREATE TABLE IF NOT EXISTS api_keys (hash TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created INTEGER NOT NULL, used INTEGER)");
+  app.use((req, res, next) => {
+    const bearer = /^Bearer (\S+)$/.exec(req.get("authorization") || "")?.[1];
+    if (!bearer) return next();
+    const hash = createHash("sha256").update(bearer).digest("hex");
+    if (!req.path.startsWith("/api/") || !db.prepare("SELECT 1 FROM api_keys WHERE hash=?").get(hash)) return res.status(401).json({ error: "Invalid API key" });
+    db.prepare("UPDATE api_keys SET used=? WHERE hash=?").run(Date.now(), hash);
+    req.apiKey = true;
+    next();
+  });
   app.use((req, res, next) => {
     if (
+      !req.apiKey &&
       ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
       req.headers.origin !== origin
     )
@@ -141,6 +154,7 @@ export function createApp({
     res.redirect(303, safeNext(req.body?.next) || "/");
   });
   app.use((req, res, next) => {
+    if (req.apiKey) return next();
     const raw = (req.headers.cookie || "")
       .split(";")
       .map((s) => s.trim())
@@ -551,6 +565,15 @@ export function createApp({
     }
   });
   // Repeat the printer's last print whenever its bed is cleared.
+  // One careful camera look at the bed right now (the same check used before every start).
+  app.get("/api/printers/:id/bed-check", async (req, res) => {
+    try {
+      if (!dispatcher?.bedCheck) return res.status(503).json({ error: "Camera checks need the vision key" });
+      res.json(await dispatcher.checkBedNow(req.params.id));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.get("/api/repeats", (_req, res) => res.set("Cache-Control", "no-store").json(repeater ? repeater.view() : []));
   app.post("/api/printers/:id/repeat", async (req, res) => {
     try {
