@@ -241,3 +241,22 @@ test('prints started elsewhere are marked external and offered for the library a
   assert.match(s.pushes.at(-1).body,/rate it: good or failed/);
  } finally {s.done();}
 });
+
+test("a finished print's review is discarded after 5 unanswered minutes", async () => {
+  const s = setup();
+  try {
+    await s.later(0);
+    s.state.raw = "FINISH";
+    await s.later(60000);
+    const [w] = s.watcher.list().watches;
+    assert.ok(w.ended && !w.outcome, "waiting for a review");
+    await s.later(4 * 60000);
+    assert.equal(s.watcher.list().watches.length, 1, "still there at 4 minutes");
+    await s.later(61000);
+    assert.equal(s.watcher.list().watches.length, 0, "gone after 5");
+    assert.equal(s.watcher.row(w.id).outcome, "skipped");
+    assert.ok(!s.watcher.list().recent.some((r) => r.id === w.id), "and not listed as rated");
+  } finally {
+    s.done();
+  }
+});

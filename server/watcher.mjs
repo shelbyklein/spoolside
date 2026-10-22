@@ -52,6 +52,7 @@ export class PrintWatcher {
   // Called every few seconds: starts, checks and ends watches as printers change state.
   async tick() {
     this.creditFinished();
+    this.expireReviews();
     for (const { serial, view, data } of this.printers.statuses()) {
       if (!view.connected || this.busy.has(serial)) continue;
       this.busy.add(serial);
@@ -244,6 +245,10 @@ export class PrintWatcher {
       this.orderPrints.add(w.order_id, JSON.parse(w.assets || "[]"), 1);
       this.set(w.id, { credited: 1 });
     }
+  }
+  // Reviews are optional: one left unanswered for 5 minutes is discarded (like Delete). Order pieces stay credited.
+  expireReviews(after = 5 * MINUTE) {
+    this.db.prepare("UPDATE print_watches SET outcome='skipped' WHERE ended IS NOT NULL AND outcome IS NULL AND ended<=?").run(this.now() - after);
   }
   // Order pieces still printing ("orderId:assetId"), so they aren't offered twice.
   inFlight() {
