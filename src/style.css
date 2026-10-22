@@ -2593,3 +2593,29 @@ footer .tiny-dot {
 .bed-held { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: #fdf1e3; color: #70420c; }
 .bed-held p { margin: 0; font-size: 13px; }
 .bed-held .secondary { align-self: flex-start; }
+
+/* Home: reminder notes (customer service to-dos), above the queue and orders. */
+.home-notes { display: flex; flex-direction: column; gap: 10px; }
+.home-notes-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-notes-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
+.home-notes-head h2 svg { color: #b7791f; }
+.home-notes-head h2 span { padding: 2px 7px; border-radius: 4px; background: #e6eded; color: #5e7178; font-family: "DM Sans", sans-serif; font-size: 11px; }
+.home-note { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid #f1d9a6; border-left: 4px solid #e0a63a; border-radius: 12px; background: #fffaf0; }
+.home-note p { margin: 0; color: var(--navy); font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.home-note-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.home-note-meta small { color: var(--muted); font-size: 12px; }
+.home-note-order { padding: 2px 8px; border-radius: 6px; background: #fbe8c4; color: #7a4b07; font-size: 12px; font-weight: 700; }
+button.home-note-order:hover { background: #f7dba6; }
+.home-note-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.home-note-done { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.home-note.editing textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 14px; resize: vertical; background: #fff; }
+.home-note-form-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.home-note-form-row label { display: flex; align-items: center; gap: 4px; margin-right: auto; color: var(--muted); font-size: 12px; font-weight: 600; }
+.home-note-form-row input { width: 96px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13px; background: #fff; }
+.home-notes.on-water .home-notes-head h2 { color: #fff; }
+.home-notes.on-water .home-notes-head .text-button { color: #fff; }
+.home-notes.on-water .home-notes-head h2 span { background: rgba(255,255,255,.18); color: #fff; }
+.home-notes.on-water .home-note { background: rgba(255, 250, 240, .94); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+@media (max-width: 760px) { .home-note.editing textarea, .home-note-form-row input { font-size: 16px; } }
+.home-notes.on-water .home-note .home-note-done, .home-notes.on-water .home-note .icon-button { color: var(--navy); }
+.home-notes.on-water .home-note .home-note-done { background: #fff; border-color: #e5d3ae; }

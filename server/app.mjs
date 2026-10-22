@@ -33,6 +33,7 @@ export function createApp({
   importWait = 20000,
   inventory,
   repeater,
+  notes,
 } = {}) {
   if (
     !pinHash ||
@@ -363,6 +364,19 @@ export function createApp({
     assemblies: assets?.assemblies() || [],
     orderColors: (workspace?.snapshot().orders || []).flatMap((o) => o.items.map((i) => i.colorway).filter(Boolean)),
   });
+  // Home-page reminder cards (customer service to-dos).
+  const noteRoute = (fn) => (req, res) => {
+    try {
+      if (!notes) return res.sendStatus(503);
+      res.set("Cache-Control", "no-store").json(fn(req));
+    } catch (e) {
+      fail(res, e);
+    }
+  };
+  app.get("/api/notes", noteRoute(() => notes.list()));
+  app.post("/api/notes", noteRoute((req) => notes.add(req.body || {})));
+  app.patch("/api/notes/:id", noteRoute((req) => notes.update(req.params.id, req.body || {})));
+  app.delete("/api/notes/:id", noteRoute((req) => notes.remove(req.params.id)));
   app.get("/api/inventory", (_req, res) => (inventory ? res.set("Cache-Control", "no-store").json(inventoryView()) : res.sendStatus(503)));
   app.put("/api/inventory", (req, res) => {
     try {

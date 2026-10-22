@@ -1,4 +1,5 @@
 import { PersonalLibrary } from "./PersonalLibrary";
+import { HomeNotes } from "./HomeNotes";
 import { BedTraining } from "./BedTraining";
 import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
@@ -622,7 +623,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome tools={overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}<OfferCards water offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome tools={overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}<OfferCards water offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -685,6 +686,7 @@ function App() {
           <div className={tab === "Overview" ? "overview-split" : undefined}>
           {tab === "Overview" && (
             <div className="overview-main">
+            {remote && <HomeNotes orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}
             {/* The queue leads the first column: what needs printing, above the orders it comes from. */}
             {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
             <section className="overview-orders" aria-label="PlayCase orders overview">
