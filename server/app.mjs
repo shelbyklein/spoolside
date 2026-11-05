@@ -9,10 +9,12 @@ import {
   scryptSync,
   timingSafeEqual,
   createHash,
+  randomUUID,
 } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { isIP } from "node:net";
 export function createApp({
   dist = path.resolve("dist"),
@@ -641,6 +643,35 @@ export function createApp({
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);
+    }
+  });
+  // A one-off print of a sliced .3mf that isn't kept in the library (test prints from DiscusSlicer). Same checks and
+  // camera bed check as a library print; the file only exists in a temp file while it is sent, then is deleted.
+  // Options come in the x-print header (URI-encoded JSON): {plate, amsMapping, useAms, bedLevelling, bedClear}.
+  app.post("/api/printers/:id/print-file", express.raw({ type: "application/octet-stream", limit: "95mb" }), async (req, res) => {
+    let tmp = null;
+    try {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) throw Error("Choose a sliced .3mf file");
+      const opts = JSON.parse(decodeURIComponent(String(req.get("x-print") || "{}")));
+      const name = decodeURIComponent(String(req.get("x-file-name") || "")).replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Test print";
+      const { plates } = inspect3mf(req.body);
+      checkStart(plates, opts);
+      await ensureBedClear(req.params.id, opts.bedClear);
+      tmp = path.join(os.tmpdir(), `spoolside-once-${randomUUID()}.3mf`);
+      fs.writeFileSync(tmp, req.body, { mode: 0o600 });
+      await printers.startPrint(req.params.id, {
+        localFile: tmp,
+        name,
+        plate: opts.plate,
+        amsMapping: opts.amsMapping,
+        useAms: !!opts.useAms,
+        bedLevelling: opts.bedLevelling !== false,
+      });
+      res.json({ ok: true, machines: printers.snapshot() });
+    } catch (e) {
+      fail(res, e);
+    } finally {
+      if (tmp) fs.rmSync(tmp, { force: true });
     }
   });
   // An order's Print button: sends the next plate still needed for one of its groups (a case or a faceplate).
