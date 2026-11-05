@@ -647,7 +647,8 @@ export function createApp({
   });
   // A one-off print of a sliced .3mf that isn't kept in the library (test prints from DiscusSlicer). Same checks and
   // camera bed check as a library print; the file only exists in a temp file while it is sent, then is deleted.
-  // Options come in the x-print header (URI-encoded JSON): {plate, amsMapping, useAms, bedLevelling, bedClear}.
+  // Options come in the x-print header (URI-encoded JSON): {plate, amsMapping, useAms, bedLevelling, bedClear};
+  // plate may be left out for a single-plate file.
   app.post("/api/printers/:id/print-file", express.raw({ type: "application/octet-stream", limit: "95mb" }), async (req, res) => {
     let tmp = null;
     try {
@@ -655,14 +656,16 @@ export function createApp({
       const opts = JSON.parse(decodeURIComponent(String(req.get("x-print") || "{}")));
       const name = decodeURIComponent(String(req.get("x-file-name") || "")).replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Test print";
       const { plates } = inspect3mf(req.body);
-      checkStart(plates, opts);
+      // A single-plate file (DiscusSlicer sends one plate) prints its only plate unless told otherwise.
+      const plate = opts.plate ?? (plates.length === 1 ? plates[0].index : undefined);
+      checkStart(plates, { ...opts, plate });
       await ensureBedClear(req.params.id, opts.bedClear);
       tmp = path.join(os.tmpdir(), `spoolside-once-${randomUUID()}.3mf`);
       fs.writeFileSync(tmp, req.body, { mode: 0o600 });
       await printers.startPrint(req.params.id, {
         localFile: tmp,
         name,
-        plate: opts.plate,
+        plate,
         amsMapping: opts.amsMapping,
         useAms: !!opts.useAms,
         bedLevelling: opts.bedLevelling !== false,
