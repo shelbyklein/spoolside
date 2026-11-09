@@ -107,6 +107,9 @@ export class Printers {
               pushing: { sequence_id: "0", command: "pushall" },
             }),
           );
+        // Firmware module versions, kept for OrcaSlicer's printer-agent plugin (its device screens need them).
+        if (client.connected)
+          client.publish(`device/${config.serial}/request`, JSON.stringify({ info: { sequence_id: "0", command: "get_version" } }));
       };
       client.on("connect", () => {
         record.connected = true;
@@ -121,7 +124,8 @@ export class Printers {
       });
       client.on("message", (_topic, payload) => {
         try {
-          const { print } = JSON.parse(payload);
+          const { print, info } = JSON.parse(payload);
+          if (info?.command === "get_version" && Array.isArray(info.module)) record.info = info;
           if (print?.command && this.waiters.has(`${config.serial}:${print.sequence_id}`)) {
             this.waiters.get(`${config.serial}:${print.sequence_id}`)(print);
           }
@@ -152,7 +156,7 @@ export class Printers {
   }
   // Every printer's status plus the raw report, for the print watcher.
   statuses() {
-    return [...this.byId.entries()].map(([serial, { config, record }]) => ({ serial, view: printerView(config, record), data: record.data || {} }));
+    return [...this.byId.entries()].map(([serial, { config, record }]) => ({ serial, view: printerView(config, record), data: record.data || {}, info: record.info || null }));
   }
   // Publishes a print command and waits for the printer's acknowledgement.
   request(serial, print, timeout = 10000) {

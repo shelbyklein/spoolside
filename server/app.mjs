@@ -650,7 +650,7 @@ export function createApp({
   app.get("/api/printers/:id/report", (req, res) => {
     const status = printers?.statuses().find((p) => p.serial === req.params.id);
     if (!status) return res.status(404).json({ error: "Unknown printer" });
-    res.json({ id: status.serial, name: status.view.name, connected: status.view.connected, print: status.data });
+    res.json({ id: status.serial, name: status.view.name, connected: status.view.connected, print: status.data, info: status.info });
   });
   // A one-off print of a sliced .3mf that isn't kept in the library (test prints from DiscusSlicer). Same checks and
   // camera bed check as a library print; the file only exists in a temp file while it is sent, then is deleted.
