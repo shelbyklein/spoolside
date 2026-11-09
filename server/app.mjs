@@ -645,6 +645,13 @@ export function createApp({
       fail(res, e);
     }
   });
+  // A printer's raw status as the printer reports it over MQTT (Bambu's push_status "print" object, merged from
+  // incremental reports), for OrcaSlicer's printer-agent plugin, whose device screens read that format.
+  app.get("/api/printers/:id/report", (req, res) => {
+    const status = printers?.statuses().find((p) => p.serial === req.params.id);
+    if (!status) return res.status(404).json({ error: "Unknown printer" });
+    res.json({ id: status.serial, name: status.view.name, connected: status.view.connected, print: status.data });
+  });
   // A one-off print of a sliced .3mf that isn't kept in the library (test prints from DiscusSlicer). Same checks and
   // camera bed check as a library print; the file only exists in a temp file while it is sent, then is deleted.
   // Options come in the x-print header (URI-encoded JSON): {plate, amsMapping, useAms, bedLevelling, bedClear};
