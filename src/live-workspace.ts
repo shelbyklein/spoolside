@@ -14,6 +14,7 @@ export type Machine = {
   stale?: boolean;
   connected?: boolean;
   error?: string | null;
+  pauseReason?: string | null;
   rawState?: string | null;
   trays?: { slot: number; type: string; color: string; name?: string; remain?: number | null; grams?: number | null; materialId?: string | null }[];
   external?: { type: string; color: string; name?: string } | null;

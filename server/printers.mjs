@@ -10,6 +10,17 @@ export function mergeTelemetry(prior, update) {
 const MATERIALS = { GFU02: "bambu-tpu-ams" };
 // Bambu colors are RRGGBBAA; a zero alpha means no color was set.
 const trayColor = (c) => (c && c.length >= 6 && c.slice(6, 8) !== "00" ? "#" + c.slice(0, 6) : "");
+// Bambu reports why a print stopped moving as print_error, shown in its wiki and apps as "0300-8013".
+export const errorCode = (n) => (Number(n) ? (Number(n) >>> 0).toString(16).toUpperCase().padStart(8, "0").replace(/^(.{4})/, "$1-") : null);
+// Why a paused print is paused, in words. A1 minis report a pause in the G-code (M400 U1) the same way as one
+// from the screen or a slicer: as "printing paused by the user" (0300-8013), which Orca shows as an error.
+export function pauseReason(data = {}) {
+  const code = errorCode(data.print_error);
+  const where = data.layer_num != null && data.total_layer_num ? ` at layer ${data.layer_num} of ${data.total_layer_num}` : "";
+  if (!code || code === "0300-8013") return `Paused${where}: a pause in the file, or someone paused it from the screen or a slicer. Resume when it's ready.`;
+  const hms = Array.isArray(data.hms) && data.hms.length ? ` The printer shows ${data.hms.length === 1 ? "an alert" : `${data.hms.length} alerts`} on its screen.` : "";
+  return `Paused${where} by the printer (code ${code}).${hms} Check its screen, then resume.`;
+}
 export function printerView(config, record, now = Date.now()) {
   const data = record?.data || {},
     stale = !record?.seen || now - record.seen > 90000,
@@ -57,6 +68,7 @@ export function printerView(config, record, now = Date.now()) {
     connected,
     stale,
     error: record?.error || null,
+    pauseReason: connected && raw === "PAUSE" ? pauseReason(data) : null,
   };
 }
 // Why a printer's status connection failed, in words that say what to do about it.
@@ -193,6 +205,8 @@ export class Printers {
     if (!allowed) throw Object.assign(Error("Unknown action"), { status: 400 });
     if (!allowed.includes(view.rawState)) throw Object.assign(Error(`Can't ${action} while ${view.state.toLowerCase()}`), { status: 409 });
     await this.request(serial, { command: action, param: "" });
+    // Remembered so a pause sent from Spoolside isn't announced back as a surprise.
+    (this.controls ??= new Map()).set(serial, { action, at: Date.now() });
   }
   async ftp(config) {
     const ftp = new FtpClient(60000);

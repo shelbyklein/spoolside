@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-test('a printer refusing connections says why on its card and in its details', async ({ browser }) => {
+test('a printer refusing connections, or paused, says why on its card and in its details', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
   const page = await context.newPage();
   const reason = "AMS 2 is refusing connections: too many apps connected. Close OrcaSlicer's Device tab or Bambu Handy, or restart the printer.";
   const machines = [
     { id: 'a', name: 'AMS 2', state: 'Offline', rawState: 'FINISH', job: '', progress: 0, remaining: '—', material: '', seen: null, stale: true, connected: false, error: reason },
+    { id: 'c', name: 'Desk', state: 'Paused', rawState: 'PAUSE', job: 'PlayPad cap', progress: 97, remaining: '2 min', material: '', seen: new Date().toISOString(), stale: false, connected: true, error: null, pauseReason: 'Paused at layer 76 of 77: a pause in the file, or someone paused it from the screen or a slicer. Resume when it\'s ready.' },
     { id: 'b', name: 'AMS 3', state: 'Ready', rawState: 'IDLE', job: '', progress: 0, remaining: '—', material: '', seen: new Date().toISOString(), stale: false, connected: true, error: null },
   ];
   await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
@@ -21,6 +22,9 @@ test('a printer refusing connections says why on its card and in its details', a
   await expect(card.getByRole('note')).toHaveText(reason);
   await expect(page.getByRole('button', { name: 'AMS 3, Ready' }).getByRole('note')).toHaveCount(0);
   await card.screenshot({ path: 'handoff/spoolside-printer-refused.png' });
+  // A paused print says why on its card.
+  await expect(page.getByRole('button', { name: 'Desk, Paused' }).getByRole('note')).toContainText('a pause in the file');
+  await page.getByRole('button', { name: 'Desk, Paused' }).screenshot({ path: 'handoff/spoolside-printer-paused.png' });
   await card.click();
   await expect(page.getByRole('dialog', { name: 'AMS 2 details' })).toContainText('too many apps connected');
   await context.close();

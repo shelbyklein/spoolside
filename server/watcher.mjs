@@ -21,7 +21,7 @@ export class PrintWatcher {
     this.db.exec(`CREATE TABLE IF NOT EXISTS print_watches (id TEXT PRIMARY KEY, printer TEXT NOT NULL, printer_name TEXT NOT NULL, job TEXT NOT NULL, plate INTEGER NOT NULL, started INTEGER NOT NULL, ended INTEGER, ended_as TEXT, outcome TEXT, mode TEXT NOT NULL, bad INTEGER NOT NULL DEFAULT 0, alert TEXT, last_check TEXT, next_check INTEGER NOT NULL, plan INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS watch_frames (watch TEXT NOT NULL, file TEXT NOT NULL, at INTEGER NOT NULL, progress INTEGER NOT NULL, layer INTEGER, verdict TEXT, reason TEXT, PRIMARY KEY (watch, file));`);
     const columns = this.db.prepare("PRAGMA table_info(print_watches)").all().map((c) => c.name);
-    for (const [name, type] of [["external", "INTEGER NOT NULL DEFAULT 0"], ["import_dismissed", "INTEGER NOT NULL DEFAULT 0"], ["note", "TEXT"], ["order_id", "TEXT"], ["order_number", "TEXT"], ["assets", "TEXT"], ["credited", "INTEGER NOT NULL DEFAULT 0"]])
+    for (const [name, type] of [["external", "INTEGER NOT NULL DEFAULT 0"], ["import_dismissed", "INTEGER NOT NULL DEFAULT 0"], ["note", "TEXT"], ["order_id", "TEXT"], ["order_number", "TEXT"], ["assets", "TEXT"], ["credited", "INTEGER NOT NULL DEFAULT 0"], ["pause_seen", "INTEGER"]])
       if (!columns.includes(name)) this.db.exec(`ALTER TABLE print_watches ADD COLUMN ${name} ${type}`);
     this.busy = new Set();
   }
@@ -70,6 +70,7 @@ export class PrintWatcher {
           this.set(watch.id, { mode: "warn", alert: { ...watch.alert, dismissed: true } });
           watch = this.active(serial);
         }
+        if (watch) this.pauseAlert(watch, serial, view, data);
         if (watch && raw === "RUNNING" && this.now() >= watch.next_check) await this.check(watch, serial, view);
       } catch (e) {
         console.error("Print watcher:", e.message);
@@ -77,6 +78,24 @@ export class PrintWatcher {
         this.busy.delete(serial);
       }
     }
+  }
+  // A print that pauses itself (a pause in the file, a filament runout, or a pause from the screen or a slicer)
+  // says so once. Pauses Spoolside made itself were already announced, or were asked for in the app.
+  pauseAlert(watch, serial, view, data) {
+    if (view.rawState !== "PAUSE") {
+      if (watch.pause_seen) this.set(watch.id, { pause_seen: null });
+      return;
+    }
+    if (watch.pause_seen) return;
+    this.set(watch.id, { pause_seen: this.now() });
+    const ours = (watch.alert?.paused && !watch.alert.dismissed) || this.printers.controls?.get(serial)?.action === "pause" && this.now() - this.printers.controls.get(serial).at < 2 * MINUTE;
+    if (ours) return;
+    this.notifications?.broadcast({
+      id: `watch:${watch.id}:pause:${this.now()}`,
+      title: `${view.name} paused: ${watch.job}`,
+      body: view.pauseReason || "The print is paused. Resume it when it's ready.",
+      url: "/printers",
+    });
   }
   async start(serial, view, data) {
     const id = randomUUID(), plate = Number(String(data.gcode_file || "").match(/plate_(\d+)/)?.[1] || 1);
