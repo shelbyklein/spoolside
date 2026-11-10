@@ -2626,3 +2626,39 @@ button.home-note-order:hover { background: #f7dba6; }
 @media (max-width: 760px) { .home-note.editing textarea, .home-note-form-row input { font-size: 16px; } }
 .home-notes.on-water .home-note .home-note-done, .home-notes.on-water .home-note .icon-button { color: var(--navy); }
 .home-notes.on-water .home-note .home-note-done { background: #fff; border-color: #e5d3ae; }
+
+/* Supplies: filament, bought parts and packaging, priced per gram or per piece. */
+.supply-groups {margin-bottom:20px;}
+.supply-intro {margin:0 auto 0 0;max-width:560px;}
+.supply-best {display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto;}
+.supply-best strong {font-size:20px;color:var(--navy);}
+.supply-best small {font-size:11px;color:var(--muted);}
+.piece-supply .section-top {display:flex;gap:16px;}
+.material-offer.piece-offer {grid-template-columns:44px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;}
+.piece-offer .offer-actions {display:flex;flex-direction:row;align-items:center;gap:8px;}
+.form-actions {display:flex;gap:12px;align-items:center;}
+.remove-supply {margin-top:12px;}
+.costing-settings {margin-top:20px;}
+.costing-settings h3 {margin:0 0 6px;}
+.costing-rows {display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 20px;margin-top:12px;}
+.costing-rows label {display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);}
+.costing-rows select,.costing-rows input {font:inherit;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:#fff;padding:8px;min-height:36px;}
+@media(max-width:760px){.material-offer.piece-offer{grid-template-columns:48px minmax(0,1fr) auto;}.piece-offer .offer-actions{grid-column:3;grid-row:3;}.piece-offer .offer-delivery{align-items:flex-start;}.supply-intro{width:100%;}.piece-supply .section-top{flex-wrap:wrap;}}
+
+/* Cost per unit (assembly page) and estimated order cost. */
+.assembly-cost {margin-top:20px;}
+.cost-head {display:flex;align-items:baseline;gap:12px;}
+.cost-head h3 {margin:0 auto 0 0;}
+.cost-head strong {font-size:22px;color:var(--teal);}
+.cost-head strong.incomplete {color:#b0613a;font-size:18px;}
+.cost-lines {list-style:none;margin:12px 0;padding:0;}
+.cost-lines li {display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,2fr) auto;gap:12px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:13px;}
+.cost-lines .cost-detail {color:var(--muted);font-size:12px;}
+.cost-lines .cost-amount {font-variant-numeric:tabular-nums;text-align:right;}
+.cost-lines li.missing .cost-detail,.cost-lines li.missing .cost-amount {color:#b0613a;}
+.tile-cost {color:var(--teal);font-weight:600;}
+.order-cost {margin-top:8px;font-size:13px;}
+.order-cost-breakdown {grid-column:1 / -1;margin:4px 0 0;max-width:560px;}
+.order-cost-breakdown li {grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;}
+.order-cost-breakdown .cost-total {font-weight:600;}
+@media(max-width:760px){.cost-lines li{grid-template-columns:minmax(0,1fr) auto;}.cost-lines .cost-detail{grid-column:1 / -1;grid-row:2;}}

@@ -11,7 +11,8 @@ const StlViewer = lazy(() => import("./StlViewer"));
 export type Asset = {
   id: string;
   name: string;
-  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone" | "Cut template";
+  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Purchased" | "Phone" | "Cut template";
+  supplyId?: string;
   generation: number;
   status: Status;
   note: string;
@@ -31,12 +32,12 @@ export type Asset = {
 };
 type Status = "Up to date" | "Stale";
 const STATUSES: Status[] = ["Up to date", "Stale"];
-const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone", "Cut template"] as const;
+const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Purchased", "Phone", "Cut template"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 // On All, each type gets its own labeled section, in this order.
 const SECTIONS: { type: Asset["type"]; label: string; note?: string }[] = [
   { type: "Case", label: "Cases" }, { type: "Faceplate", label: "Faceplates" }, { type: "Sleeve", label: "Sleeves" },
-  { type: "Part", label: "Parts" }, { type: "Phone", label: "Phones", note: "3D reference models, not printed" },
+  { type: "Part", label: "Parts" }, { type: "Purchased", label: "Bought parts", note: "Not printed; priced from Supplies" }, { type: "Phone", label: "Phones", note: "3D reference models, not printed" },
   { type: "Cut template", label: "Cut templates", note: "SVG files for Cricut" },
 ];
 
@@ -49,7 +50,7 @@ const groupOf = (a: Asset) =>
       : a.type === "Cut template" ? (a.fit.style || "Cricut templates") : "Parts";
 
 // Phone references are view-only, so they never need a design file.
-const needsDesign = (a: Asset) => !a.designFile && a.type !== "Phone";
+const needsDesign = (a: Asset) => !a.designFile && a.type !== "Phone" && a.type !== "Purchased";
 
 export const sectionFromPath = (path = window.location.pathname) => path.startsWith("/library/sliced") ? "Sliced prints" : path.startsWith("/library/assemblies") ? "Assemblies" : "Assets";
 // Library's own sections. The sidebar and the PlayCase menu show them nested under Library.
@@ -178,7 +179,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           const mine = groups.filter(([key]) => key.startsWith(`${t}|`));
           if (!mine.length) return null;
           const heading = type === "All" && <h2 className="asset-section-title">{label}{note && <small>{note}</small>}</h2>;
-          return t === "Part" || t === "Cut template" ? (
+          return t === "Part" || t === "Purchased" || t === "Cut template" ? (
             <section className="part-card-section" key={t} aria-label={label}>
               {heading || <h3>{label}</h3>}
               <div className="part-cards">
@@ -349,10 +350,26 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
     [piece, setPiece] = useState("Top"),
     [status, setStatus] = useState<Status>("Up to date"),
     [category, setCategory] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [supplyId, setSupplyId] = useState(""),
+    [parts, setParts] = useState<{ id: string; name: string; kind: string }[]>([]);
   const isVector = !!stl && /\.svg$/i.test(stl.name);
+  const bought = type === "Purchased" && !isVector;
+  useEffect(() => { if (bought && !parts.length) fetch("/api/supplies").then((r) => r.json()).then((d) => setParts((d.supplies || []).filter((x: { kind: string }) => x.kind !== "filament"))).catch(() => {}); }, [bought]);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A bought part has no model: it's created from the supply it's bought as.
+    if (bought) {
+      setBusy(true);
+      try {
+        const r = await fetch("/api/assets/purchased", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, supplyId, status, category, generation: 3, fit: { piece: name } }) });
+        const asset = await r.json();
+        if (!r.ok) throw Error(asset.error || "Could not add");
+        notify(`Added ${asset.name}.`);
+        onAdded(asset);
+      } catch (err) { notify((err as Error).message); } finally { setBusy(false); }
+      return;
+    }
     if (!stl) return;
     setBusy(true);
     try {
@@ -381,10 +398,12 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
       <form role="dialog" aria-modal="true" aria-label="Upload library item" className="detail-panel upload-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()} onSubmit={submit}>
         <button type="button" autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
         <h2>Upload</h2>
-        <label>STL or SVG file<input type="file" accept=".stl,.svg" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.(stl|svg)$/i, "")); }} /></label>
-        {isVector ? <p className="plate-meta">Cricut cut template. The SVG must have width and height in millimetres. It will be stored at its original size.</p> : <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>}
+        {!bought && <label>STL or SVG file<input type="file" accept=".stl,.svg" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.(stl|svg)$/i, "")); }} /></label>}
+        {bought ? <p className="plate-meta">A bought part such as a magnet: not printed, priced from its supply. Add it to assemblies with how many each one uses.</p> : isVector ? <p className="plate-meta">Cricut cut template. The SVG must have width and height in millimetres. It will be stored at its original size.</p> : <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>}
         <label>Name<input value={name} required maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
-        <label>Type<select value={isVector ? "Cut template" : type} disabled={isVector} onChange={(e) => setType(e.target.value)}>{(isVector ? ["Cut template"] : ["Case", "Faceplate", "Sleeve", "Part"]).map((t) => <option key={t}>{t}</option>)}</select></label>
+        <label>Type<select value={isVector ? "Cut template" : type} disabled={isVector} onChange={(e) => setType(e.target.value)}>{(isVector ? ["Cut template"] : ["Case", "Faceplate", "Sleeve", "Part", "Purchased"]).map((t) => <option key={t} value={t}>{t === "Purchased" ? "Bought part" : t}</option>)}</select></label>
+        {bought && <label>Bought as<select required value={supplyId} onChange={(e) => setSupplyId(e.target.value)}><option value="">Choose a supply</option>{parts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+        {bought && !parts.length && <p className="plate-meta">Add the part under Supplies → Parts first.</p>}
         {!isVector && type === "Case" && <label>Phone model<input value={phone} required placeholder="iPhone 17 Air" onChange={(e) => setPhone(e.target.value)} /></label>}
         {!isVector && (type === "Faceplate" || type === "Sleeve") && <>
           <label>Style<select value={style} onChange={(e) => setStyle(e.target.value)}>{STYLES.map((s) => <option key={s}>{s}</option>)}</select></label>
@@ -393,7 +412,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
         {!isVector && type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
         <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as Status)}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
         <label>Category<select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">No category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <button className="primary" type="submit" disabled={busy || !stl}>{busy ? "Uploading…" : "Add to library"}</button>
+        <button className="primary" type="submit" disabled={busy || (bought ? !supplyId : !stl)}>{busy ? "Uploading…" : "Add to library"}</button>
       </form>
     </div>
   );

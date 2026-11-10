@@ -4,7 +4,8 @@ import { BedTraining } from "./BedTraining";
 import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
-import { FilamentManager, materialName } from "./FilamentManager";
+import { materialName } from "./FilamentManager";
+import { Supplies } from "./Supplies";
 import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats, RepeatCard } from "./PrintControls";
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
@@ -141,7 +142,7 @@ const tabs = [
   { name: "PlayCase", icon: ShoppingBag },
   { name: "Personal", icon: Boxes },
   { name: "Queue", icon: Layers3 },
-  { name: "Filament", icon: Disc3 },
+  { name: "Supplies", icon: Disc3 },
   { name: "Settings", icon: Settings },
 ];
 function tabFromPath() {
@@ -149,6 +150,8 @@ function tabFromPath() {
   if(segment.toLowerCase() === "orders") return "Orders";
   if(segment.toLowerCase() === "library") return "Library";
   if(segment.toLowerCase() === "inventory") return "Inventory";
+  // Filament became Supplies; old /filament links still land there.
+  if(segment.toLowerCase() === "filament") { history.replaceState(history.state, "", "/supplies" + window.location.search); return "Supplies"; }
   const match = tabs.find((t) => t.name.toLowerCase() === segment.toLowerCase());
   if (match) return match.name === "PlayCase" ? "Orders" : match.name;
   return new URLSearchParams(window.location.search).get("view") === "orders" ? "Orders" : "Overview";
@@ -516,7 +519,7 @@ function App() {
         <button
           className="icon-button"
           aria-label="Manage filament"
-          onClick={() => setTab("Filament")}
+          onClick={() => setTab("Supplies")}
         >
           <ArrowUpRight size={19} />
         </button>
@@ -534,7 +537,7 @@ function App() {
             <strong>{s.name}</strong>
             <span>{s.materialId ? materialName(s.materialId) : "Unassigned material"}</span>
           </div>
-          {tab === "Filament" ? (
+          {tab === "Supplies" ? (
             <label className="grams">
               <input
                 aria-label={`${s.name} remaining grams`}
@@ -735,12 +738,12 @@ function App() {
           )}
           </div>
           {tab === "Printers" && remote && <PrintLibrary notify={setNotice} />}
-          {(tab === "Queue" || tab === "Filament" || (tab === "Overview" && !remote)) && (
+          {(tab === "Queue" || tab === "Supplies" || (tab === "Overview" && !remote)) && (
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
-              {tab !== "Filament" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
-              {tab === "Filament" && remote ? <FilamentManager notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
+              {tab !== "Supplies" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
+              {tab === "Supplies" && remote ? <Supplies notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
           {["Orders","Library","Inventory"].includes(tab) && <div className="segmented playcase-sections" aria-label="PlayCase sections"><button onClick={() => setTab("Orders")} className={tab === "Orders" ? "active" : ""}>Orders</button><button onClick={() => setTab("Library")} className={tab === "Library" ? "active expanded" : ""}>Library</button>{tab === "Library" && <span id="library-sections-slot" className="library-sections-slot" />}<button onClick={() => setTab("Inventory")} className={tab === "Inventory" ? "active" : ""}>Inventory</button></div>}

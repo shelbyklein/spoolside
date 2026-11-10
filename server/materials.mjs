@@ -4,7 +4,17 @@ export const MATERIALS=[
  {id:'bambu-tpu-ams',name:'Bambu TPU for AMS',usage:'',url:'https://us.store.bambulab.com/products/tpu-for-ams',seller:'Bambu Lab'},
  {id:'recreus-conductive',name:'Recreus Conductive Filaflex',usage:'Touch pins',url:'https://recreus.com/en-en/products/filaflex-conductivo?variant=45921625833731',seller:'Recreus'},
  {id:'proto-conductive',name:'Proto-pasta Conductive PLA',usage:'Other parts',url:'https://proto-pasta.com/products/conductive-pla',seller:'Proto-pasta'},
+ {id:'recreus-filaflex-70a',name:'Recreus Filaflex 70A',usage:'Membranes',url:'https://recreus.com/en-en/products/filaflex-70a?variant=45921629241603',seller:'Recreus'},
 ];
+// Supplies are everything bought to make a product: filament (counted in grams) plus parts such as
+// magnets and packaging such as boxes (counted in pieces). The filaments above are built in and
+// price-checked from their supplier pages; other supplies are added by hand with manual offers.
+export const KINDS=['filament','part','packaging'];
+const UNIT={filament:'g',part:'piece',packaging:'piece'};
+const supply=m=>({...m,kind:m.kind||'filament',unit:m.unit||UNIT[m.kind||'filament'],custom:!!m.custom});
+// Which supply a sliced plate's filament type is printed with, unless a print says otherwise.
+export const DEFAULT_FILAMENT_MAP={'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive'};
+const DEFAULT_SETTINGS={zip:'30360',sort:'fastest',filamentMap:DEFAULT_FILAMENT_MAP,packaging:{small:null,large:null,pouch:null},pouchesPerOrder:1};
 const SOURCES=[...MATERIALS,
  {...MATERIALS[1],url:'https://www.3djake.com/recreus/conductive-filaflex-black?sai=11093',seller:'3DJake'},
  {...MATERIALS[2],url:'https://www.3djake.com/protopasta/electrically-conductive-composite-pla?sai=17573',seller:'3DJake'},
@@ -34,7 +44,7 @@ export function productOffers(html,material,checked=new Date().toISOString()) {
    const days=Number(delivery?.deliveryTime?.handlingTime?.maxValue)+Number(delivery?.deliveryTime?.transitTime?.maxValue);
    const rate=delivery?.shippingRate?.currency==='USD'?Number(delivery.shippingRate.value):null;
    const published=us&&Number.isFinite(days)&&days>0&&days<100 ? {days,shipping:Number.isFinite(rate)&&rate!==null&&rate>=0?rate:null}:null;
-   const color=material.id==='bambu-tpu-ams'?(label.match(/Neon Green|Red|Yellow|Blue|White|Gray|Black/i)?.[0]||'Unknown'):'Black';
+   const color=material.id==='bambu-tpu-ams'?(label.match(/Neon Green|Red|Yellow|Blue|White|Gray|Black/i)?.[0]||'Unknown'):material.id==='recreus-filaflex-70a'?(label.match(/-\s*([^/]+?)\s*\//)?.[1]||'Unknown'):'Black';
    const picture=offer.image||node.image;
    const rawImage=Array.isArray(picture)?picture[0]:typeof picture==='object'?picture?.url:picture;
    let image=null;try{if(typeof rawImage!=='string'||!rawImage)throw Error();const u=new URL(rawImage,material.url);if(u.protocol==='https:'&&['store.bblcdn.com','proto-pasta.com','recreus.com','3d.nice-cdn.com'].includes(u.hostname))image=u.href;}catch{}
@@ -56,11 +66,13 @@ export function rankedOffers(offers,settings,now=Date.now()) {
   const shipping=quoteValid?q.shipping:(!stale?o.published?.shipping??null:null);
   const deliverySource=quoteValid?'ZIP quote':policyArrival?'US estimate':null;
   const delivered=shipping!==null&&shipping!==undefined?o.price+shipping:null;
-  return {...o,stale,arrival,shipping,delivered,deliverySource,perKg:o.price*1000/o.grams,deliveredPerKg:delivered===null?null:delivered*1000/o.grams};
+  // Each offer is a price for some number of units: grams of filament or pieces of a part.
+  const units=o.grams??o.quantity,perUnit=v=>v===null?null:v/units;
+  return {...o,stale,arrival,shipping,delivered,deliverySource,unitPrice:perUnit(o.price),deliveredUnitPrice:perUnit(delivered),...(o.grams?{perKg:o.price*1000/o.grams,deliveredPerKg:delivered===null?null:delivered*1000/o.grams}:{})};
  });
  const score=o=>o.stale?3:o.available===true?0:o.available===false?2:1;
- const cost=o=>o.deliveredPerKg??Infinity;
- enriched.sort((a,b)=>score(a)-score(b) || (settings.sort==='price'?cost(a)-cost(b)||String(a.arrival||'9999').localeCompare(b.arrival||'9999'):String(a.arrival||'9999').localeCompare(b.arrival||'9999')||cost(a)-cost(b)) || a.perKg-b.perKg || a.label.localeCompare(b.label));
+ const cost=o=>o.deliveredUnitPrice??Infinity;
+ enriched.sort((a,b)=>score(a)-score(b) || (settings.sort==='price'?cost(a)-cost(b)||String(a.arrival||'9999').localeCompare(b.arrival||'9999'):String(a.arrival||'9999').localeCompare(b.arrival||'9999')||cost(a)-cost(b)) || a.unitPrice-b.unitPrice || a.label.localeCompare(b.label));
  return enriched;
 }
 export class Materials {
@@ -68,12 +80,41 @@ export class Materials {
   this.db=db;this.fetcher=fetcher;this.busy=null;
   db.exec('CREATE TABLE IF NOT EXISTS material_catalog (id TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS material_offers (id TEXT PRIMARY KEY, body TEXT NOT NULL); CREATE TABLE IF NOT EXISTS material_settings (id INTEGER PRIMARY KEY, body TEXT NOT NULL)');
   for(const m of MATERIALS)db.prepare('INSERT OR IGNORE INTO material_catalog VALUES (?,?)').run(m.id,JSON.stringify(m));
-  db.prepare('INSERT OR IGNORE INTO material_settings VALUES (1,?)').run(JSON.stringify({zip:'30360',sort:'fastest'}));
+  db.prepare('INSERT OR IGNORE INTO material_settings VALUES (1,?)').run(JSON.stringify({zip:DEFAULT_SETTINGS.zip,sort:DEFAULT_SETTINGS.sort}));
  }
- settings(){return JSON.parse(this.db.prepare('SELECT body FROM material_settings WHERE id=1').get().body);}
- list(){const settings=this.settings();const offers=this.db.prepare('SELECT body FROM material_offers').all().map(r=>JSON.parse(r.body));return {settings,materials:this.db.prepare('SELECT body FROM material_catalog').all().map(r=>{const m=JSON.parse(r.body);return {...m,offers:rankedOffers(offers.filter(o=>o.materialId===m.id),settings)};})};}
- saveSettings(input){const next={...this.settings(),...input};if(!/^\d{5}$/.test(next.zip)||!['fastest','price'].includes(next.sort))throw Error('Enter a five-digit ZIP and sort order');this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({zip:next.zip,sort:next.sort}));return this.list();}
- saveUsage(id,usage){const r=this.db.prepare('SELECT body FROM material_catalog WHERE id=?').get(id);if(!r)throw Error('Unknown material');const m={...JSON.parse(r.body),usage:text(usage)};this.db.prepare('UPDATE material_catalog SET body=? WHERE id=?').run(JSON.stringify(m),id);return this.list();}
+ settings(){const s=JSON.parse(this.db.prepare('SELECT body FROM material_settings WHERE id=1').get().body);return {...DEFAULT_SETTINGS,...s,filamentMap:{...DEFAULT_FILAMENT_MAP,...s.filamentMap},packaging:{...DEFAULT_SETTINGS.packaging,...s.packaging}};}
+ // Every supply with its ranked offers. `materials` is the original name, kept for older clients.
+ list(){const settings=this.settings();const offers=this.db.prepare('SELECT body FROM material_offers').all().map(r=>JSON.parse(r.body));const supplies=this.db.prepare('SELECT body FROM material_catalog').all().map(r=>{const m=supply(JSON.parse(r.body));return {...m,offers:rankedOffers(offers.filter(o=>o.materialId===m.id),settings)};});return {settings,materials:supplies,supplies};}
+ // The original Filament view: filament supplies only, in the original shape.
+ filaments(){const l=this.list();const materials=l.supplies.filter(m=>m.kind==='filament');return {settings:{zip:l.settings.zip,sort:l.settings.sort},materials};}
+ // The best current price per unit (gram or piece) for costing: in-stock, fresh offers first, then any
+ // offer with a price; delivered price when known. Null when the supply has no priced offer.
+ bestUnitPrice(id,list=this.list()){const s=list.supplies.find(m=>m.id===id);if(!s)return null;
+  const ok=s.offers.filter(o=>o.available!==false&&Number.isFinite(o.unitPrice));
+  const pick=[...ok].sort((a,b)=>(a.stale-b.stale)||((a.deliveredUnitPrice??a.unitPrice)-(b.deliveredUnitPrice??b.unitPrice)))[0];
+  return pick?{supplyId:s.id,name:s.name,unit:s.unit,price:pick.deliveredUnitPrice??pick.unitPrice,delivered:pick.deliveredUnitPrice!==null&&pick.deliveredUnitPrice!==undefined,stale:pick.stale,offer:pick.id}:null;}
+ saveSettings(input){const cur=this.settings(),next={...cur,...input};if(!/^\d{5}$/.test(next.zip)||!['fastest','price'].includes(next.sort))throw Error('Enter a five-digit ZIP and sort order');
+  const ids=new Set(this.list().supplies.map(m=>m.id));
+  const map=input.filamentMap!==undefined?input.filamentMap:cur.filamentMap;
+  if(!map||typeof map!=='object'||Object.keys(map).length>30||Object.entries(map).some(([k,v])=>!/^[A-Za-z0-9 +._-]{1,30}$/.test(k)||(v!==null&&!ids.has(v))))throw Error('Choose a supply for each filament type');
+  const pack={...cur.packaging,...(input.packaging||{})};
+  if(Object.keys(pack).some(k=>!['small','large','pouch'].includes(k))||Object.values(pack).some(v=>v!==null&&!ids.has(v)))throw Error('Choose packaging supplies');
+  const pouches=Number(next.pouchesPerOrder);if(!Number.isInteger(pouches)||pouches<0||pouches>20)throw Error('Enter bubble pouches per order (0-20)');
+  this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({zip:next.zip,sort:next.sort,filamentMap:Object.fromEntries(Object.entries(map).filter(([,v])=>v)),packaging:pack,pouchesPerOrder:pouches}));return this.list();}
+ // Supplies added by hand (parts, packaging, or another filament). Built-in filaments can't be removed.
+ addSupply(input){const name=text(input.name,80),kind=input.kind,usage=text(input.usage);if(!name||!KINDS.includes(kind))throw Error('Enter a supply name and choose Filament, Parts or Packaging');
+  if(this.list().supplies.some(m=>m.name.toLowerCase()===name.toLowerCase()))throw Error('A supply with that name already exists');
+  let url='';if(input.url){try{const u=new URL(input.url);if(u.protocol!=='https:'||u.username||u.password)throw Error();url=u.href;}catch{throw Error('Enter an HTTPS product link');}}
+  const id='supply-'+randomUUID().slice(0,8);this.db.prepare('INSERT INTO material_catalog VALUES (?,?)').run(id,JSON.stringify({id,name,kind,unit:UNIT[kind],usage,url,custom:true}));return this.list();}
+ updateSupply(id,input){const r=this.db.prepare('SELECT body FROM material_catalog WHERE id=?').get(id);if(!r)throw Error('Unknown supply');const m=JSON.parse(r.body);
+  const next={...m};if(input.usage!==undefined)next.usage=text(input.usage);
+  if(input.name!==undefined){if(!m.custom)throw Error('Built-in filaments keep their names');const name=text(input.name,80);if(!name)throw Error('Enter a supply name');if(this.list().supplies.some(x=>x.id!==id&&x.name.toLowerCase()===name.toLowerCase()))throw Error('A supply with that name already exists');next.name=name;}
+  this.db.prepare('UPDATE material_catalog SET body=? WHERE id=?').run(JSON.stringify(next),id);return this.list();}
+ removeSupply(id,usedBy=[]){const r=this.db.prepare('SELECT body FROM material_catalog WHERE id=?').get(id);if(!r)throw Error('Unknown supply');if(!JSON.parse(r.body).custom)throw Error('Built-in filaments can\'t be removed');
+  if(usedBy.length)throw Object.assign(Error(`Used by ${usedBy.join(', ')}. Remove it there first.`),{status:409});
+  this.db.prepare('DELETE FROM material_offers WHERE json_extract(body,\'$.materialId\')=?').run(id);this.db.prepare('DELETE FROM material_catalog WHERE id=?').run(id);
+  const s=this.settings();this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({...s,filamentMap:Object.fromEntries(Object.entries(s.filamentMap).filter(([,v])=>v!==id)),packaging:Object.fromEntries(Object.entries(s.packaging).map(([k,v])=>[k,v===id?null:v]))}));return this.list();}
+ saveUsage(id,usage){return this.updateSupply(id,{usage});}
  putOffer(o){this.db.prepare('INSERT INTO material_offers VALUES (?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body').run(o.id,JSON.stringify(o));}
  confirmOffer(id){const row=this.db.prepare('SELECT body FROM material_offers WHERE id=?').get(id);if(!row)throw Error('Unknown offer');const offer=JSON.parse(row.body);if(offer.source!=='manual')throw Error('Live offers are refreshed from the supplier');this.putOffer({...offer,checked:new Date().toISOString()});return this.list();}
  quote(id,input){const row=this.db.prepare('SELECT body FROM material_offers WHERE id=?').get(id);if(!row)throw Error('Unknown offer');const shipping=money(input.shipping),arrival=text(input.arrival,10),zip=this.settings().zip;
@@ -81,9 +122,14 @@ export class Materials {
   if(arrival&&(!/^\d{4}-\d{2}-\d{2}$/.test(arrival)||Number.isNaN(Date.parse(arrival))||new Date(arrival).toISOString().slice(0,10)!==arrival||arrival<new Date().toISOString().slice(0,10)))throw Error('Enter a future arrival date');
   this.putOffer({...JSON.parse(row.body),quote:{zip,shipping,arrival:arrival||null,checked:new Date().toISOString()}});return this.list();
  }
- addOffer(input){const material=this.list().materials.find(m=>m.id===input.materialId);let url;try{url=new URL(input.url);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{throw Error('Enter an HTTPS product link');}
-  const price=money(input.price),grams=Number(input.grams),seller=text(input.seller,80),label=text(input.label,150);
-  if(!material||!seller||!label||!Number.isFinite(price)||price<=0||price>10000||!Number.isFinite(grams)||grams<100||grams>10000||typeof input.available!=='boolean')throw Error('Enter exact 1.75 mm spool, seller, price and grams');
+ addOffer(input){const material=this.list().supplies.find(m=>m.id===(input.supplyId??input.materialId));let url;try{url=new URL(input.url);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{throw Error('Enter an HTTPS product link');}
+  const price=money(input.price),seller=text(input.seller,80),label=text(input.label,150);
+  if(!material)throw Error('Unknown supply');
+  if(material.unit==='piece'){const quantity=Number(input.quantity);
+   if(!seller||!label||!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(quantity)||quantity<1||quantity>100000||typeof input.available!=='boolean')throw Error('Enter seller, description, price and how many pieces it buys');
+   this.putOffer({id:randomUUID(),materialId:material.id,seller,label,price,quantity,url:url.href,currency:'USD',available:input.available,source:'manual',checked:new Date().toISOString()});return this.list();}
+  const grams=Number(input.grams);
+  if(!seller||!label||!Number.isFinite(price)||price<=0||price>10000||!Number.isFinite(grams)||grams<100||grams>10000||typeof input.available!=='boolean')throw Error('Enter exact 1.75 mm spool, seller, price and grams');
   const id=randomUUID();this.putOffer({id,color:text(input.color,40)||'Black',materialId:material.id,seller,label,price,grams,url:url.href,currency:'USD',available:input.available,refill:!!input.refill,source:'manual',checked:new Date().toISOString()});return this.list();
  }
  removeOffer(id){const o=this.db.prepare('SELECT body FROM material_offers WHERE id=?').get(id);if(!o||JSON.parse(o.body).source!=='manual')throw Error('Only added offers can be removed');this.db.prepare('DELETE FROM material_offers WHERE id=?').run(id);return this.list();}

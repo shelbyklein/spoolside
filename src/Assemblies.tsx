@@ -2,6 +2,7 @@ import { FileCheck2, FileX2 } from 'lucide-react';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
 import {mergePlacement} from './placement';
+import {AssemblyCostPanel,costLabel,useAssemblyCosts} from './Costs';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
@@ -34,7 +35,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  // One mover per saved version, so a drag's pending save survives redraws.
  const move=useMemo(()=>selected?mover(selected,setLiveColors,savedAssembly,notify):()=>{},[selected]);
  return <section aria-label="Assemblies">
-  {selected && (()=>{const shown=liveColors?.id===selected.id?liveColors:selected;return <section className="assembly-detail"><div className="assembly-heading"><div className="assembly-title"><button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div></div><div className="assembly-detail-columns"><PositionTool assembly={shown} assets={assets} pick={pick} onPick={setPick} move={move}/><PartsEditor assembly={selected} shown={shown} assets={assets} pick={pick} onPick={setPick} move={move} onOpen={onOpen} onSaved={savedAssembly} onPreview={setLiveColors} notify={notify}/></div></section>;})()}
+  {selected && (()=>{const shown=liveColors?.id===selected.id?liveColors:selected;return <section className="assembly-detail"><div className="assembly-heading"><div className="assembly-title"><button className="text-button assembly-back" onClick={()=>navigate(null)}>← Assemblies</button><h2>{selected.name}</h2><p>{selected.type}{selected.sku?` · SKU ${selected.sku}`:''} · {selected.components.reduce((n,c)=>n+c.quantity,0)} pieces</p></div></div><div className="assembly-detail-columns"><PositionTool assembly={shown} assets={assets} pick={pick} onPick={setPick} move={move}/><PartsEditor assembly={selected} shown={shown} assets={assets} pick={pick} onPick={setPick} move={move} onOpen={onOpen} onSaved={savedAssembly} onPreview={setLiveColors} notify={notify}/></div><AssemblyCostPanel assemblyId={selected.id} version={JSON.stringify(selected.components)}/></section>;})()}
  {selectedId && !selected && !loading && !error && <p role="alert">Assembly not found. <button className="text-button" onClick={()=>navigate(null)}>← Assemblies</button></p>}
   {error && <p role="alert">{error} <button className="text-button" onClick={load}>Retry</button></p>}
  {!selectedId && <>
@@ -199,6 +200,7 @@ function AssemblySnapshot({assembly,parts,onSaved,onOpen}:{assembly:Assembly;par
 // Assembly cards in your order: square snapshot, name, and parts tucked in a disclosure.
 // Arrange mode: drag a card onto another, or use the arrow buttons (works on touch too).
 function AssemblyGrid({items,search,assets,arranging,onReorder,onOpenAssembly,onOpenAsset,onEdit,onThumb}:{items:Assembly[];search:string;assets:Asset[];arranging:boolean;onReorder:(ids:string[])=>void;onOpenAssembly:(id:string)=>void;onOpenAsset:(id:string)=>void;onEdit:(a:Assembly)=>void;onThumb:(id:string,key:string)=>void}){
+ const costs=useAssemblyCosts(JSON.stringify(items.map(a=>[a.id,a.components])));
  const [dragging,setDragging]=useState<string|null>(null),[over,setOver]=useState<string|null>(null);
  const shown=items.filter(a=>`${a.name} ${a.sku} ${a.type}`.toLowerCase().includes(search.toLowerCase()));
  const ids=items.map(a=>a.id);
@@ -211,7 +213,7 @@ function AssemblyGrid({items,search,assets,arranging,onReorder,onOpenAssembly,on
    onDragOver={e=>{if(!dragging)return;e.preventDefault();setOver(a.id);}} onDrop={e=>{e.preventDefault();if(dragging&&dragging!==a.id)move(dragging,ids.indexOf(a.id));setDragging(null);setOver(null);}}>
    <AssemblySnapshot assembly={a} parts={parts} onSaved={key=>onThumb(a.id,key)} onOpen={()=>!arranging&&onOpenAssembly(a.id)}/>
    <h3><a href={`/library/assemblies/${a.id}`} onClick={e=>{e.preventDefault();if(!arranging)onOpenAssembly(a.id);}}>{a.name}</a></h3>
-   <p>{a.type}{a.sku?` · ${a.sku}`:''}</p>
+   <p>{a.type}{a.sku?` · ${a.sku}`:''}{costs[a.id]?<span className="tile-cost"> · {costLabel(costs[a.id].total,costs[a.id].complete)}</span>:null}</p>
    {arranging?<div className="arrange-buttons">
     <button className="secondary" aria-label={`Move ${a.name} earlier`} disabled={i===0} onClick={()=>move(a.id,i-1)}>←</button>
     <button className="secondary" aria-label={`Move ${a.name} later`} disabled={i===ids.length-1} onClick={()=>move(a.id,i+1)}>→</button>

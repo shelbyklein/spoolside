@@ -1,6 +1,7 @@
 import { Projects } from "./projects.mjs";
 import { splitPlates, inspect3mf } from "./library.mjs";
 import { orderReadiness, orderPrintPlan } from "./readiness.mjs";
+import { costing, stlVolume } from "./costs.mjs";
 import express from "express";
 import { defaultPrinter } from "./printer-default.mjs";
 import { printQueue, reservedPieces } from "./printqueue.mjs";
@@ -88,7 +89,7 @@ export function createApp({
     app.get("/" + file, (_req,res) => res.sendFile(path.join(dist,file)));
   }
   // Only app pages are allowed as post-login destinations (no open redirects).
-  const APP_PAGE = /^\/(?:library\/sliced\/?$)|^\/(?:library\/assemblies(?:\/[0-9a-f-]{36})?\/?$)|^\/(overview|printers|orders|library|inventory|playcase|personal|queue|filament|settings)(\/[0-9a-f-]{36})?\/?$/;
+  const APP_PAGE = /^\/(?:library\/sliced\/?$)|^\/(?:library\/assemblies(?:\/[0-9a-f-]{36})?\/?$)|^\/(overview|printers|orders|library|inventory|playcase|personal|queue|filament|supplies|settings)(\/[0-9a-f-]{36})?\/?$/;
   const safeNext = (value) => (typeof value === "string" && APP_PAGE.test(value) ? value : "");
   const loginPage = (error = false, next = "") =>
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#102d44"><title>Sign in · Spoolside</title><link rel="stylesheet" href="/auth.css"><link rel="icon" type="image/png" href="/icon-192.png"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"></head><body><main><img src="/auth-icon.png" alt="Spoolside artwork"><h1>Spoolside</h1>${error ? '<p role="alert" class="error">Incorrect PIN, or too many attempts.</p>' : ""}<form action="/login" method="post">${next ? `<input type="hidden" name="next" value="${next}">` : ""}<label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></main></body></html>`;
@@ -336,19 +337,38 @@ export function createApp({
       fail(res, e);
     }
   });
+  // A bought part linked to a supply; it has no STL until one is uploaded for previews.
+  const knownSupply=id=>{if(id!==undefined&&!(materials?.list().supplies||[]).some(m=>m.id===id&&m.kind!=='filament'))throw Error("Choose a part or packaging supply");};
+  app.post("/api/assets/purchased", (req, res) => {
+    try { if (!assets) throw Error("Asset library unavailable"); knownSupply(req.body?.supplyId ?? ""); res.json(assets.addPurchased(req.body || {})); } catch (e) { fail(res, e); }
+  });
   app.patch("/api/assets/:id", (req, res) => {
-    try { res.json(assets.update(req.params.id, req.body || {})); } catch (e) { fail(res, e); }
+    try { knownSupply(req.body?.supplyId); res.json(assets.update(req.params.id, req.body || {})); } catch (e) { fail(res, e); }
   });
   app.delete("/api/assets/:id", (req, res) => {
     try { assets.remove(req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
-  app.get("/api/materials", (_req,res)=>res.json(materials?.list() || {materials:[],settings:{zip:"30360",sort:"fastest"}}));
-  app.post("/api/materials/refresh", async (_req,res)=>{try{if(!materials)throw Error("Materials unavailable");res.json(await materials.refresh());}catch(e){fail(res,e);}});
-  app.patch("/api/materials/settings", (req,res)=>{try{res.json(materials.saveSettings(req.body));}catch(e){fail(res,e);}});
-  app.patch("/api/materials/:id", (req,res)=>{try{res.json(materials.saveUsage(req.params.id,req.body?.usage));}catch(e){fail(res,e);}});
-  app.post("/api/material-offers", (req,res)=>{try{res.json(materials.addOffer(req.body));}catch(e){fail(res,e);}});
-  app.patch("/api/material-offers", (req,res)=>{try{res.json(req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body));}catch(e){fail(res,e);}});
-  app.delete("/api/material-offers/:id", (req,res)=>{try{res.json(materials.removeOffer(req.params.id));}catch(e){fail(res,e);}});
+  // Supplies: filament, parts and packaging, with offers priced per gram or per piece.
+  const noSupplies=()=>{throw Error("Supplies unavailable");};
+  const usedBy=id=>(assets?.list()||[]).filter(a=>a.supplyId===id).map(a=>a.name);
+  app.get("/api/supplies", (_req,res)=>res.json(materials?.list() || {supplies:[],materials:[],settings:{zip:"30360",sort:"fastest"}}));
+  app.post("/api/supplies", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.addSupply(req.body||{}));}catch(e){fail(res,e);}});
+  app.post("/api/supplies/refresh", async (_req,res)=>{try{if(!materials)noSupplies();res.json(await materials.refresh());}catch(e){fail(res,e);}});
+  app.patch("/api/supplies/settings", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.saveSettings(req.body||{}));}catch(e){fail(res,e);}});
+  app.patch("/api/supplies/:id", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.updateSupply(req.params.id,req.body||{}));}catch(e){fail(res,e);}});
+  app.delete("/api/supplies/:id", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.removeSupply(req.params.id,usedBy(req.params.id)));}catch(e){fail(res,e);}});
+  app.post("/api/supply-offers", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.addOffer(req.body||{}));}catch(e){fail(res,e);}});
+  app.patch("/api/supply-offers", (req,res)=>{try{if(!materials)noSupplies();res.json(req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body||{}));}catch(e){fail(res,e);}});
+  app.delete("/api/supply-offers/:id", (req,res)=>{try{if(!materials)noSupplies();res.json(materials.removeOffer(req.params.id));}catch(e){fail(res,e);}});
+  // The original Filament endpoints, kept for older clients and the MCP server: filament only, original shape.
+  const filaments=()=>materials.filaments();
+  app.get("/api/materials", (_req,res)=>res.json(materials ? filaments() : {materials:[],settings:{zip:"30360",sort:"fastest"}}));
+  app.post("/api/materials/refresh", async (_req,res)=>{try{if(!materials)throw Error("Materials unavailable");await materials.refresh();res.json(filaments());}catch(e){fail(res,e);}});
+  app.patch("/api/materials/settings", (req,res)=>{try{const b=req.body||{};materials.saveSettings({...(b.zip!==undefined?{zip:b.zip}:{}),...(b.sort!==undefined?{sort:b.sort}:{})});res.json(filaments());}catch(e){fail(res,e);}});
+  app.patch("/api/materials/:id", (req,res)=>{try{materials.saveUsage(req.params.id,req.body?.usage);res.json(filaments());}catch(e){fail(res,e);}});
+  app.post("/api/material-offers", (req,res)=>{try{materials.addOffer(req.body||{});res.json(filaments());}catch(e){fail(res,e);}});
+  app.patch("/api/material-offers", (req,res)=>{try{req.body?.reconfirm===true?materials.confirmOffer(req.body.id):materials.quote(req.body?.id,req.body||{});res.json(filaments());}catch(e){fail(res,e);}});
+  app.delete("/api/material-offers/:id", (req,res)=>{try{materials.removeOffer(req.params.id);res.json(filaments());}catch(e){fail(res,e);}});
   const projects=library ? new Projects(library) : null;
   app.get("/api/projects", (_req,res)=>res.json(projects?.list()||[]));
   app.post("/api/projects", (req,res)=>{try{res.json(projects.save(null,req.body?.name,req.body?.note));}catch(e){fail(res,e);}});
@@ -434,6 +454,10 @@ export function createApp({
     } catch {
       res.sendStatus(404);
     }
+  });
+  // Override which supply a print's filament is (e.g. a TPU plate that's really Filaflex 70A).
+  app.put("/api/library/:id/filaments", (req, res) => {
+    try { res.json(library.setFilamentSupplies(req.params.id, req.body || {}, id => (materials?.list().supplies || []).some(m => m.id === id && m.kind === "filament"))); } catch (e) { fail(res, e); }
   });
   app.patch("/api/library/:id", (req, res) => {
     try { validatePrinter(req.body?.printer); res.json(req.body?.assetIds !== undefined ? library.setCoverage(req.params.id, req.body.plate, req.body.assetIds, assets) : req.body?.quantities !== undefined ? library.details(req.params.id, req.body.name, req.body.quantities, req.body.printer) : library.rename(req.params.id, req.body?.name)); } catch (e) { fail(res, e); }
@@ -700,6 +724,32 @@ export function createApp({
     }
   });
   // An order's Print button: sends the next plate still needed for one of its groups (a case or a faceplate).
+  // Costs: assemblies and orders, from sliced prints, filament and supply prices.
+  const volumes = new Map();
+  const volumeOf = (id) => {
+    const a = assets?.get(id);
+    if (!a?.hasStl) return null;
+    if (!volumes.has(a.hash)) { try { volumes.set(a.hash, stlVolume(fs.readFileSync(assets.file(id))) || null); } catch { volumes.set(a.hash, null); } }
+    return volumes.get(a.hash);
+  };
+  const costs = () => {
+    if (!assets || !materials) throw Object.assign(Error("Costs unavailable"), { status: 503 });
+    const list = materials.list();
+    return costing({ assets: assets.list(), assemblies: assets.assemblies(), files: library?.list() || [], volumeOf,
+      supplies: { settings: list.settings, best: (id) => materials.bestUnitPrice(id, list), name: (id) => list.supplies.find((m) => m.id === id)?.name } });
+  };
+  app.get("/api/assemblies/:id/cost", (req, res) => {
+    try { const a = assets?.assemblies().find((x) => x.id === req.params.id); if (!a) return res.status(404).json({ error: "Assembly not found" }); res.json(costs().assemblyCost(a)); } catch (e) { fail(res, e); }
+  });
+  app.get("/api/costs/assemblies", (_req, res) => {
+    try { const c = costs(); res.json(Object.fromEntries(assets.assemblies().map((a) => { const r = c.assemblyCost(a); return [a.id, { total: r.total, complete: r.complete, estimated: r.estimated }]; }))); } catch (e) { fail(res, e); }
+  });
+  app.get("/api/costs/orders", (_req, res) => {
+    try { const c = costs(); res.json(Object.fromEntries((workspace?.snapshot().orders || []).map((o) => { const r = c.orderCost(o); return [o.id, { total: r.total, complete: r.complete }]; }))); } catch (e) { fail(res, e); }
+  });
+  app.get("/api/orders/:id/cost", (req, res) => {
+    try { const order = workspace?.snapshot().orders.find((o) => String(o.id) === req.params.id); if (!order) return res.status(404).json({ error: "Order not found" }); res.json(costs().orderCost(order)); } catch (e) { fail(res, e); }
+  });
   const planFor = (orderId) => {
     const order = workspace?.snapshot().orders.find((o) => o.id === orderId);
     if (!order) throw Object.assign(Error("Unknown order"), { status: 404 });

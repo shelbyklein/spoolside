@@ -4,7 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { inspectSvg } from './svg.mjs';
 
-export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone", "Cut template"];
+export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Purchased", "Phone", "Cut template"];
 export const STATUSES = ["Up to date", "Stale"];
 // Two statuses only. Older names map in: Current is up to date, everything else is stale.
 export const normalizeStatus = (s) => (s === "Up to date" || s === "Current" ? "Up to date" : "Stale");
@@ -54,8 +54,13 @@ function clean(input, prior = {}) {
     source: text(input.source ?? prior.source, 300),
     category: text(input.category ?? prior.category, 40),
   };
+  // A bought part (magnet, rubber band): not printed, linked to the supply it's bought as.
+  if (out.type === "Purchased") {
+    out.supplyId = text(input.supplyId ?? prior.supplyId, 40);
+    if (!out.supplyId) throw Error("Choose the supply this part is bought as");
+  }
   if (!out.name) throw Error("Name is required");
-  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part or Phone");
+  if (!TYPES.includes(out.type)) throw Error("Choose Case, Faceplate, Sleeve, Part, Purchased or Phone");
   if (!STATUSES.includes(out.status)) throw Error("Unknown status");
   if (![3, 4].includes(out.generation)) throw Error("Generation must be 3 or 4");
   return out;
@@ -199,6 +204,15 @@ export class Assets {
     fs.writeFileSync(this.phoneFile(id), buf, { mode: 0o600 });
     this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body, hash=excluded.hash, bytes=excluded.bytes, updated=excluded.updated")
       .run(id, JSON.stringify(existing ? clean({ ...body, name: existing.name, status: existing.status, note: existing.note }, existing) : body), createHash("sha256").update(buf).digest("hex"), 0, "[]", buf.length, new Date().toISOString());
+    return this.get(id);
+  }
+
+  // A bought part without a model. It can be given an STL later (for assembly previews) with add().
+  addPurchased(meta) {
+    const body = clean({ ...meta, type: "Purchased", status: meta.status || "Up to date" });
+    if (this.list().some((a) => a.type === "Purchased" && a.name.toLowerCase() === body.name.toLowerCase())) throw Error("A bought part with that name already exists");
+    const id = randomUUID();
+    this.db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?)").run(id, JSON.stringify(body), "", 0, "[]", 0, new Date().toISOString());
     return this.get(id);
   }
 

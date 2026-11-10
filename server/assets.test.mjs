@@ -275,3 +275,17 @@ test('category printer defaults survive name and color edits', () => {
   assert.equal(assets.saveCategory({name:'Conductive',color:'#000000',printer:null},c.id).printer,null);
  } finally { assets.close();fs.rmSync(dir,{recursive:true,force:true}); }
 });
+test('bought parts: saved without an STL, linked to a supply, usable in assemblies',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'spoolside-purchased-'));
+ const assets=new Assets(':memory:',dir);
+ try{
+  assert.throws(()=>assets.addPurchased({name:'Magnet'}),/supply/);
+  const m=assets.addPurchased({name:'Magnet',supplyId:'supply-magnets',fit:{piece:'3 x 2 mm'}});
+  assert.equal(m.type,'Purchased');assert.equal(m.hasStl,false);assert.equal(m.supplyId,'supply-magnets');
+  assert.throws(()=>assets.addPurchased({name:'magnet',supplyId:'supply-magnets'}),/already exists/);
+  const a=assets.saveAssembly({name:'Handheld',type:'Faceplate',components:[{assetId:m.id,quantity:12}]});
+  assert.deepEqual(a.components,[{assetId:m.id,quantity:12}]);
+  assert.equal(assets.update(m.id,{supplyId:'supply-other'}).supplyId,'supply-other');
+  assert.equal(assets.update(m.id,{name:'Magnet 3x2'}).supplyId,'supply-other');
+ }finally{assets.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

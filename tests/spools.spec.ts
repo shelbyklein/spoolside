@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('loaded spools show on printer cards, in details, and on the Filament page', async ({ browser }) => {
+test('loaded spools show on printer cards, in details, and on the Supplies page', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
   const page = await context.newPage();
   const now = new Date().toISOString();
@@ -30,7 +30,7 @@ test('loaded spools show on printer cards, in details, and on the Filament page'
   await expect(details.locator('.spool-list li').first()).toContainText('Slot 1');
   await expect(details.locator('.spool-list li')).toHaveCount(4);
   await page.keyboard.press('Escape');
-  await page.getByRole('navigation').getByRole('button', { name: 'Filament', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Supplies', exact: true }).click();
   const loaded = page.getByRole('region', { name: 'Spools in your printers' });
   await expect(loaded).toContainText('≈ 1,000 g');
   await expect(loaded.locator('li.low')).toContainText('running low');

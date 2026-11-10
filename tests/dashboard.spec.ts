@@ -43,13 +43,13 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
   await expect(page.getByText("Test bracket", { exact: true })).toHaveCount(0);
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Filament", exact: true })
+    .getByRole("button", { name: "Supplies", exact: true })
     .click();
   await page.getByLabel("Tangerine remaining grams").fill("500");
   await page.reload();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Filament", exact: true })
+    .getByRole("button", { name: "Supplies", exact: true })
     .click();
   await expect(page.getByLabel("Tangerine remaining grams")).toHaveValue("500");
   await page.evaluate(async () => {
@@ -59,7 +59,7 @@ test("demo fleet, queue, inventory persistence and offline shell", async ({
   await context.setOffline(true);
   await page.reload();
   // The page address survives an offline reload.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Supplies");
   await expect(
     page.getByText(
       "You’re offline. Your saved demo workspace is still available.",
@@ -105,8 +105,10 @@ test("each page has its own URL and back navigation works", async ({ page }) => 
   await expect(page).toHaveURL(/\/orders$/);
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Printers");
+  // Filament became Supplies; old links still land there.
   await page.goto("/filament");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Filament");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Supplies");
+  await expect(page).toHaveURL(/\/supplies$/);
 });
 
 test('phones open on the water home; it shows the farm and links into it', async ({ browser }) => {

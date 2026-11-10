@@ -63,3 +63,9 @@ test('the print plan groups an order into its case and each faceplate, and moves
  assert.equal(plan[1].done,true);
  assert.equal(orderPrintPlan(order,all,[two],[])[0].next,null,'no linked plate, nothing to print');
 });
+test('bought parts (magnets) in an assembly are never order pieces to print',()=>{
+ const magnet={...asset('magnet','Purchased'),hasStl:false,supplyId:'supply-magnets'};
+ const withMagnets={...assembly,components:[...assembly.components,{assetId:'magnet',quantity:12}]};
+ const before=orderReadiness(order,assets,[assembly],files),after=orderReadiness(order,[...assets,magnet],[withMagnets],files);
+ assert.deepEqual(after,before);assert.equal(after.required,2);
+});
