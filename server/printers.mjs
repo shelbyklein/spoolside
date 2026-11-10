@@ -59,6 +59,19 @@ export function printerView(config, record, now = Date.now()) {
     error: record?.error || null,
   };
 }
+// Why a printer's status connection failed, in words that say what to do about it.
+export function connectionError(e, name = "The printer") {
+  const code = String(e?.code ?? ""), msg = String(e?.message || "");
+  // A1 minis take only a few app connections at once; when they're all taken, new ones are reset mid-handshake.
+  if (["ECONNRESET", "EPIPE"].includes(code) || /ECONNRESET|socket hang up/i.test(msg))
+    return `${name} is refusing connections: too many apps connected. Close OrcaSlicer's Device tab or Bambu Handy, or restart the printer.`;
+  if (code === "4" || code === "5" || code === "134" || code === "135" || /not authori[sz]ed|bad user name or password/i.test(msg))
+    return `${name} rejected the access code. Check it on the printer's screen (Settings → LAN only).`;
+  if (/certificate changed/i.test(msg)) return `${name}'s security certificate changed. Re-pair it in Spoolside's printer settings.`;
+  if (["EHOSTUNREACH", "ENETUNREACH", "ETIMEDOUT", "ECONNREFUSED", "ENOTFOUND"].includes(code) || /timeout/i.test(msg))
+    return `Can't reach ${name} on the network. It may be off, or its IP address changed.`;
+  return `${name} connection failed; check the network or access code.`;
+}
 // Finds the file a printer's last job came from: Bambu Studio keeps the file name; Spoolside uploads as spoolside_<name>.3mf.
 export function findLastFile(subtask, entries) {
   const base = String(subtask).replace(/(\.gcode)?\.3mf$/i, "");
@@ -138,9 +151,8 @@ export class Printers {
           record.error = "Invalid printer telemetry";
         }
       });
-      client.on("error", () => {
-        record.error =
-          "Printer connection failed; check network or access code";
+      client.on("error", (e) => {
+        record.error = connectionError(e, config.name);
         record.connected = false;
       });
       client.on("close", () => (record.connected = false));

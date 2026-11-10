@@ -76,6 +76,7 @@ const describe = (m, repeat, held) => ({
   temps: m.nozzle != null ? `${Math.round(m.nozzle)}° nozzle · ${Math.round(m.bed ?? 0)}° bed` : undefined,
   filament: [...(m.trays || []).filter((t) => t.type).map((t) => `AMS slot ${t.slot + 1}: ${t.type} ${t.color}`), ...(m.external?.type ? [`External: ${m.external.type} ${m.external.color || ""}`.trim()] : [])],
   connected: m.connected && !m.stale,
+  problem: !m.connected || m.stale ? m.error || undefined : undefined,
   repeating: repeat ? `${repeat.name} · ${repeat.done}${repeat.times ? ` of ${repeat.times}` : " so far"} · ${repeat.status}` : undefined,
   waiting: held?.reason,
 });
