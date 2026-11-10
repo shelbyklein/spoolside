@@ -20,6 +20,15 @@ test('pill opens part options; copies add and move',async({page})=>{
  await page.getByRole('button',{name:'Move X up 0.5 mm'}).click();
  await page.waitForTimeout(900);
  await expect.poll(()=>puts.at(-1)?.components[0].positions[2]).toEqual([10.5,0,0]);
+ // Tilt is kept when the copy is then moved or turned.
+ await page.getByRole('button',{name:'Tilt X +5°'}).click();
+ await page.waitForTimeout(900);
+ await expect.poll(()=>puts.at(-1)?.components[0].positions[2]).toEqual([10.5,0,0,0,5]);
+ await page.getByRole('button',{name:'Rotate 5° counterclockwise'}).click();
+ await page.getByRole('button',{name:'Move Y up 0.5 mm'}).click();
+ await page.waitForTimeout(900);
+ await expect.poll(()=>puts.at(-1)?.components[0].positions[2]).toEqual([10.5,0.5,0,5,5]);
+ await expect(page.getByRole('option',{name:/Copy 3/})).toContainText('tilt 5.0°/0.0°');
  await page.getByRole('button',{name:'← Parts'}).click();
  await expect(page.locator('.part-name',{hasText:'d-pad'})).toBeVisible();
 });

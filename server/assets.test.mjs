@@ -136,6 +136,9 @@ test("assembly parts keep display color and positions, and reject bad positions"
     assert.deepEqual(a.components[0], { assetId: abxy.id, quantity: 4, color: "#1a1a1a", positions: [[0.02, -8.46, 0], [7.85, -0.6, 0]] });
     assert.throws(() => assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2]] }] }, a.id), /Positions/);
     assert.deepEqual(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[6.806, 26.752, 0, 24.87]] }] }, a.id).components[0].positions, [[6.81, 26.75, 0, 24.87]]);
+    // Tilted parts: turn, then tilt around X and Y.
+    assert.deepEqual(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2, 3, 0, 21.04, -3.333]] }] }, a.id).components[0].positions, [[1, 2, 3, 0, 21.04, -3.33]]);
+    assert.throws(() => assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2, 3, 0, 0, 0, 0]] }] }, a.id), /Positions/);
     assert.equal(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, color: "red" }] }, a.id).components[0].color, undefined);
   } finally {
     assets.close();
