@@ -13,8 +13,8 @@ const fixture = fs.readFileSync(new URL("./fixtures/plate.gcode.3mf", import.met
 test("sliced 3mf plates, time, weight and filaments are read", () => {
   assert.deepEqual(inspect3mf(fixture).plates, [
     { index: 1, minutes: 64, grams: 22.24, filaments: [
-      { id: 1, type: "TPU-AMS", color: "#ED0000" },
-      { id: 3, type: "PLA", color: "#000000" },
+      { id: 1, type: "TPU-AMS", color: "#ED0000", grams: 20 },
+      { id: 3, type: "PLA", color: "#000000", grams: 2.24 },
     ] },
   ]);
   assert.throws(() => inspect3mf(Buffer.from("not a zip")), /valid/);
@@ -292,4 +292,25 @@ test('a plate toolpath keeps extrusion runs and drops travel moves', async () =>
   assert.deepEqual(p, [1000,1000,20, 2000,1000,20, 2000,2000,20, -32768,-32768,-32768, 5000,5000,20, 6000,5000,20, -32768,-32768,-32768]);
   const abs = Array.from(new Int16Array(new Uint8Array(gcodeToolpath(['M82','G92 E0','G1 X0 Y0 Z1','G1 X1 Y0 E1','G1 X2 Y0 E1','G1 X3 Y0 E2'].join('\n'))).buffer));
   assert.deepEqual(abs, [0,0,100, 100,0,100, -32768,-32768,-32768, 200,0,100, 300,0,100], 'absolute E: no extrusion when E does not grow');
+});
+test("per-filament grams are backfilled once for older prints, and a print's filament supply can be overridden", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-filaments-"));
+  const db = path.join(dir, "lib.sqlite");
+  let lib = new Library(db, dir);
+  try {
+    const [f] = lib.add("Two filaments", fixture);
+    // Simulate a print saved before grams per filament were read.
+    lib.db.prepare("UPDATE library SET plates=? WHERE id=?").run(JSON.stringify(f.plates.map(p => ({ ...p, filaments: p.filaments.map(({ grams, ...x }) => x) }))), f.id);
+    lib.close();
+    lib = new Library(db, dir);
+    assert.deepEqual(lib.get(f.id).plates[0].filaments.map(x => x.grams), [20, 2.24]);
+    assert.deepEqual(lib.get(f.id).filamentSupplies, {});
+    const isSupply = id => ["recreus-filaflex-70a", "proto-conductive"].includes(id);
+    assert.throws(() => lib.setFilamentSupplies(f.id, { 9: "proto-conductive" }, isSupply), /filament supply/);
+    assert.throws(() => lib.setFilamentSupplies(f.id, { 1: "nope" }, isSupply), /filament supply/);
+    lib.setFilamentSupplies(f.id, { 1: "recreus-filaflex-70a" }, isSupply);
+    assert.deepEqual(lib.get(f.id).filamentSupplies, { 1: "recreus-filaflex-70a" });
+    lib.setFilamentSupplies(f.id, { 1: null }, isSupply);
+    assert.deepEqual(lib.get(f.id).filamentSupplies, {});
+  } finally { lib.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

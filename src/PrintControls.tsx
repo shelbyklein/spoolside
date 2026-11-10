@@ -4,8 +4,8 @@ import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 import { useSort, byName } from "./sort";
 
-export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string }[] };
-export type LibraryFile = { scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
+export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string; grams?: number | null }[] };
+export type LibraryFile = { filamentSupplies?: Record<string, string>; scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
@@ -425,10 +425,18 @@ function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify:
 function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
   const [editing, setEditing] = useState(false), [name, setName] = useState(file.name), [counts, setCounts] = useState<Record<number,string>>({}), [busy, setBusy] = useState(false);
   const [printers, setPrinters] = useState<Machine[]>([]), [printer, setPrinter] = useState(file.printer || "");
-  const open = () => { api<{machines:Machine[]}>("/api/workspace").then(d=>setPrinters(d.machines || [])).catch(()=>{}); setPrinter(file.printer || ""); setName(file.name); setCounts(Object.fromEntries(file.plates.map(p => [p.index, p.quantity == null ? "" : String(p.quantity)]))); setEditing(true); };
+  // Which filament supply each of this print's filaments is costed as (blank: the filament-type default).
+  const filaments = [...new Map(file.plates.flatMap(p => p.filaments).map(f => [f.id, f])).values()];
+  const [supplies, setSupplies] = useState<{ id: string; name: string; kind: string }[]>([]), [fmap, setFmap] = useState<Record<string, string>>({}), [defaults, setDefaults] = useState<Record<string, string>>({});
+  const open = () => { api<{machines:Machine[]}>("/api/workspace").then(d=>setPrinters(d.machines || [])).catch(()=>{});
+    api<{ supplies?: { id: string; name: string; kind: string }[]; settings?: { filamentMap?: Record<string, string> } }>("/api/supplies").then(d => { setSupplies((d.supplies || []).filter(x => x.kind === "filament")); setDefaults(d.settings?.filamentMap || {}); }).catch(() => {});
+    setFmap(Object.fromEntries(filaments.map(f => [String(f.id), file.filamentSupplies?.[f.id] || ""]))); setPrinter(file.printer || ""); setName(file.name); setCounts(Object.fromEntries(file.plates.map(p => [p.index, p.quantity == null ? "" : String(p.quantity)]))); setEditing(true); };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
-    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, printer: printer || null, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
+    try {
+      const changed = Object.fromEntries(Object.entries(fmap).filter(([k, v]) => (file.filamentSupplies?.[k] || "") !== v).map(([k, v]) => [k, v || null]));
+      if (Object.keys(changed).length) await api(`/api/library/${file.id}/filaments`, {method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(changed)});
+      await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, printer: printer || null, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
     catch(e) { notify((e as Error).message); } finally { setBusy(false); }
   };
   return <><button className="icon-button sliced-edit" title="Edit details" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={15} /></button>
@@ -438,6 +446,7 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
       {file.plates.map(p=><label key={p.index}>{file.plates.length>1 ? `Plate ${p.index} · ` : ""}Pieces per print<input type="number" min={1} max={10000} step={1} placeholder="e.g. 144" value={counts[p.index] || ""} onChange={e=>setCounts({...counts,[p.index]:e.target.value})} /></label>)}
       <label>Default printer<select aria-label="Default printer" value={printer} onChange={e=>setPrinter(e.target.value)}><option value="">Use category default</option>{printers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <p className="plate-meta">Total pieces made by this plate. Leave blank if unknown.</p>
+      {supplies.length > 0 && filaments.map(f => <label key={f.id}>Filament {f.id} ({f.type}) is costed as<select aria-label={`Costed filament for filament ${f.id}`} value={fmap[String(f.id)] || ""} onChange={e=>setFmap({...fmap,[String(f.id)]:e.target.value})}><option value="">Default for {f.type}{defaults[f.type] ? ` (${supplies.find(x=>x.id===defaults[f.type])?.name || "set"})` : " (not set)"}</option>{supplies.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>)}
       <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button>
     </form></div>}
   </>;

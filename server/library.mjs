@@ -133,6 +133,8 @@ export function inspect3mf(buf) {
         id: Number(attr(m[0], "id")),
         type: attr(m[0], "type"),
         color: attr(m[0], "color"),
+        // Grams of this filament on the plate, when the slicer recorded it (Orca's used_g).
+        grams: Number(attr(m[0], "used_g")) || null,
       })),
     };
   });
@@ -183,6 +185,30 @@ export class Library {
       this.db.exec("ALTER TABLE library ADD COLUMN source_name TEXT");
       this.db.exec("UPDATE library SET source_name=name");
     }
+    // Which supply each of a print's filaments is, where it differs from the filament-type default.
+    if (!this.db.prepare("PRAGMA table_info(library)").all().some(c => c.name === "filament_supplies")) this.db.exec("ALTER TABLE library ADD COLUMN filament_supplies TEXT");
+    this.backfillFilamentGrams();
+  }
+  // Prints added before per-filament grams were read get them from their saved file, once.
+  backfillFilamentGrams() {
+    for (const f of this.list()) {
+      if (!f.plates.some(p => p.filaments?.some(x => !("grams" in x)))) continue;
+      try {
+        const { plates } = inspect3mf(fs.readFileSync(this.file(f.id)));
+        const next = f.plates.map(p => ({ ...p, filaments: (p.filaments || []).map(x => ({ ...x, grams: plates.find(q => q.index === p.index)?.filaments.find(y => y.id === x.id)?.grams ?? null })) }));
+        this.db.prepare("UPDATE library SET plates=? WHERE id=?").run(JSON.stringify(next), f.id);
+      } catch {}
+    }
+  }
+  // Set which supply a print's filament (by slicer filament id) is; null goes back to the type default.
+  setFilamentSupplies(id, map, isSupply) {
+    const file = this.get(id);
+    if (!file) throw Object.assign(Error("Unknown file"), { status: 404 });
+    const ids = new Set(file.plates.flatMap(p => (p.filaments || []).map(f => String(f.id))));
+    if (!map || typeof map !== "object" || Object.entries(map).some(([k, v]) => !ids.has(String(k)) || (v !== null && !isSupply(v)))) throw Error("Choose a filament supply for this print's filaments");
+    const next = Object.fromEntries(Object.entries({ ...file.filamentSupplies, ...map }).filter(([, v]) => v));
+    this.db.prepare("UPDATE library SET filament_supplies=? WHERE id=?").run(JSON.stringify(next), id);
+    return this.get(id);
   }
   // Retain the source-job identity even after the saved print is renamed.
   forJob(printer, job, plate) {
@@ -223,9 +249,9 @@ export class Library {
   }
   list() {
     return this.db
-      .prepare("SELECT id, name, size, plates, created, updated, source_name, printer, scope FROM library ORDER BY name COLLATE NOCASE")
+      .prepare("SELECT id, name, size, plates, created, updated, source_name, printer, scope, filament_supplies FROM library ORDER BY name COLLATE NOCASE")
       .all()
-      .map((r) => ({ ...r, plates: JSON.parse(r.plates) }));
+      .map(({ filament_supplies, ...r }) => ({ ...r, plates: JSON.parse(r.plates), filamentSupplies: filament_supplies ? JSON.parse(filament_supplies) : {} }));
   }
   get(id) {
     return this.list().find((f) => f.id === id) || null;

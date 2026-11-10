@@ -100,6 +100,31 @@ Library → Sliced prints stores printer-ready sliced `.3mf` files (unsliced pro
 
 Order badges check exact phone case metadata and Standard/Plus faceplate assemblies, all active parts, Current v3 STL status and matching sliced-file coverage. Confirm each assembly's complete v3 parts list in Edit assembly after reviewing it. Changing components or quantities resets this confirmation. Missing designs do not block printing. Unknown requirements and stale slices need review. This checks file availability, not stock, print quantities, material, color or printer compatibility; the print-start flow still checks plate clearance and AMS settings.
 
+### Supplies and costs
+
+The Supplies page (formerly Filament; `/filament` still opens it) has three groups.
+- **Filament** keeps the restock view below. Recreus Filaflex 70A (membranes) is a fourth built-in, live-checked filament.
+- **Parts** are bought parts such as magnets and rubber bands.
+- **Packaging** covers boxes and bubble pouches.
+
+Parts and packaging are added by hand. Each is priced from manual offers ("price for N pieces"; confirm price after 7 days), because their sellers, such as Amazon, can't be price-checked automatically.
+
+A **bought part** is an asset of type Purchased, linked to a part supply and with no STL. It can sit in an assembly with a quantity (for example 12 magnets per faceplate top). Order readiness and print plans never treat it as a piece to print.
+
+Each assembly page shows a **cost per unit**:
+- **Printed parts:** their share of the linked sliced plate's grams (split by STL volume × pieces), × the best price per gram of the filament that plate uses. Orca's per-filament grams are used when present.
+- **Filament types** map to supplies under Supplies → Filament ("Filament for costing"). Each print can override this in its print details, for example a TPU plate that's really Filaflex 70A.
+- **Bought parts:** quantity × the best price per piece.
+- **Missing data:** a part with no sliced print, filament match or price is listed, not counted, and the total reads "at least".
+
+Order rows show an **estimated cost**: each line's case (its Case assembly when one exists) and faceplate assemblies, plus packaging. A single case on its own uses the small box; anything else uses the large box; plus the set number of bubble pouches (Supplies → Packaging). There is no supply stock counting.
+
+APIs:
+- `/api/supplies` and `/api/supply-offers`.
+- `POST /api/assets/purchased` and `PUT /api/library/:id/filaments`.
+- `GET /api/assemblies/:id/cost`, `/api/costs/assemblies`, `/api/orders/:id/cost` and `/api/costs/orders`.
+- `/api/materials` keeps its original filament-only shape for older clients. Plan: `instructions/supplies-and-costs.md`.
+
 ### Filament and restock
 
 The hosted Filament page focuses on supplier and restock comparison, with stacked material sections and the top three ranked offers per material. Offers include supplier spool thumbnails, with a placeholder if unavailable. Inventory amounts and controls are hidden; existing records remain stored. Initial materials are Bambu TPU for AMS, Recreus Conductive Filaflex (touch pins) and Proto-pasta Conductive PLA (other parts). No stock amounts are required.

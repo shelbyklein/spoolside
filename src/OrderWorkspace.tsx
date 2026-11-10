@@ -1,3 +1,4 @@
+import { OrderCostButton, OrderCostBreakdown, useOrderCosts } from "./Costs";
 import { useState } from "react";
 import { Search, ShoppingBag, ArrowUpRight, Truck, Check, CircleAlert, Printer } from "lucide-react";
 import { OrderContents } from "./OrderContents";
@@ -31,16 +32,19 @@ export function StatusTag({ order }: { order: Order }) {
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
 }
 
-export function OrderRow({ order, onPrint, onTick, printerAvailable = false }: { order: Order; printerAvailable?: boolean; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
+export function OrderRow({ order, onPrint, onTick, printerAvailable = false, cost }: { order: Order; printerAvailable?: boolean; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void; cost?: { total: number; complete: boolean } }) {
+  const [costOpen, setCostOpen] = useState(false);
   return (
     <article className="overview-order-row" aria-label={`Order ${order.number}`}>
       <span className="order-id">
         <strong>{order.number}</strong>
         <small>{order.placed}</small>
+        {cost && <OrderCostButton total={cost.total} complete={cost.complete} open={costOpen} onToggle={() => setCostOpen(!costOpen)} />}
       </span>
       <div className="order-content-readiness"><div className="order-product-summary"><OrderContents order={order} /><div className="order-status-pills">{order.printReadiness && <details className={`print-readiness ${order.printReadiness.status}`}><summary aria-label={order.printReadiness.status === "ready" ? "Files ready" : order.printReadiness.status === "missing" ? "Files missing" : "Files need review"} title={order.printReadiness.status === "ready" ? "Files ready" : "Check sliced files"}>Files {order.printReadiness.status === "ready" ? <Check size={13} aria-hidden="true" /> : <CircleAlert size={13} aria-hidden="true" />}</summary><div>{order.printReadiness.status === "ready" ? <p>Sliced files cover all {order.printReadiness.required} required parts. Check material and printer settings before printing.</p> : <ul>{order.printReadiness.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}<a href="/library/sliced">Sliced prints</a></div></details>}{printerAvailable && <span className="printer-available"><Printer size={13} aria-hidden="true" /> Printer available</span>}</div></div>
       <div className="order-fulfillment">{onPrint && onTick && <OrderPrintButtons order={order} onPrint={(g) => onPrint(order, g)} onTick={(a, d) => onTick(order, a, d)} />}<div className="order-ship-footer"><span className="ship-slot"><ShipButton order={order} /></span></div><StatusTag order={order} />
       </div></div>
+      {cost && costOpen && <OrderCostBreakdown orderId={order.id} />}
     </article>
   );
 }
@@ -50,6 +54,7 @@ const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"
 
 export function Orders({ live = false, openOrderId, orders, availableOrders = [], onOrderChange, onPrint, onTick }: { live?: boolean; availableOrders?: string[]; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   const focus = orders.find((o) => o.id === openOrderId);
+  const costs = useOrderCosts(live, orders.map((o) => o.id).join());
   const [search, setSearch] = useState(focus ? focus.number : ""),
     [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
   // Oldest first by default: the next to fulfill on top.
@@ -102,7 +107,7 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
             <button className="text-button" onClick={() => { setSearch(""); setFilter("All orders"); }}>Clear filters</button>
           </div>
         )}
-        {visible.map((order) => <OrderRow key={order.id} order={order} printerAvailable={availableOrders.includes(order.id)} onChange={onOrderChange} onPrint={onPrint} onTick={onTick} />)}
+        {visible.map((order) => <OrderRow key={order.id} order={order} cost={costs[order.id]} printerAvailable={availableOrders.includes(order.id)} onChange={onOrderChange} onPrint={onPrint} onTick={onTick} />)}
       </div>
     </section>
   );
