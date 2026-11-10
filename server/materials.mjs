@@ -37,6 +37,8 @@ export function productOffers(html,material,checked=new Date().toISOString()) {
    if(!grams || grams<100 || grams>10000)continue;
    let url;try{url=new URL(offer.url||node.url,material.url);if(url.protocol!=='https:' || url.hostname!==new URL(material.url).hostname)continue;}catch{continue;}
    if(material.id==='recreus-conductive' && url.hostname==='recreus.com' && url.searchParams.get('variant')!=='45921625833731')continue;
+   // Filaflex 70A is bought as 500 g spools only; the 3 kg spool would understate membrane costs.
+   if(material.id==='recreus-filaflex-70a' && grams!==500)continue;
    const price=money(offer.price);if(price===null||!Number.isFinite(price)||price<=0||offer.priceCurrency!=='USD')continue;
    const available=/\/InStock$/.test(offer.availability||'')?true:/\/(OutOfStock|SoldOut|Discontinued|PreOrder|BackOrder)$/.test(offer.availability||'')?false:null;
    const delivery=offer.shippingDetails;

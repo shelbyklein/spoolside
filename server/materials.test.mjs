@@ -48,13 +48,14 @@ test('settings, usage, offers and quotes persist; failed supplier refresh retain
  assert.throws(()=>m.saveSettings({zip:'abc'}),/ZIP/);assert.throws(()=>m.quote(manual.id,{shipping:-1}),/shipping/);
  }finally{db.close();}
 });
-test('Filaflex 70A offers keep each colour and size',()=>{
+test('Filaflex 70A offers keep each colour, 500 g spools only',()=>{
  const ff=MATERIALS.find(m=>m.id==='recreus-filaflex-70a');assert.equal(ff.usage,'Membranes');
  const nodes={'@type':'ProductGroup',name:'Filaflex 70A',hasVariant:[
   product('Filaflex 70A - Transparent / 1.75 MM / 500 GR','https://recreus.com/en-en/products/filaflex-70a?variant=45921629241603',54.9),
   product('Filaflex 70A - Black / 1.75 MM / 3 KG','https://recreus.com/en-en/products/filaflex-70a?variant=45921629044995',209.9)]};
  const offers=productOffers(html(nodes),ff);
- assert.deepEqual(offers.map(o=>[o.color,o.grams,o.price]),[['Transparent',500,54.9],['Black',3000,209.9]]);
+ // Only the 500 g spools Shelby buys; the 3 kg spool is left out.
+ assert.deepEqual(offers.map(o=>[o.color,o.grams,o.price]),[['Transparent',500,54.9]]);
 });
 test('supplies: parts and packaging priced per piece; filament keeps $/kg; settings carry the filament map and packaging',()=>{
  const db=new DatabaseSync(':memory:');
