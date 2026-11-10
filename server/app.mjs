@@ -652,7 +652,7 @@ export function createApp({
     if (!status) return res.status(404).json({ error: "Unknown printer" });
     res.json({ id: status.serial, name: status.view.name, connected: status.view.connected, print: status.data, info: status.info });
   });
-  // A one-off print of a sliced .3mf that isn't kept in the library (test prints from DiscusSlicer). Same checks and
+  // A one-off print of a sliced .3mf that isn't kept in the library (OrcaSlicer's Spoolside printer agent prints this way). Same checks and
   // camera bed check as a library print; the file only exists in a temp file while it is sent, then is deleted.
   // Options come in the x-print header (URI-encoded JSON): {plate, amsMapping, useAms, bedLevelling, bedClear};
   // plate may be left out for a single-plate file.
@@ -663,7 +663,7 @@ export function createApp({
       const opts = JSON.parse(decodeURIComponent(String(req.get("x-print") || "{}")));
       const name = decodeURIComponent(String(req.get("x-file-name") || "")).replace(/\.gcode\.3mf$|\.3mf$/i, "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80) || "Test print";
       const { plates } = inspect3mf(req.body);
-      // A single-plate file (DiscusSlicer sends one plate) prints its only plate unless told otherwise.
+      // A single-plate file prints its only plate unless told otherwise.
       const plate = opts.plate ?? (plates.length === 1 ? plates[0].index : undefined);
       checkStart(plates, { ...opts, plate });
       await ensureBedClear(req.params.id, opts.bedClear);
