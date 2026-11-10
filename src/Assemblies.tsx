@@ -1,6 +1,7 @@
 import { FileCheck2, FileX2 } from 'lucide-react';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
+import {mergePlacement} from './placement';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
@@ -117,7 +118,7 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
   <h4>Copies</h4>
   <div className="copy-list" role="listbox" aria-label={`Copies of ${name}`}>
    {copies.map((p,i)=><div key={i} className={`copy-row${i===index?' selected':''}`}>
-    <button className="text-button" role="option" aria-selected={i===index} onClick={()=>onPick({assetId:part.assetId,instance:i})}>Copy {i+1}<small>{p.slice(0,3).map(n=>n.toFixed(1)).join(', ')} mm{p[3]?` · ${p[3].toFixed(1)}°`:''}</small></button>
+    <button className="text-button" role="option" aria-selected={i===index} onClick={()=>onPick({assetId:part.assetId,instance:i})}>Copy {i+1}<small>{p.slice(0,3).map(n=>n.toFixed(1)).join(', ')} mm{p[3]?` · ${p[3].toFixed(1)}°`:''}{p[4]||p[5]?` · tilt ${(p[4]||0).toFixed(1)}°/${(p[5]||0).toFixed(1)}°`:''}</small></button>
     {copies.length>1&&<button className="icon-button" aria-label={`Remove copy ${i+1}`} disabled={busy} onClick={()=>removeCopy(i)}>×</button>}
    </div>)}
    <button className="text-button" disabled={busy||copies.length>=20} onClick={addCopy}>+ Add copy</button>
@@ -136,6 +137,12 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
    <output>{(current[3]||0).toFixed(1)}°</output>
    <button className="secondary" aria-label={`Rotate ${step*10}° counterclockwise`} onClick={()=>move({assetId:part.assetId,instance:index},[current[0],current[1],current[2],(current[3]||0)+step*10])}>+</button>
   </div>
+  {[['Tilt X','Tilt around the X axis',4],['Tilt Y','Tilt around the Y axis',5]].map(([label,title,k])=><div className="nudge-row" key={label as string}>
+   <span title={title as string}>{label}</span>
+   <button className="secondary" aria-label={`${label} −${step*10}°`} onClick={()=>move({assetId:part.assetId,instance:index},[0,1,2,3,4,5].map(i=>i===k?(current[i]||0)-step*10:(current[i]||0)))}>−</button>
+   <output>{(current[k as number]||0).toFixed(1)}°</output>
+   <button className="secondary" aria-label={`${label} +${step*10}°`} onClick={()=>move({assetId:part.assetId,instance:index},[0,1,2,3,4,5].map(i=>i===k?(current[i]||0)+step*10:(current[i]||0)))}>+</button>
+  </div>)}
   <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm · {n*10}°</option>)}</select></label>
   <label className="part-pieces">Pieces<input aria-label={`Quantity of ${name}`} type="number" min={1} max={100} value={part.quantity} disabled={busy} onChange={e=>onQty(Number(e.target.value))}/></label>
   <div className="part-options-foot">
@@ -150,7 +157,7 @@ function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:As
  let timer:ReturnType<typeof setTimeout>|undefined;
  let latest=assembly;
  return (p:PartPick,position:number[])=>{
-  latest={...latest,components:latest.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);const prev=list[p.instance]||[];list[p.instance]=[...position.slice(0,3).map(n=>Math.round(n*100)/100),...(position.length>3?(position[3]?[Math.round(position[3]*100)/100]:[]):prev.slice(3))];return {...c,positions:list};})};
+  latest={...latest,components:latest.components.map(c=>{if(c.assetId!==p.assetId)return c;const list=(c.positions?.length?c.positions:[[0,0,0]]).map(x=>[...x]);list[p.instance]=mergePlacement(list[p.instance]||[],position);return {...c,positions:list};})};
   const next=latest;onPreview(next);clearTimeout(timer);
   timer=setTimeout(async()=>{
    const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PART_COLOR } from "./colors";
+import { applyPlacement } from "./placement";
 
 export type PartRef = { part: number; instance: number };
 type Props = {
@@ -132,8 +133,12 @@ export default function StlViewer({ url, urls, colors, positions, editable, sele
         // Center the assembly once, from where parts start, so moving a part doesn't shift the view.
         const bounds = new THREE.Box3();
         geometries.forEach((g, i) => {
-          for (const [x, y, z, turn = 0] of placements(latest.current.positions?.[i]))
-            bounds.union(g.boundingBox!.clone().applyMatrix4(new THREE.Matrix4().makeRotationZ((turn * Math.PI) / 180).setPosition(x, y, z)));
+          for (const p of placements(latest.current.positions?.[i])) {
+            const o = new THREE.Object3D();
+            applyPlacement(o, p);
+            o.updateMatrix();
+            bounds.union(g.boundingBox!.clone().applyMatrix4(o.matrix));
+          }
         });
         const center = bounds.getCenter(new THREE.Vector3());
         const r = bounds.getBoundingSphere(new THREE.Sphere()).radius || 50;
@@ -161,10 +166,10 @@ export default function StlViewer({ url, urls, colors, positions, editable, sele
     s.meshes.forEach((m) => s.group.remove(m));
     s.meshes = [];
     s.geometries.forEach((g, part) => {
-      placements(positions?.[part]).forEach(([x, y, z, turn = 0], instance) => {
+      placements(positions?.[part]).forEach((p, instance) => {
         const mesh = new s.THREE.Mesh(g, s.materials[part]);
-        mesh.position.set(x - s.center.x, y - s.center.y, z - s.center.z);
-        mesh.rotation.z = (turn * Math.PI) / 180;
+        applyPlacement(mesh, p);
+        mesh.position.sub(s.center);
         mesh.userData.ref = { part, instance };
         s.group.add(mesh);
         s.meshes.push(mesh);

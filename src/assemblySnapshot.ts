@@ -1,5 +1,6 @@
 import { DEFAULT_PART_COLOR } from "./colors";
 import type { Asset } from "./AssetLibrary";
+import { applyPlacement } from "./placement";
 
 // Static snapshots of assembled previews for list cards. One shared WebGL context renders
 // them one at a time; STLs are fetched once and reused across assemblies.
@@ -41,10 +42,9 @@ async function render(upload: (png: Blob) => Promise<Response>, parts: SnapshotP
     geometry.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({ color: p.color || p.asset.categoryColor || DEFAULT_PART_COLOR, roughness: 0.55, metalness: 0.05 });
     disposable.push(geometry, material);
-    for (const [x, y, z, turn = 0] of p.positions?.length ? p.positions : [[0, 0, 0]]) {
+    for (const placement of p.positions?.length ? p.positions : [[0, 0, 0]]) {
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(x, y, z);
-      mesh.rotation.z = (turn * Math.PI) / 180;
+      applyPlacement(mesh, placement);
       group.add(mesh);
     }
   }
