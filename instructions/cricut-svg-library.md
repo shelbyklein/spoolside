@@ -37,7 +37,7 @@ Checklist:
 - [x] V1 Native SVG assets and server tests.
 - [x] V2 Library vector upload, preview, download and rendered checks.
 - [x] V3 Validation, focused PR/commit and documentation.
-- [ ] V4 Approved deployment, exact template import and live readback.
+- [x] V4 Approved deployment, exact template import and live readback.
 
 ## Deliverables and end states
 
@@ -71,3 +71,12 @@ Before deployment, save the running image/revision plus copies of the asset SQLi
 - [Desktop browser evidence](../handoff/cricut-svg-desktop.png) and [mobile browser evidence](../handoff/cricut-svg-mobile.png) inspected. These are local built frontend checks with a test backend, not production acceptance.
 
 - Reusable importer: `node scripts/import-cricut-templates.mjs /absolute/path/to/patch/tape-cutting` adds only the three native SVG assets to the existing PlayPad category and verifies dimensions and downloaded source hashes.
+
+## Production delivery
+
+Implementation merged in PR #15 at feb3603015dfcc2a4fd27bbcfc6c60d1681d8833 and deployed. Backup: before-cricut-svg-20261110T024144Z, including prior image, SQLite snapshot and stored files. All three native SVGs imported into PlayPad; downloaded SHA-256 and physical dimensions match originals. Live authenticated Chrome preview, Download SVG and size readback inspected. No SVG entries in sliced prints; existing nonvector assets remain available. No print or cut started.
+
+- [Import IDs, URLs, dimensions and hashes](../handoff/cricut-svg-import-report.json)
+- [Inspected live production screenshot](../handoff/cricut-svg-live-desktop.png)
+
+Implementation and activation complete; issue remains open for user acceptance. Physical Cricut cut acceptance is separate.

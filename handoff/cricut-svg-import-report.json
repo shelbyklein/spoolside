@@ -1,0 +1,38 @@
+[
+  {
+    "id": "fc84f8c4-f2a1-4280-bdde-5589e4b8d4cc",
+    "name": "PlayPad suction tape - single",
+    "fileName": "PlayPad tape - single.svg",
+    "dims": [
+      65.896881,
+      40.795244
+    ],
+    "sha256": "1b58223b8653a2dd76e1df6b927afc62e543ab9922fa15b91f9a8c14b8515dd4",
+    "url": "https://spoolside.shelbyklein.com/library/fc84f8c4-f2a1-4280-bdde-5589e4b8d4cc",
+    "verified": true
+  },
+  {
+    "id": "6c8e2a7a-e7a0-43f9-baba-f4b3a7481d91",
+    "name": "PlayPad suction tape - 4x1 row",
+    "fileName": "PlayPad tape - 4x1 row.svg",
+    "dims": [
+      266.587525,
+      40.795244
+    ],
+    "sha256": "3be1b2027b548872a213f8a1925e58e30d194aa5d8a2dd83a5b7db2093308169",
+    "url": "https://spoolside.shelbyklein.com/library/6c8e2a7a-e7a0-43f9-baba-f4b3a7481d91",
+    "verified": true
+  },
+  {
+    "id": "39db23d9-8b0e-4d21-81a1-fff97891e094",
+    "name": "PlayPad suction tape - 25 per sheet",
+    "fileName": "PlayPad tape - 25 per AirStick sheet.svg",
+    "dims": [
+      241.485888,
+      291.566706
+    ],
+    "sha256": "4a0f81b9b47e701fed3d447708bc34ac6970f3df41b217940955fb04298ff6cd",
+    "url": "https://spoolside.shelbyklein.com/library/39db23d9-8b0e-4d21-81a1-fff97891e094",
+    "verified": true
+  }
+]
