@@ -2666,3 +2666,5 @@ button.home-note-order:hover { background: #f7dba6; }
 .part-row .part-visibility { color: var(--muted); }
 .part-row.hidden-part .part-name, .part-row.hidden-part .part-color { opacity: .45; }
 .part-row.hidden-part .part-visibility { color: #b7791f; }
+/* Printer card: why Spoolside can't connect (e.g. too many apps connected to the printer). */
+.printer-card-issue { padding: 7px 9px; border-radius: 8px; background: #fdf1e3; color: #70420c; font-size: 12px; line-height: 1.4; white-space: normal; text-align: left; }
