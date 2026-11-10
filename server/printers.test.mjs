@@ -14,3 +14,15 @@ test("connection failures are explained in words that say what to do", () => {
   assert.equal(view.state, "Offline");
   assert.match(view.error, /too many apps connected/);
 });
+
+test("a paused print says why: a pause in the file, or the printer's own code", async () => {
+  const { pauseReason, errorCode, printerView } = await import("./printers.mjs");
+  assert.equal(errorCode(50364435), "0300-8013");
+  assert.equal(errorCode(0), null);
+  assert.match(pauseReason({ print_error: 50364435, layer_num: 76, total_layer_num: 77 }), /^Paused at layer 76 of 77: a pause in the file/);
+  assert.match(pauseReason({ print_error: 0x07008011, hms: [{}] }), /Paused by the printer \(code 0700-8011\)\. The printer shows an alert/);
+  const now = Date.now();
+  const v = printerView({ serial: "S", name: "AMS 3" }, { connected: true, seen: now, data: { gcode_state: "PAUSE", print_error: 50364435 } }, now);
+  assert.match(v.pauseReason, /a pause in the file/);
+  assert.equal(printerView({ serial: "S", name: "AMS 3" }, { connected: true, seen: now, data: { gcode_state: "RUNNING" } }, now).pauseReason, null);
+});

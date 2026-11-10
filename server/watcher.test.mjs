@@ -260,3 +260,32 @@ test("a finished print's review is discarded after 5 unanswered minutes", async 
     s.done();
   }
 });
+
+test("a print that pauses itself says why, once, and not when Spoolside paused it", async () => {
+  const s = setup({ vision: false });
+  try {
+    await s.later(0);
+    s.state.raw = "PAUSE";
+    await s.later(15000);
+    assert.equal(s.pushes.length, 1);
+    assert.match(s.pushes[0].title, /Conductive paused: Touch Pin/);
+    // Still paused: no repeat (the pause is recorded on the print, so a restart stays quiet too).
+    await s.later(15000);
+    assert.equal(s.pushes.length, 1);
+    // Resumed, then paused again (a second pause in the file): announced again.
+    s.state.raw = "RUNNING";
+    await s.later(15000);
+    s.state.raw = "PAUSE";
+    await s.later(15000);
+    assert.equal(s.pushes.length, 2);
+    // A pause sent from Spoolside's own controls isn't announced back.
+    s.state.raw = "RUNNING";
+    await s.later(15000);
+    s.watcher.printers.controls = new Map([["P1", { action: "pause", at: 1_000_000_000 + 90000 }]]);
+    s.state.raw = "PAUSE";
+    await s.later(15000);
+    assert.equal(s.pushes.length, 2);
+  } finally {
+    s.done();
+  }
+});

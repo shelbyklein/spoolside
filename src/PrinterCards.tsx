@@ -87,6 +87,7 @@ export function PrinterCards({ machines, live, onOpen, repeats = [] }: { machine
               </span>
               <span className="printer-card-job">{m.job ? jobName(m.job) : "No print information"}</span>
               {live && (!m.connected || m.stale) && m.error && <span className="printer-card-issue" role="note">{m.error}</span>}
+              {live && m.connected && !m.stale && m.state === "Paused" && m.pauseReason && <span className="printer-card-issue" role="note">{m.pauseReason}</span>}
               {repeats.filter((r) => r.printer === m.id).map((r) => (
                 <span key={r.printer} className="printer-card-repeat" title={r.status}>
                   <Repeat size={13} /> <strong>Repeating</strong>{r.times ? ` ${r.done}/${r.times}` : r.done ? ` · ${r.done} so far` : ""} · {r.status}

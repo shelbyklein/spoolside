@@ -985,6 +985,7 @@ function App() {
             {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
             {remote && current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "") && <button className="text-button" onClick={() => teachBed(current.id,current.name)}>Teach bed check</button>}
             {remote && <PrintControls machine={current} notify={setNotice} />}
+            {remote && current.state === "Paused" && current.pauseReason && <p className="detail-note">{current.pauseReason}</p>}
             {(!remote || current.error) && <p className="detail-note">{remote ? current.error : "These readings are examples. Live printer controls will be available after a bridge is connected."}</p>}
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace
