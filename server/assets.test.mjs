@@ -140,6 +140,9 @@ test("assembly parts keep display color and positions, and reject bad positions"
     assert.deepEqual(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2, 3, 0, 21.04, -3.333]] }] }, a.id).components[0].positions, [[1, 2, 3, 0, 21.04, -3.33]]);
     assert.throws(() => assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, positions: [[1, 2, 3, 0, 0, 0, 0]] }] }, a.id), /Positions/);
     assert.equal(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 1, color: "red" }] }, a.id).components[0].color, undefined);
+    // Hidden parts stay in the assembly (and its piece count), marked only when hidden.
+    assert.deepEqual(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 4, hidden: true }] }, a.id).components[0], { assetId: abxy.id, quantity: 4, hidden: true });
+    assert.deepEqual(assets.saveAssembly({ ...a, components: [{ assetId: abxy.id, quantity: 4, hidden: "yes" }] }, a.id).components[0], { assetId: abxy.id, quantity: 4 });
   } finally {
     assets.close();
     fs.rmSync(dir, { recursive: true, force: true });

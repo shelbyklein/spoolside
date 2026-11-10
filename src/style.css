@@ -1817,7 +1817,7 @@ footer .tiny-dot {
 .category-add { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .reset-color { flex-shrink: 0; font-size: 16px; padding: 0 4px; }
 /* Assembly parts: one aligned grid row per part. */
-.assembly-parts .part-row:not(.removed) { display: grid; grid-template-columns: minmax(0, 1fr) 38px 22px 56px 38px; align-items: center; gap: 6px; }
+.assembly-parts .part-row:not(.removed) { display: grid; grid-template-columns: minmax(0, 1fr) 38px 22px 38px 56px 38px; align-items: center; gap: 6px; }
 .assembly-parts .part-row:not(.removed) .positions-toggle { text-align: left; white-space: nowrap; }
 .assembly-parts .part-row:not(.removed) .reset-color { display: inline-grid; place-items: center; width: 22px; padding: 0; }
 .assembly-parts .part-row .positions-editor { grid-column: 1 / -1; }
@@ -1825,7 +1825,7 @@ footer .tiny-dot {
 .part-chips-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .part-chip { display: flex; align-items: center; width: 100%; min-height: 28px; padding: 0 10px; border-radius: 999px; background: #e4f2ef; color: #0b6b63; font-size: 12px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part-chip:hover { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45); }
-.assembly-parts .part-row:not(.removed) { grid-template-columns: minmax(0, 1fr) 32px 22px 52px 32px; }
+.assembly-parts .part-row:not(.removed) { grid-template-columns: minmax(0, 1fr) 32px 22px 32px 52px 32px; }
 .assembly-parts .part-row .part-chip { min-height: 32px; }
 .assembly-parts .part-row .part-color { width: 32px; height: 32px; }
 .assembly-parts .part-row input[type=number] { min-height: 32px; }
@@ -2662,3 +2662,7 @@ button.home-note-order:hover { background: #f7dba6; }
 .order-cost-breakdown li {grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;}
 .order-cost-breakdown .cost-total {font-weight:600;}
 @media(max-width:760px){.cost-lines li{grid-template-columns:minmax(0,1fr) auto;}.cost-lines .cost-detail{grid-column:1 / -1;grid-row:2;}}
+/* Assembly parts: hidden in the preview (e.g. a reference phone outline). */
+.part-row .part-visibility { color: var(--muted); }
+.part-row.hidden-part .part-name, .part-row.hidden-part .part-color { opacity: .45; }
+.part-row.hidden-part .part-visibility { color: #b7791f; }
