@@ -6,12 +6,16 @@ import { applyPlacement } from "./placement";
 // them one at a time; STLs are fetched once and reused across assemblies.
 export type SnapshotPart = { asset: Asset; color?: string; positions?: number[][] };
 
-// Fingerprint of everything that changes the picture: parts, positions, colors, STL contents.
+// Fingerprint of everything that changes the picture: parts, positions, colors, STL contents,
+// and the renderer version. Bump the version whenever the renderer draws the same parts
+// differently (v3: tilted parts), so pictures drawn by an older app are redrawn; the server
+// refuses pictures keyed with an older version (server/assets.mjs, MIN_SNAPSHOT_VERSION).
+export const SNAPSHOT_VERSION = 3;
 export function snapshotKey(parts: SnapshotPart[]) {
   const text = JSON.stringify(parts.map((p) => [p.asset.id, p.asset.hash || "", p.color || p.asset.categoryColor || "", p.positions || []]));
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return "v2" + (h >>> 0).toString(36) + text.length.toString(36);
+  return `v${SNAPSHOT_VERSION}` + (h >>> 0).toString(36) + text.length.toString(36);
 }
 
 const buffers = new Map<string, Promise<ArrayBuffer>>();

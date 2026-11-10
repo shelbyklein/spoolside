@@ -211,10 +211,13 @@ test("assembly snapshots are stored with a key and removed with the assembly", (
     const a = assets.saveAssembly({ name: "DS", type: "Faceplate", components: [{ assetId: part.id, quantity: 1 }] });
     assert.equal(assets.assemblies()[0].thumbKey, null);
     const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(16)]);
-    assert.throws(() => assets.setAssemblyThumb(a.id, "k1", Buffer.from("nope")), /PNG/);
+    assert.throws(() => assets.setAssemblyThumb(a.id, "v3k1", Buffer.from("nope")), /PNG/);
     assert.throws(() => assets.setAssemblyThumb(a.id, "../x", png), /key/);
-    assets.setAssemblyThumb(a.id, "abc123", png);
-    assert.equal(assets.assemblies()[0].thumbKey, "abc123");
+    // Pictures from an older renderer (before tilted parts) are refused.
+    assert.throws(() => assets.setAssemblyThumb(a.id, "v2abc123", png), /older version/);
+    assert.throws(() => assets.setAssemblyThumb(a.id, "abc123", png), /older version/);
+    assets.setAssemblyThumb(a.id, "v3abc123", png);
+    assert.equal(assets.assemblies()[0].thumbKey, "v3abc123");
     assets.deleteAssembly(a.id);
     assert.equal(fs.existsSync(assets.assemblyThumbFile(a.id)), false);
   } finally {

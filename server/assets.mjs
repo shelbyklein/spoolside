@@ -75,6 +75,8 @@ function extras(c) {
   }
   return out;
 }
+// Oldest assembly-preview renderer whose pictures are accepted (see setAssemblyThumb).
+const MIN_SNAPSHOT_VERSION = 3;
 export class Assets {
   constructor(dbFile, dir) {
     this.dir = dir;
@@ -234,6 +236,10 @@ export class Assets {
   setAssemblyThumb(id, key, png) {
     if (!this.db.prepare("SELECT 1 FROM assemblies WHERE id=?").get(id)) throw Object.assign(Error("Unknown assembly"), { status: 404 });
     if (!/^[0-9a-z]{1,40}$/.test(String(key))) throw Error("Invalid preview key");
+    // A key starts with the renderer version (src/assemblySnapshot.ts). Pictures from an app
+    // older than MIN_SNAPSHOT_VERSION drew some parts wrongly (tilted parts), so they're refused
+    // until that browser picks up the new app.
+    if (Number(/^v(\d+)/.exec(String(key))?.[1] || 0) < MIN_SNAPSHOT_VERSION) throw Object.assign(Error("This preview was drawn by an older version of Spoolside. Reload to update."), { status: 409 });
     if (!Buffer.isBuffer(png) || png.length > 1_500_000 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw Error("Preview must be a PNG under 1.5 MB");
     fs.writeFileSync(this.assemblyThumbFile(id), png, { mode: 0o600 });
     this.db.prepare("INSERT INTO assembly_thumbs VALUES(?,?) ON CONFLICT(id) DO UPDATE SET key=excluded.key").run(id, String(key));
