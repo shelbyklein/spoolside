@@ -22,7 +22,7 @@ test('Overview uploads prints and assets directly on desktop and phone',async({b
  await expect(page).toHaveURL(/overview$/);
  await page.getByRole('button',{name:'Upload asset',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Upload library item'});await expect(dialog).toBeVisible();
- await dialog.getByLabel('STL file',{exact:true}).setInputFiles({name:'Test part.stl',mimeType:'application/octet-stream',buffer:Buffer.from('solid part\nendsolid part')});
+ await dialog.getByLabel('STL or SVG file',{exact:true}).setInputFiles({name:'Test part.stl',mimeType:'application/octet-stream',buffer:Buffer.from('solid part\nendsolid part')});
  await dialog.getByRole('button',{name:'Add to library'}).click();await expect(dialog).toHaveCount(0);
  await expect.poll(()=>uploads).toEqual(['print','asset']);
  await page.screenshot({path:'handoff/spoolside-overview-upload-shortcuts.png'});

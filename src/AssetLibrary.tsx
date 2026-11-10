@@ -11,7 +11,7 @@ const StlViewer = lazy(() => import("./StlViewer"));
 export type Asset = {
   id: string;
   name: string;
-  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone";
+  type: "Case" | "Faceplate" | "Sleeve" | "Part" | "Phone" | "Cut template";
   generation: number;
   status: Status;
   note: string;
@@ -31,12 +31,13 @@ export type Asset = {
 };
 type Status = "Up to date" | "Stale";
 const STATUSES: Status[] = ["Up to date", "Stale"];
-const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone"] as const;
+const TYPES = ["All", "Case", "Faceplate", "Sleeve", "Part", "Phone", "Cut template"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 // On All, each type gets its own labeled section, in this order.
 const SECTIONS: { type: Asset["type"]; label: string; note?: string }[] = [
   { type: "Case", label: "Cases" }, { type: "Faceplate", label: "Faceplates" }, { type: "Sleeve", label: "Sleeves" },
   { type: "Part", label: "Parts" }, { type: "Phone", label: "Phones", note: "3D reference models, not printed" },
+  { type: "Cut template", label: "Cut templates", note: "SVG files for Cricut" },
 ];
 
 // Groups cases and phone references by phone generation, faceplates by style.
@@ -45,7 +46,7 @@ const groupOf = (a: Asset) =>
     ? a.fit.phone.match(/^iPhone (\d+)/)?.[1] ? `iPhone ${a.fit.phone.match(/^iPhone (\d+)/)![1]}` : a.fit.phone.startsWith("iPhone") ? "Other iPhones" : a.fit.phone.split(" ")[0]
     : (a.type === "Faceplate" || a.type === "Sleeve")
       ? a.fit.style + (a.type === "Sleeve" ? " sleeves" : "")
-      : "Parts";
+      : a.type === "Cut template" ? (a.fit.style || "Cricut templates") : "Parts";
 
 // Phone references are view-only, so they never need a design file.
 const needsDesign = (a: Asset) => !a.designFile && a.type !== "Phone";
@@ -139,7 +140,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       {/* The section tabs sit inside the PlayCase menu, right after Library. */}
       {headingSlot ? createPortal(sectionTabs, headingSlot) : sectionTabs}
       {section === "Sliced prints" && <PrintLibrary title="Sliced prints" notify={notify}/>}
-      {section === "Assemblies" && colored && <Assemblies assets={colored} onOpen={setOpenId} notify={notify}/>}
+      {section === "Assemblies" && colored && <Assemblies assets={colored.filter(a => a.type !== "Cut template")} onOpen={setOpenId} notify={notify}/>}
       {section === "Assets" && <>
       <div className="asset-toolbar">
         <div className="segmented" role="tablist" aria-label="Asset type">
@@ -177,9 +178,9 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
           const mine = groups.filter(([key]) => key.startsWith(`${t}|`));
           if (!mine.length) return null;
           const heading = type === "All" && <h2 className="asset-section-title">{label}{note && <small>{note}</small>}</h2>;
-          return t === "Part" ? (
+          return t === "Part" || t === "Cut template" ? (
             <section className="part-card-section" key={t} aria-label={label}>
-              {heading || <h3>Parts</h3>}
+              {heading || <h3>{label}</h3>}
               <div className="part-cards">
                 {mine.flatMap(([, list]) => list).map((a) => <PartCard key={a.id} asset={a} onOpen={() => setOpenId(a.id)} />)}
               </div>
@@ -203,7 +204,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                   <button className="asset-row" onClick={() => setOpenId(a.id)}>
                     <span className="asset-name">
                       <strong>{a.name}</strong>
-                      <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
+                      <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.type === "Cut template" ? `SVG · ${a.dims.join(" × ")} mm` : a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
                     </span>
                     <StatusIcons status={a.status} missingDesign={needsDesign(a)} />
                   </button>
@@ -227,6 +228,10 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
               <StlViewer url={`/api/assets/${open.id}/stl`} colors={[categories.find((c) => c.id === open.category)?.color || ""]} />
             </Suspense>}
+            {open.type === "Cut template" && <>
+              <div className="vector-preview"><img src={`/api/assets/${open.id}/svg?h=${open.hash || ""}`} alt={`${open.name} SVG preview`} /></div>
+              <p className="plate-meta">SVG cut template for Cricut. Import at the original size; do not resize.</p>
+            </>}
             {open.type !== "Phone" && <>
             <label className="design-picker">Category
               <select aria-label="Category" value={open.category || ""} onChange={(e) => save(open, { category: e.target.value })}>
@@ -234,15 +239,15 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
-            <label className="design-picker">Design file
+            {open.type !== "Cut template" && <label className="design-picker">Design file
               <select aria-label="Design file" value={open.designFile?.id || ""} onChange={async e=>{
                 const r=await fetch(`/api/assets/${open.id}/design`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({designId:e.target.value || null})});
                 if(!r.ok){notify("Could not save design link");return;}const updated=await r.json();setAssets(list=>list?.map(a=>a.id===updated.id?updated:a)||null);
               }}><option value="">Missing design</option>{designs.map(d=><option key={d.id} value={d.id}>{d.source}</option>)}</select>
-            </label>
+            </label>}
             </>}
             <div className="status-row">
-            {open.type !== "Phone" && open.designFile && <a className="secondary download-design" href={`/api/designfiles/${open.designFile.id}/download`}><Download size={16} /> Download design</a>}
+            {open.type === "Cut template" ? <a className="primary download-vector" href={`/api/assets/${open.id}/svg?download=1`}><Download size={16} /> Download SVG</a> : open.type !== "Phone" && open.designFile && <a className="secondary download-design" href={`/api/designfiles/${open.designFile.id}/download`}><Download size={16} /> Download design</a>}
             <div className="status-picker" role="radiogroup" aria-label="Status">
               {STATUSES.map((s) => (
                 <button key={s} role="radio" aria-checked={open.status === s} aria-label={s} title={s} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <CircleCheck size={20} /> : <Clock size={20} />}</button>
@@ -254,6 +259,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               <textarea key={open.id} defaultValue={open.note} maxLength={500} onBlur={(e) => e.target.value !== open.note && save(open, { note: e.target.value })} />
             </label>
             <dl>
+              {open.type === "Cut template" && <><div><dt>Size</dt><dd>{open.dims.join(" × ")} mm</dd></div><div><dt>Format</dt><dd>SVG · Cricut cut template</dd></div></>}
               {open.hasStl !== false && <><div><dt>Size</dt><dd>{open.dims.join(" × ")} mm</dd></div>
               <div><dt>Triangles</dt><dd>{open.triangles.toLocaleString()}</dd></div>
               </>}<div><dt>Source</dt><dd>{open.source || "Uploaded"}</dd></div>
@@ -315,7 +321,7 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
 }
 
 const STYLES = ["Handheld", "DS", "Classic", "3DS", "N64", "MAME", "Keyboard"];
-// Adds a new library item from an STL, with an optional matching design file.
+// Adds either an STL with an optional design file, or a native SVG cut template.
 export function AssetUploadButton({notify, onUploaded}: {notify: (message: string) => void; onUploaded?: () => void}) {
   const [open, setOpen] = useState(false), [categories, setCategories] = useState<Category[]>([]), [loading, setLoading] = useState(false);
   const show = async () => {
@@ -344,17 +350,18 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
     [status, setStatus] = useState<Status>("Up to date"),
     [category, setCategory] = useState(""),
     [busy, setBusy] = useState(false);
+  const isVector = !!stl && /\.svg$/i.test(stl.name);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stl) return;
     setBusy(true);
     try {
       const key = crypto.randomUUID();
-      const fit = type === "Case" ? { phone } : type === "Faceplate" ? { style, size, piece } : type === "Sleeve" ? { style, size } : { piece: name };
-      const r = await fetch("/api/assets", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ name, type, status, category, generation: 3, fit, source: `upload/${key}/${stl.name}` })) }, body: stl });
+      const fit = isVector ? { style: "Cricut", piece: name } : type === "Case" ? { phone } : type === "Faceplate" ? { style, size, piece } : type === "Sleeve" ? { style, size } : { piece: name };
+      const r = await fetch(isVector ? "/api/assets/vectors" : "/api/assets", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Asset": encodeURIComponent(JSON.stringify({ name, type: isVector ? "Cut template" : type, fileName: stl.name, status, category, generation: 3, fit, source: `upload/${key}/${stl.name}` })) }, body: stl });
       let asset = await r.json();
       if (!r.ok) throw Error(asset.error || "Upload failed");
-      if (design) {
+      if (design && !isVector) {
         const d = await fetch("/api/designfiles", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Design": encodeURIComponent(JSON.stringify({ source: `upload/${key}/${design.name}`, name: design.name })) }, body: design });
         const df = await d.json();
         if (!d.ok) throw Error(`STL added, but the design file failed: ${df.error || "upload error"}`);
@@ -374,16 +381,16 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
       <form role="dialog" aria-modal="true" aria-label="Upload library item" className="detail-panel upload-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()} onSubmit={submit}>
         <button type="button" autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
         <h2>Upload</h2>
-        <label>STL file<input type="file" accept=".stl" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.stl$/i, "")); }} /></label>
-        <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>
+        <label>STL or SVG file<input type="file" accept=".stl,.svg" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.(stl|svg)$/i, "")); }} /></label>
+        {isVector ? <p className="plate-meta">Cricut cut template. The SVG must have width and height in millimetres. It will be stored at its original size.</p> : <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>}
         <label>Name<input value={name} required maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
-        <label>Type<select value={type} onChange={(e) => setType(e.target.value)}>{["Case", "Faceplate", "Sleeve", "Part"].map((t) => <option key={t}>{t}</option>)}</select></label>
-        {type === "Case" && <label>Phone model<input value={phone} required placeholder="iPhone 17 Air" onChange={(e) => setPhone(e.target.value)} /></label>}
-        {(type === "Faceplate" || type === "Sleeve") && <>
+        <label>Type<select value={isVector ? "Cut template" : type} disabled={isVector} onChange={(e) => setType(e.target.value)}>{(isVector ? ["Cut template"] : ["Case", "Faceplate", "Sleeve", "Part"]).map((t) => <option key={t}>{t}</option>)}</select></label>
+        {!isVector && type === "Case" && <label>Phone model<input value={phone} required placeholder="iPhone 17 Air" onChange={(e) => setPhone(e.target.value)} /></label>}
+        {!isVector && (type === "Faceplate" || type === "Sleeve") && <>
           <label>Style<select value={style} onChange={(e) => setStyle(e.target.value)}>{STYLES.map((s) => <option key={s}>{s}</option>)}</select></label>
           <label>Size<select value={size} onChange={(e) => setSize(e.target.value)}><option>Standard</option><option>Plus</option></select></label>
         </>}
-        {type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
+        {!isVector && type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
         <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as Status)}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
         <label>Category<select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">No category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <button className="primary" type="submit" disabled={busy || !stl}>{busy ? "Uploading…" : "Add to library"}</button>
@@ -467,7 +474,7 @@ function PartThumb({ asset }: { asset: Asset }) {
   }, [ready, failed, asset.id, asset.hash]);
   return (
     <span ref={ref} className="part-thumb" aria-hidden="true">
-      {asset.type === "Phone" ? <Smartphone size={18} /> : ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
+      {asset.type === "Cut template" ? <img src={`/api/assets/${asset.id}/svg?h=${asset.hash || ""}`} alt="" loading="lazy" /> : asset.type === "Phone" ? <Smartphone size={18} /> : ready && <img src={`/api/assets/${asset.id}/thumb?h=${(asset.hash || "").slice(0, 12)}`} alt="" loading="lazy" />}
     </span>
   );
 }
@@ -475,12 +482,13 @@ function PartThumb({ asset }: { asset: Asset }) {
 // Parts get their own layout: one card each with a square STL thumbnail.
 function PartCard({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
   return (
-    <button className="part-card" onClick={onOpen} aria-label={`${asset.name}, ${asset.status}${needsDesign(asset) ? ", missing design" : ""}`}>
+    <button className={`part-card${asset.type === "Cut template" ? " vector-card" : ""}`} onClick={onOpen} aria-label={`${asset.name}, ${asset.status}${needsDesign(asset) ? ", missing design" : ""}`}>
       <PartThumb asset={asset} />
       <span className="part-card-foot">
         <strong>{asset.name}</strong>
         <StatusIcons status={asset.status} missingDesign={needsDesign(asset)} />
       </span>
+      {asset.type === "Cut template" && <small className="vector-card-meta">SVG · {asset.dims.join(" × ")} mm</small>}
     </button>
   );
 }

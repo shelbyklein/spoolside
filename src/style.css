@@ -2006,6 +2006,11 @@ footer .tiny-dot {
 .part-card-foot { display: flex; align-items: center; gap: 8px; padding: 10px 2px 2px; }
 .part-card-foot strong { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .part-card-foot .status-icons { margin-left: 0; }
+.vector-preview { display: grid; place-items: center; min-height: 160px; margin: 20px 0; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.vector-preview img { display: block; width: 100%; max-height: 360px; object-fit: contain; }
+.vector-card .part-thumb { padding: 12px; border-radius: 8px; background: #f6f8f8; }
+.vector-card .part-card-foot strong { white-space: normal; overflow-wrap: anywhere; }
+.vector-card-meta { padding: 4px 2px 2px; color: var(--muted); font-size: 12px; }
 .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
 .status-row .status-picker { margin: 0; }
 .download-design { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; text-decoration: none; color: var(--navy); }

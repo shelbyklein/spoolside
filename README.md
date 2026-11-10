@@ -107,3 +107,9 @@ The hosted Filament page focuses on supplier and restock comparison, with stacke
 Official suppliers and the exact conductive materials at 3DJake refresh on startup and every six hours; Check prices refreshes immediately. Only USD, 1.75 mm spool variants are compared, with net filament grams for $/kg. Filter by color/size and spool/refill. Add seller records an exact-material offer manually (seven-day freshness); custom seller URLs are not fetched by the server.
 
 Default destination is ZIP 30360, sorted fastest first then delivered $/kg. Published US shipping estimates are labeled estimates, not ZIP quotes. Set shipping quote records checkout shipping and latest arrival for the current ZIP, expiring after seven days. ZIP changes invalidate those quotes. Unknown shipping is not treated as free; unknown ETA is not treated as fast. Stale, unavailable and unknown-stock offers rank below fresh in-stock offers. Price comparison excludes tax, promotions, bundle discounts and basket-level shipping; verify at checkout. No purchases are made.
+
+## Cricut cut templates
+
+Library Upload accepts native SVG cut templates alongside STL models. SVGs appear under **Cut templates**, with their physical dimensions, an SVG preview, and **Download SVG**. Uploads require explicit millimetre dimensions and a bounded static SVG subset; scripts, external links and embedded content are rejected. Download preserves the original SVG bytes so Cricut Design Space receives the original size and cut paths. Cut templates never appear as sliced prints or printable assembly components.
+
+The PlayPad category contains the revised single-piece, four-in-a-row, and 25-per-AirStick-sheet tape templates without the old keychain cutout. Use Basic Cut, original size and Mirror off; stored files do not start Cricut cuts.

@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { inspectSvg } from './svg.mjs';
 
-export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone"];
+export const TYPES = ["Case", "Faceplate", "Sleeve", "Part", "Phone", "Cut template"];
 export const STATUSES = ["Up to date", "Stale"];
 // Two statuses only. Older names map in: Current is up to date, everything else is stale.
 export const normalizeStatus = (s) => (s === "Up to date" || s === "Current" ? "Up to date" : "Stale");
@@ -152,11 +153,35 @@ export class Assets {
   designFile(id) {const d=this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);if(!d)throw Error("Unknown design file");return {meta:d,path:path.join(this.dir,`design-${d.id}${path.extname(d.name).toLowerCase()}`)};}
   addDesign(meta,buf) {
     const source=text(meta.source,300),name=text(meta.name,120);
-    if(!source||!name||!/[.](c4d|blend|f3d|step|stp|ai)$/i.test(name)||!Buffer.isBuffer(buf)||!buf.length||buf.length>150*1024*1024)throw Error("Invalid design file");
+    if(!source||!name||!/[.](c4d|blend|f3d|step|stp|ai|svg)$/i.test(name)||!Buffer.isBuffer(buf)||!buf.length||buf.length>150*1024*1024)throw Error("Invalid design file");
+    if (/\.svg$/i.test(name)) inspectSvg(buf);
     const prior=this.db.prepare("SELECT id FROM designfiles WHERE source=?").get(source),id=prior?.id || randomUUID();
     fs.writeFileSync(path.join(this.dir,`design-${id}${path.extname(name).toLowerCase()}`),buf,{mode:0o600});
     this.db.prepare("INSERT INTO designfiles VALUES(?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET name=excluded.name,hash=excluded.hash,bytes=excluded.bytes").run(id,source,name,createHash("sha256").update(buf).digest("hex"),buf.length);
     return this.db.prepare("SELECT * FROM designfiles WHERE id=?").get(id);
+  }
+  addVector(meta, buf) {
+    const { size } = inspectSvg(buf);
+    const name = text(meta.fileName, 120);
+    if (!/\.svg$/i.test(name)) throw Error('Choose an SVG file');
+    const body = clean({ ...meta, type: 'Cut template', status: meta.status || 'Up to date' });
+    if (body.source && this.db.prepare('SELECT 1 FROM deleted_sources WHERE source=?').get(body.source))
+      throw Object.assign(Error('Deleted in Spoolside; not re-imported'), { status: 409 });
+    const existing = body.source && this.list().find(a => a.source === body.source);
+    if (existing && existing.type !== 'Cut template') throw Error('This source belongs to a different asset type');
+    const id = existing?.id || randomUUID();
+    const design = this.addDesign({ source: body.source || `upload/${id}/${name}`, name }, buf);
+    const hash = createHash('sha256').update(buf).digest('hex');
+    this.db.prepare('INSERT INTO assets VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,hash=excluded.hash,triangles=0,dims=excluded.dims,bytes=excluded.bytes,updated=excluded.updated')
+      .run(id, JSON.stringify(existing ? clean({ ...body, name: existing.name, status: existing.status, note: existing.note, category: existing.category }, existing) : body), hash, 0, JSON.stringify(size), buf.length, new Date().toISOString());
+    this.linkDesign(id, design.id);
+    return this.get(id);
+  }
+  vectorFile(id) {
+    const asset = this.get(id);
+    if (asset?.type !== 'Cut template' || !/\.svg$/i.test(asset.designFile?.name || ''))
+      throw Object.assign(Error('Unknown SVG template'), { status: 404 });
+    return this.designFile(asset.designFile.id);
   }
   // Phone references: an Apple .usdz model per phone, for viewing (AR Quick Look on iPhone) and download.
   phoneFile(id) {
@@ -176,6 +201,8 @@ export class Assets {
 
   linkDesign(assetId,designId) {
     if(!this.get(assetId))throw Error("Unknown asset");
+    if (this.get(assetId).type === 'Cut template' && (!designId || !/\.svg$/i.test(this.designs().find(d => d.id === designId)?.name || '')))
+      throw Error('A cut template must keep an SVG design file');
     if(designId===null)this.db.prepare("DELETE FROM design_links WHERE asset=?").run(assetId);
     else {if(!this.db.prepare("SELECT id FROM designfiles WHERE id=?").get(designId))throw Error("Unknown design");this.db.prepare("INSERT INTO design_links VALUES(?,?) ON CONFLICT(asset) DO UPDATE SET design=excluded.design").run(assetId,designId);}
     return this.get(assetId);
@@ -217,7 +244,7 @@ export class Assets {
     if(!Array.isArray(input.components) || input.components.length>100) throw Error("Select assembly components");
     const seen=new Set();
     const components=input.components.map(c=>{
-      if(!this.get(c.assetId) || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
+      if(!this.get(c.assetId) || this.get(c.assetId).type === 'Cut template' || seen.has(c.assetId) || !Number.isInteger(c.quantity) || c.quantity<1 || c.quantity>100) throw Error("Invalid assembly component or quantity");
       seen.add(c.assetId);return {assetId:c.assetId,quantity:c.quantity,...extras(c)};
     });
     // Removed parts are kept (not deleted) so they can be restored later.
@@ -250,6 +277,7 @@ export class Assets {
   // Adds a model; re-importing the same source path replaces that asset's STL.
   add(meta, buf) {
     const body = clean(meta);
+    if (body.type === 'Cut template') throw Error('Upload cut templates as SVG files');
     if (body.source && this.db.prepare("SELECT 1 FROM deleted_sources WHERE source=?").get(body.source))
       throw Object.assign(Error("Deleted in Spoolside; not re-imported"), { status: 409 });
     const { triangles, size } = inspectStl(buf);
