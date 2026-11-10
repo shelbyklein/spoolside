@@ -1,4 +1,4 @@
-import { FileCheck2, FileX2 } from 'lucide-react';
+import { Eye, EyeOff, FileCheck2, FileX2 } from 'lucide-react';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {DEFAULT_PART_COLOR} from './colors';
 import {mergePlacement} from './placement';
@@ -6,7 +6,7 @@ import {AssemblyCostPanel,costLabel,useAssemblyCosts} from './Costs';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
-type Part={assetId:string;quantity:number;color?:string;positions?:number[][]};
+type Part={assetId:string;quantity:number;color?:string;positions?:number[][];hidden?:boolean};
 type Assembly={thumbKey?:string|null;partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false,components:[] as Assembly['components']});
@@ -74,6 +74,8 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
  const remove=(c:{assetId:string;quantity:number})=>save({...assembly,components:assembly.components.filter(x=>x.assetId!==c.assetId),removed:[c,...removed.filter(x=>x.assetId!==c.assetId)]},`Removed ${name(c.assetId)}. Restore it under Removed.`);
  const restore=(c:{assetId:string;quantity:number})=>save({...assembly,components:[...assembly.components,c],removed:removed.filter(x=>x.assetId!==c.assetId)},`Restored ${name(c.assetId)}.`);
  const add=(id:string)=>{setQuery('');save({...assembly,components:[...assembly.components,{assetId:id,quantity:1}],removed:removed.filter(x=>x.assetId!==id)},`Added ${name(id)}.`);};
+ // Hiding only affects the preview and card picture; the part still counts as a piece.
+ const toggleHidden=(c:Part)=>{const {hidden:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?(c.hidden?rest:{...rest,hidden:true}):x)},`${name(c.assetId)} ${c.hidden?'shown':'hidden'} in the preview.`);};
  const setQty=(c:{assetId:string},q:number)=>q>=1&&q<=100&&save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?{...x,quantity:q}:x)},'Quantity updated.');
  const used=new Set(assembly.components.map(c=>c.assetId));
  const matches=query.trim()?assets.filter(a=>!used.has(a.id)&&`${a.name} ${a.type}`.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];
@@ -86,10 +88,11 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
   <h3>Parts</h3>
   <p className="plate-meta">Click a part, here or in the preview, to position it.</p>
   <div className="asset-pills">
-   {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className="part-row">
+   {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className={`part-row${c.hidden?' hidden-part':''}`}>
     <button className="part-name" disabled={!asset} onClick={()=>onPick({assetId:c.assetId,instance:0})}><span>{asset?.name||'Missing asset'}</span>{(c.positions?.length||0)>1&&<small className="copy-count">×{c.positions!.length}</small>}</button>
     <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} key={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||'default'} defaultValue={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||DEFAULT_PART_COLOR} title={c.color?'Custom color for this assembly':'Category color'} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
     {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>||<span className="reset-color" aria-hidden="true"/>}
+    <button className="icon-button part-visibility" aria-label={`${c.hidden?'Show':'Hide'} ${name(c.assetId)} in the preview`} aria-pressed={!!c.hidden} title={c.hidden?'Hidden in the preview: click to show':'Hide in the preview'} disabled={busy} onClick={()=>toggleHidden(c)}>{c.hidden?<EyeOff size={16}/>:<Eye size={16}/>}</button>
     <input aria-label={`Quantity of ${name(c.assetId)}`} type="number" min={1} max={100} value={c.quantity} disabled={busy} onChange={e=>setQty(c,Number(e.target.value))}/>
     <button className="icon-button" aria-label={`Remove ${name(c.assetId)} from assembly`} disabled={busy} onClick={()=>remove(c)}>×</button>
    </div>;})}
@@ -171,7 +174,7 @@ function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:As
 
 // The preview: click a part to select it (its options open in the parts panel) and drag its arrows.
 function PositionTool({assembly,assets,pick,onPick,move}:{assembly:Assembly;assets:Asset[];pick:PartPick|null;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void}){
- const parts=assembly.components.flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
+ const parts=assembly.components.flatMap(c=>{const asset=assets.find(a=>a.id===c.assetId);return asset&&!c.hidden?[{asset,color:c.color,positions:c.positions}]:[];});
  return <div className="position-tool">
   <AssemblyPreview parts={parts} editing={{selected:pick,onSelect:onPick,onMove:move}}/>
  </div>;
@@ -207,7 +210,7 @@ function AssemblyGrid({items,search,assets,arranging,onReorder,onOpenAssembly,on
  const move=(id:string,to:number)=>{const next=ids.filter(x=>x!==id);next.splice(Math.max(0,Math.min(to,next.length)),0,id);onReorder(next);};
  return <div className={`assembly-grid${arranging?' arranging':''}`}>{shown.map(a=>{
   const i=ids.indexOf(a.id);
-  const parts=a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset?[{asset,color:c.color,positions:c.positions}]:[];});
+  const parts=a.components.flatMap(c=>{const asset=assets.find(x=>x.id===c.assetId);return asset&&!c.hidden?[{asset,color:c.color,positions:c.positions}]:[];});
   return <section key={a.id} className={`assembly-tile${dragging===a.id?' dragging':''}${over===a.id&&dragging!==a.id?' drop-target':''}`}
    draggable={arranging} onDragStart={e=>{setDragging(a.id);e.dataTransfer.effectAllowed='move';}} onDragEnd={()=>{setDragging(null);setOver(null);}}
    onDragOver={e=>{if(!dragging)return;e.preventDefault();setOver(a.id);}} onDrop={e=>{e.preventDefault();if(dragging&&dragging!==a.id)move(dragging,ids.indexOf(a.id));setDragging(null);setOver(null);}}>
