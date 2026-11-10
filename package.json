@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
     "@fontsource/manrope": "^5.2.8",
+    "@xmldom/xmldom": "^0.9.12",
     "basic-ftp": "^6.2.2",
     "express": "^5.2.1",
     "gsap": "^3.14.2",

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="650" viewBox="0 0 1100 650">
+<rect width="1100" height="650" fill="#f5f5f2"/><g font-family="Arial" fill="#183347">
+<text x="45" y="55" font-size="28" font-weight="bold">Library / PlayPad</text><text x="45" y="89" font-size="15">Proposed SVG template support</text>
+<rect x="45" y="122" width="1010" height="470" rx="16" fill="white" stroke="#cbd3d6"/>
+<rect x="76" y="153" width="140" height="30" rx="15" fill="#e3f0ee"/><text x="91" y="173" font-size="14">SVG · Cricut</text>
+<text x="76" y="220" font-size="25" font-weight="bold">PlayPad suction tape — 4 × 1 row</text><text x="76" y="251" font-size="16">No keychain cutout · 266.588 × 40.795 mm</text>
+<g fill="#d4aa40" stroke="#95751d" stroke-width="1"><rect x="82" y="294" width="203" height="120" rx="40"/><rect x="323" y="294" width="203" height="120" rx="40"/><rect x="564" y="294" width="203" height="120" rx="40"/><rect x="805" y="294" width="203" height="120" rx="40"/></g>
+<g fill="#fff"><circle cx="145" cy="349" r="31"/><circle cx="229" cy="349" r="31"/><circle cx="386" cy="349" r="31"/><circle cx="470" cy="349" r="31"/><circle cx="627" cy="349" r="31"/><circle cx="711" cy="349" r="31"/><circle cx="868" cy="349" r="31"/><circle cx="952" cy="349" r="31"/></g>
+<text x="76" y="458" font-size="15">Preview illustration — production preview uses the actual uploaded SVG.</text>
+<rect x="76" y="489" width="185" height="47" rx="8" fill="#183347"/><text x="104" y="519" fill="white" font-size="17">Download SVG</text><text x="286" y="508" font-size="15">Import into Cricut Design Space at original size.</text><text x="286" y="533" font-size="15">Basic Cut · Mirror off · No printer or sliced-print controls.</text>
+<text x="45" y="626" font-size="14">Upload SVG → validate and store native file → Library vector preview → download identical SVG</text></g></svg>

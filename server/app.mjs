@@ -293,6 +293,21 @@ export function createApp({
     } catch (e) { fail(res, e); }
   });
   app.get("/api/assets", (_req, res) => res.json(assets?.list() || []));
+  app.post('/api/assets/vectors', express.raw({ type: 'application/octet-stream', limit: '10mb' }), (req, res) => {
+    try {
+      if (!assets) return res.status(503).json({ error: 'Asset library unavailable' });
+      res.json(assets.addVector(JSON.parse(decodeURIComponent(String(req.get('x-asset') || '{}'))), req.body));
+    } catch (e) { fail(res, e); }
+  });
+  app.get('/api/assets/:id/svg', (req, res) => {
+    try {
+      if (!assets) return res.status(503).json({ error: 'Asset library unavailable' });
+      const file = assets.vectorFile(req.params.id);
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      if (req.query.download) return res.download(file.path, file.meta.name);
+      res.type('image/svg+xml').sendFile(file.path);
+    } catch (e) { fail(res, e); }
+  });
   app.get("/api/assets/:id/stl", (req, res) => {
     try {
       const asset = assets?.get(req.params.id);
