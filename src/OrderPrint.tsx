@@ -5,25 +5,22 @@ import type { Order, PrintGroup } from "./order-model";
 import { BedHeld, useLibrary } from "./PrintControls";
 import type { BedWarning } from "./BedCheck";
 
-// Store colorway names to the color Spoolside looks for among the loaded spools.
-const COLORWAYS: Record<string, string> = {
-  red: "#e0201b", green: "#3baa35", blue: "#2f6fd6", black: "#111111", grey: "#8a8a8a", gray: "#8a8a8a", white: "#f2f2f2",
-  orange: "#f07818", purple: "#7e3fb5", pink: "#f06eaa", yellow: "#f5d000", teal: "#0f8c8c",
-};
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
-const distance = (a: string, b: string) => rgb(a).reduce((n, v, i) => n + (v - rgb(b)[i]) ** 2, 0);
-const FAR = 20000; // past this, the closest loaded spool isn't really the order's color
+// Shared with the server's print offers, so both agree on which spool is the order's color.
+import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "../server/colorway.mjs";
 const idle = (m: Machine) => !!m.connected && !m.stale && ["IDLE", "FINISH", "FAILED"].includes(m.rawState || "");
 export const colorwayOf = (order: Order) => order.items.find((i) => i.colorway)?.colorway || "";
 const groupTitle = (g: PrintGroup) => `Print ${g.label}`;
 
 const family = (t: string) => t.replace(/-AMS$/i, "").split(/[\s-]/)[0].toUpperCase();
 const WRONG_MATERIAL = 1e6;
-// The closest loaded AMS slot to a color, with how far off it is. A spool of another material
-// (PLA when the plate is TPU) only counts if nothing else is loaded, and ranks far behind.
-function closestTray(m: Machine, target: string, material = "") {
+const WRONG_COLOR = 1e3; // more than any real colour difference
+// The best loaded AMS slot for an order's colorway, with how far off it is. A spool that doesn't read as the
+// colorway (grey for a green order) ranks behind every one that does; a spool of another material (PLA when
+// the plate is TPU) ranks behind everything.
+function closestTray(m: Machine, colorway: string, material = "") {
+  const target = COLORWAYS[colorwayName(colorway)];
   const loaded = (m.trays || []).filter((t) => t.type && t.color);
-  const off = (t: { type: string; color: string }) => distance(t.color, target) + (material && family(t.type) !== family(material) ? WRONG_MATERIAL : 0);
+  const off = (t: { type: string; color: string }) => (matchesColorway(t.color, colorway) ? 0 : WRONG_COLOR) + deltaE(t.color, target) + (material && family(t.type) !== family(material) ? WRONG_MATERIAL : 0);
   return loaded.map((t) => ({ tray: t, off: off(t) })).sort((a, b) => a.off - b.off)[0] || null;
 }
 
@@ -56,11 +53,11 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
   const next = group.next!;
   const { files } = useLibrary();
   const plate = files?.find((f) => f.id === next.fileId)?.plates.find((p) => p.index === next.plate);
-  const colorway = colorwayOf(order), target = COLORWAYS[colorway.toLowerCase()] || "";
+  const colorway = colorwayOf(order), target = COLORWAYS[colorwayName(colorway)] || "";
   const material = plate?.filaments[0]?.type || "";
   // Idle printers, best color match first.
   const ranked = useMemo(
-    () => machines.filter(idle).map((m) => ({ m, best: target ? closestTray(m, target, material) : null })).sort((a, b) => (a.best?.off ?? Infinity) - (b.best?.off ?? Infinity)),
+    () => machines.filter(idle).map((m) => ({ m, best: target ? closestTray(m, colorway, material) : null })).sort((a, b) => (a.best?.off ?? Infinity) - (b.best?.off ?? Infinity)),
     [machines, target, material],
   );
   const [printerId, setPrinterId] = useState(suggested || "");
@@ -78,7 +75,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
   useEffect(() => {
     if (!plate || !printer) return;
     const slots = Math.max(0, ...plate.filaments.map((f) => f.id));
-    const pick = target ? closestTray(printer, target, material)?.tray.slot ?? -1 : -1;
+    const pick = target ? closestTray(printer, colorway, material)?.tray.slot ?? -1 : -1;
     setMapping(Array.from({ length: slots }, () => pick));
   }, [plate, printerId]);
   useEffect(() => {
@@ -86,7 +83,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [sending]);
-  const match = printer && target ? closestTray(printer, target, material) : null;
+  const match = printer && target ? closestTray(printer, colorway, material) : null;
   const send = async (anyway = false) => {
     setSending(true);
     setHeld(null);
@@ -131,7 +128,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
               Printer
               <select value={printerId} onChange={(e) => { setPicked(true); setPrinterId(e.target.value); }}>
                 {ranked.map(({ m, best }) => (
-                  <option key={m.id} value={m.id}>{m.name}{best ? ` · slot ${best.tray.slot + 1}${best.off >= WRONG_MATERIAL ? ` (no ${family(material)} loaded)` : best.off > FAR ? " (no close color)" : ""}` : " · external spool"}</option>
+                  <option key={m.id} value={m.id}>{m.name}{best ? ` · slot ${best.tray.slot + 1}${best.off >= WRONG_MATERIAL ? ` (no ${family(material)} loaded)` : best.off >= WRONG_COLOR ? ` (no ${colorway.toLowerCase()} loaded)` : ""}` : " · external spool"}</option>
                 ))}
               </select>
             </label>
@@ -146,7 +143,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
             ))}
             {!useAms && <p className="plate-meta">Prints from the external spool. Make sure it's {colorway || "the right color"}.</p>}
             {useAms && match && match.off >= WRONG_MATERIAL && <p className="order-print-warn">{printer?.name} has no {family(material)} loaded. This plate is sliced for {family(material)}.</p>}
-            {useAms && match && match.off > FAR && match.off < WRONG_MATERIAL && <p className="order-print-warn">No spool close to {colorway} is loaded in {printer?.name}. Check the slot before printing.</p>}
+            {useAms && match && match.off >= WRONG_COLOR && match.off < WRONG_MATERIAL && <p className="order-print-warn">No {colorway.toLowerCase()} spool is loaded in {printer?.name}. Check the slot before printing.</p>}
             <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
             <button className="primary" disabled={sending || !plate || (useAms && mapping.some((m) => m < 0))} onClick={() => send()}>
               <Play size={16} /> {sending ? "Checking the bed…" : `Start print on ${printer?.name || "printer"}`}

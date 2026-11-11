@@ -4,6 +4,8 @@ COPY package*.json ./
 RUN npm ci
 COPY tsconfig.json vite.config.ts index.html ./
 COPY src ./src
+# The app shares the colorway matching with the server.
+COPY server/colorway.mjs server/colorway.d.mts ./server/
 COPY public ./public
 RUN npm run build
 FROM node:24-alpine
