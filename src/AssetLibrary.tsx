@@ -4,7 +4,8 @@ import { requestPartThumb } from "./assemblySnapshot";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSort, byName } from "./sort";
-import { Search, X, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
+import { Dialog } from "./Dialog";
+import { Search, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -218,15 +219,13 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       )}
       </>}
       {open && (
-        <div className="detail-overlay" onClick={() => setOpenId(null)}>
-          <section role="dialog" aria-modal="true" aria-label={open.name} className="detail-panel asset-detail" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && setOpenId(null)}>
-            <button autoFocus className="close icon-button" aria-label="Close" onClick={() => setOpenId(null)}><X /></button>
-            <h2 className="asset-title">
+        <Dialog size="wide" className="detail-panel asset-detail" label={open.name} onClose={() => setOpenId(null)}
+          title={<span className="asset-title">
               <input key={open.id} aria-label="Name" defaultValue={open.name} maxLength={100}
                 onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.value = open.name; e.currentTarget.blur(); e.stopPropagation(); } }}
                 onBlur={(e) => { const v = e.target.value.trim(); if (!v) e.target.value = open.name; else if (v !== open.name) save(open, { name: v }); }} />
-            </h2>
-            <p>{open.type}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
+            </span>}>
+            <p className="asset-kind">{open.type}{open.fit.phone ? ` · ${open.fit.phone}` : ""}{open.fit.style ? ` · ${open.fit.style}` : ""}{open.fit.size && open.type === "Faceplate" ? ` · ${open.fit.size}` : ""}</p>
             {open.hasStl !== false && <Suspense fallback={<div className="stl-viewer" />}>
               <StlViewer url={`/api/assets/${open.id}/stl`} colors={[categories.find((c) => c.id === open.category)?.color || ""]} />
             </Suspense>}
@@ -288,8 +287,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               setOpenId(null);
               notify(`Deleted ${open.name}.`);
             }}><Trash2 size={16} /> Delete</button>
-          </section>
-        </div>
+        </Dialog>
       )}
     </section>
   );
@@ -336,7 +334,7 @@ export function AssetUploadButton({notify, onUploaded}: {notify: (message: strin
   };
   return <>
     <button className="secondary" disabled={loading} onClick={show}><Upload size={16} /> {loading ? "Loading…" : "Upload asset"}</button>
-    {open && createPortal(<UploadDialog categories={categories} onClose={() => setOpen(false)} notify={notify} onAdded={() => {setOpen(false);onUploaded?.();}} />, document.body)}
+    {open && <UploadDialog categories={categories} onClose={() => setOpen(false)} notify={notify} onAdded={() => {setOpen(false);onUploaded?.();}} />}
   </>;
 }
 
@@ -395,10 +393,8 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
     }
   };
   return (
-    <div className="detail-overlay" onClick={onClose}>
-      <form role="dialog" aria-modal="true" aria-label="Upload library item" className="detail-panel upload-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()} onSubmit={submit}>
-        <button type="button" autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
-        <h2>Upload</h2>
+    <Dialog size="wide" className="detail-panel upload-dialog" title="Upload" label="Upload library item" onClose={onClose} onSubmit={submit}
+      footer={<button className="primary" type="submit" disabled={busy || (bought ? !supplyId : !stl)}>{busy ? "Uploading…" : "Add to library"}</button>}>
         {!bought && <label>STL or SVG file<input type="file" accept=".stl,.svg" required onChange={(e) => { const f = e.target.files?.[0] || null; setStl(f); if (f && !name) setName(f.name.replace(/\.(stl|svg)$/i, "")); }} /></label>}
         {bought ? <p className="plate-meta">A bought part such as a magnet: not printed, priced from its supply. Add it to assemblies with how many each one uses.</p> : isVector ? <p className="plate-meta">Cricut cut template. The SVG must have width and height in millimetres. It will be stored at its original size.</p> : <label>Design file (optional)<input type="file" accept=".c4d,.blend,.f3d,.step,.stp,.ai" onChange={(e) => setDesign(e.target.files?.[0] || null)} /></label>}
         <label>Name<input value={name} required maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
@@ -413,9 +409,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
         {!isVector && type === "Faceplate" && <label>Piece<select value={piece} onChange={(e) => setPiece(e.target.value)}><option>Top</option><option>Bottom</option></select></label>}
         <label>Status<select value={status} onChange={(e) => setStatus(e.target.value as Status)}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
         <label>Category<select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">No category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <button className="primary" type="submit" disabled={busy || (bought ? !supplyId : !stl)}>{busy ? "Uploading…" : "Add to library"}</button>
-      </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -432,10 +426,7 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
   useEffect(() => { fetch("/api/workspace").then(r=>r.json()).then(d=>setPrinters(d.machines || [])).catch(()=>{}); }, []);
   const [name, setName] = useState(""), [color, setColor] = useState("#5aa9a3");
   return (
-    <div className="detail-overlay" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-label="Categories" className="detail-panel category-manager" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()}>
-        <button autoFocus className="close icon-button" aria-label="Close" onClick={onClose}><X /></button>
-        <h2>Categories</h2>
+    <Dialog size="wide" className="detail-panel category-manager" title="Categories" label="Categories" onClose={onClose}>
         <p className="plate-meta">Categories set preview colors and the default printer for linked sliced prints.</p>
         <ul>
           {categories.map((c) => {
@@ -456,8 +447,7 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
           <input aria-label="New category name" placeholder="New category" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
           <button className="secondary" type="submit"><Plus size={16} /> Add</button>
         </form>
-      </section>
-    </div>
+    </Dialog>
   );
 }
 

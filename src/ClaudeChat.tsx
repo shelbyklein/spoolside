@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowUp, Check, Loader2, Square, SquarePen, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowUp, Check, Loader2, Square, SquarePen, Sparkles } from "lucide-react";
+import { Dialog } from "./Dialog";
 
 type Item = {
   id: number;
@@ -107,11 +107,6 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
     const el = list.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat?.items.length, chat?.partial, chat?.running]);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, [onClose]);
   const act = async (p: Promise<Chat>) => {
     try { setChat(await p); setError(""); return true; } catch (e) { setError((e as Error).message); return false; }
   };
@@ -126,13 +121,8 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
   const busy = !!chat?.running;
   const resets = chat?.limit?.resetsAt ? new Date(chat.limit.resetsAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
   return (
-    <div className="chat-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <section className="chat-panel" role="dialog" aria-modal="true" aria-label="Claude">
-        <header className="chat-head">
-          <h2><Sparkles size={17} /> Claude</h2>
-          <button className="text-button" disabled={!chat?.items.length && !busy} onClick={() => act(call("DELETE", "/api/chat"))}><SquarePen size={14} /> New chat</button>
-          <button className="icon-button" aria-label="Close Claude" onClick={onClose}><X size={18} /></button>
-        </header>
+    <Dialog size="panel" className="chat-panel" bodyClassName="chat-body" title={<><Sparkles size={17} /> Claude</>} label="Claude" closeLabel="Close Claude" onClose={onClose}
+      headExtra={<button className="text-button" disabled={!chat?.items.length && !busy} onClick={() => act(call("DELETE", "/api/chat"))}><SquarePen size={14} /> New chat</button>}>
         <div className="chat-list" ref={list} aria-live="polite">
           {chat && !chat.available && (
             <div className="chat-setup">
@@ -179,8 +169,7 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
             ? <button type="button" className="chat-send stop" aria-label="Stop Claude" onClick={() => act(call("POST", "/api/chat/stop"))}><Square size={14} /></button>
             : <button className="chat-send" aria-label="Send" disabled={!text.trim() || sending || !chat?.available}><ArrowUp size={17} /></button>}
         </form>
-      </section>
-    </div>
+    </Dialog>
   );
 }
 
@@ -192,7 +181,7 @@ export function ClaudeButton({ compact = false }: { compact?: boolean }) {
       <button className={`secondary claude-button${compact ? " icon-only" : ""}`} aria-label="Ask Claude" aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <Sparkles size={16} />{!compact && " Claude"}
       </button>
-      {open && createPortal(<ChatPanel onClose={() => setOpen(false)} />, document.body)}
+      {open && <ChatPanel onClose={() => setOpen(false)} />}
     </>
   );
 }

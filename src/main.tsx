@@ -1,6 +1,7 @@
 import { PersonalLibrary } from "./PersonalLibrary";
 import { HomeNotes } from "./HomeNotes";
 import { BedTraining } from "./BedTraining";
+import { Dialog } from "./Dialog";
 import { useAppUpdates, RefreshAppButton } from "./AppUpdates";
 import { FloatingSpool } from "./FloatingSpool";
 import { OrderQueue } from "./OrderQueue";
@@ -22,9 +23,9 @@ import { ClaudeButton } from "./ClaudeChat";
 import { BedCheckSettings, BedWarnings } from "./BedCheck";
 import { NeedsYou, PausedRow, pausedByPrinter } from "./NeedsYou";
 import { ClaudeSettings, PrinterSettings } from "./SettingsSections";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutDashboard, Printer, Layers3, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, X, WifiOff, RefreshCw, Boxes, Clock3, Check, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
+import { LayoutDashboard, Printer, Layers3, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, WifiOff, RefreshCw, Boxes, Clock3, Check, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
 import "@fontsource/dm-sans/latin-400.css";
 import "@fontsource/dm-sans/latin-500.css";
 import "@fontsource/dm-sans/latin-600.css";
@@ -145,7 +146,6 @@ function App() {
   const watch = useWatches(remote);
   const repeats = useRepeats(remote);
   const dispatch = useDispatch(remote);
-  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => document.documentElement.classList.add("ready"), []);
   useEffect(() => {
     // Safari can ignore viewport zoom limits; prevent its page-level pinch gesture.
@@ -287,13 +287,7 @@ function App() {
     const timer = setTimeout(() => setNotice(""), 4500);
     return () => clearTimeout(timer);
   }, [notice]);
-  useEffect(() => {
-    if (!selected) opener.current?.focus();
-  }, [selected]);
-  const openDetail = (id: string) => {
-    opener.current = document.activeElement as HTMLElement;
-    setSelected(id);
-  };
+  const openDetail = (id: string) => setSelected(id);
   const current = machines.find((m) => m.id === selected);
   const toggle = (id: string) => {
     if (remote) {
@@ -903,47 +897,20 @@ function App() {
         )}
       </main>
       {current && (
-        <div className="detail-overlay" onClick={() => setSelected(null)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${current.name} details`}
-            className="detail-panel"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setSelected(null);
-              if (e.key === "Tab") {
-                const nodes =
-                  e.currentTarget.querySelectorAll<HTMLButtonElement>("button");
-                const first = nodes[0],
-                  last = nodes[nodes.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                  e.preventDefault();
-                  last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                  e.preventDefault();
-                  first.focus();
-                }
-              }
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              autoFocus
-              className="close icon-button"
-              aria-label="Close printer details"
-              onClick={() => setSelected(null)}
-            >
-              <X />
-            </button>
-            <header className="detail-head">
-              <h2>{current.name}</h2>
-              <span className={`pill ${heldBySpoolside.has(current.id) ? "red" : current.state === "Paused" ? "blue" : current.state === "Printing" ? "teal" : ["Error", "Offline"].includes(current.state) ? "red" : ""}`}>{stateLabel(current, heldBySpoolside)}</span>
-              <p>
-                Bambu Lab A1 mini ·{" "}
-                <span className={remote && (current.stale || !current.connected) ? "detail-bad" : ""}>{remote ? (current.stale || !current.connected ? "Disconnected" : "Live LAN") : "Demo"}</span>
-                {remote && current.seen ? ` · ${new Date(current.seen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
-              </p>
-            </header>
+        <Dialog
+          size="wide"
+          className="detail-panel"
+          title={current.name}
+          label={`${current.name} details`}
+          closeLabel="Close printer details"
+          headExtra={<span className={`pill ${heldBySpoolside.has(current.id) ? "red" : current.state === "Paused" ? "blue" : current.state === "Printing" ? "teal" : ["Error", "Offline"].includes(current.state) ? "red" : ""}`}>{stateLabel(current, heldBySpoolside)}</span>}
+          onClose={() => setSelected(null)}
+        >
+            <p className="detail-sub">
+              Bambu Lab A1 mini ·{" "}
+              <span className={remote && (current.stale || !current.connected) ? "detail-bad" : ""}>{remote ? (current.stale || !current.connected ? "Disconnected" : "Live LAN") : "Demo"}</span>
+              {remote && current.seen ? ` · ${new Date(current.seen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
+            </p>
             {remote && current.state === "Paused" && current.pauseReason && !heldBySpoolside.has(current.id) && (
               <div className="detail-banner" role="status">
                 <Pause size={16} />
@@ -992,8 +959,7 @@ function App() {
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace
             </button>
-          </section>
-        </div>
+        </Dialog>
       )}
       {printing && printingOrder && printing.group.next && (
         <OrderPrintDialog order={printingOrder} group={printing.group} printer={printing.printer} machines={machines} notify={setNotice} onClose={() => setPrinting(null)} onSent={() => { live.retry(); dispatch.refresh(); }} />

@@ -1,5 +1,5 @@
 import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
-import { createPortal } from "react-dom";
+import { Dialog } from "./Dialog";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, ClipboardCheck, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
 
@@ -105,12 +105,7 @@ export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[
   const pct = p?.total ? Math.min(100, Math.round((p.bytes / p.total) * 100)) : null;
   const stage = !p || p.stage === "connecting" ? "Connecting to the printer…" : p.stage === "downloading" ? "Copying the sliced file from the printer" : "Saving to your library…";
   return (
-    <div className="modal-backdrop import-backdrop" onClick={close}>
-      <div className="modal import-dialog" role="dialog" aria-modal="true" aria-label={`Add ${jobName(watch.job)} to library`} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && close()}>
-        <div className="section-top">
-          <h3>Add to library</h3>
-          <button className="icon-button" aria-label="Close" onClick={close}><X size={18} /></button>
-        </div>
+    <Dialog className="import-dialog" title="Add to library" label={`Add ${jobName(watch.job)} to library`} onClose={close}>
         <p className="watch-job">{jobName(watch.job)} · {watch.printerName}</p>
         {done ? (
           <>
@@ -138,8 +133,7 @@ export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[
             <p className="plate-meta">You can close this; the save keeps going.</p>
           </>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
 const ago = (at: number) => {
@@ -222,10 +216,8 @@ export function WatchAttention({ watches, refresh, notify }: { watches: Watch[];
           {asks.length === 1 ? `${jobName(asks[0].job)} on ${asks[0].printerName} · ${ago(asks[0].ended!)}` : "Optional · helps the watcher learn"}
         </NeedRow>
       )}
-      {reviewing && asks.length > 0 && createPortal(
-        <div className="modal-backdrop" onClick={() => setReviewing(false)}>
-          <div className="modal review-dialog" role="dialog" aria-modal="true" aria-label="Print reviews" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && setReviewing(false)}>
-            <div className="section-top"><h2>Print reviews <span>{asks.length}</span></h2><button className="icon-button" aria-label="Close" onClick={() => setReviewing(false)}><X size={18} /></button></div>
+      {reviewing && asks.length > 0 && (
+        <Dialog className="review-dialog" title={<>Print reviews <span>{asks.length}</span></>} label="Print reviews" onClose={() => setReviewing(false)}>
       {asks.map((w) => (
         <article id={`rate-${w.id}`} key={w.id} className={`watch-card${rating===w.id ? " rating-target" : ""}`} aria-label={`Print review: ${jobName(w.job)}`}>
           <h3>{jobName(w.job)}</h3>
@@ -263,9 +255,7 @@ export function WatchAttention({ watches, refresh, notify }: { watches: Watch[];
           )}
         </article>
       ))}
-          </div>
-        </div>,
-        document.body,
+        </Dialog>
       )}
     </>
   );

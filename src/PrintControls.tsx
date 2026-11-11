@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState, useRef } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, X, Repeat } from "lucide-react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, Repeat } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
+import { Dialog } from "./Dialog";
 import { useSort, byName } from "./sort";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string; grams?: number | null }[] };
@@ -427,10 +428,9 @@ function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify:
     }).catch(()=>{setError("Could not load printers");setLoaded(true);});
   }, []);
   const machine=machines.find(m=>m.id===selected);
-  return <div className="modal-backdrop" onClick={onClose}><div className="order-print-dialog library-print-dialog" role="dialog" aria-modal="true" aria-label={`Print ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && onClose()}>
-    <div className="section-top"><h3>Print {file.name}</h3><button className="icon-button" aria-label="Close" onClick={onClose}><X size={18} /></button></div>
+  return <Dialog className="order-print-dialog library-print-dialog" title={`Print ${file.name}`} label={`Print ${file.name}`} onClose={onClose}>
     {error ? <p role="alert">{error}</p> : !loaded ? <p>Loading printers…</p> : !machines.length ? <p>No connected idle printer is available.</p> : <>{file.preferredPrinter && !machines.some(m=>m.id===file.preferredPrinter) && <p className="plate-meta">{file.preferredPrinterName || "The default printer"} is busy or offline. Choose another printer to continue.</p>}<label>Printer<select aria-label="Printer" value={selected} onChange={e=>setSelected(e.target.value)}><option value="" disabled>Choose a printer…</option>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{machine && <StartPrint key={machine.id} machine={machine} notify={notify} initialFile={file.id} onSent={onClose} />}</>}
-  </div></div>;
+  </Dialog>;
 }
 
 function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
@@ -451,15 +451,14 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
     catch(e) { notify((e as Error).message); } finally { setBusy(false); }
   };
   return <><button className="icon-button sliced-edit" title="Edit details" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={15} /></button>
-    {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><form className="modal plate-assets-editor print-details-editor" role="dialog" aria-modal="true" aria-label={`Print details for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && !busy && setEditing(false)} onSubmit={save}>
-      <div className="section-top"><h3>Print details</h3><button type="button" className="text-button" disabled={busy} onClick={()=>setEditing(false)}>Cancel</button></div>
+    {editing && <Dialog className="plate-assets-editor print-details-editor" title="Print details" label={`Print details for ${file.name}`} busy={busy} onClose={() => setEditing(false)} onSubmit={save}
+      footer={<><button type="button" className="text-button" disabled={busy} onClick={()=>setEditing(false)}>Cancel</button><button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button></>}>
       <label>Print name<input autoFocus required maxLength={80} value={name} onChange={e=>setName(e.target.value)} /></label>
       {file.plates.map(p=><label key={p.index}>{file.plates.length>1 ? `Plate ${p.index} · ` : ""}Pieces per print<input type="number" min={1} max={10000} step={1} placeholder="e.g. 144" value={counts[p.index] || ""} onChange={e=>setCounts({...counts,[p.index]:e.target.value})} /></label>)}
       <label>Default printer<select aria-label="Default printer" value={printer} onChange={e=>setPrinter(e.target.value)}><option value="">Use category default</option>{printers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <p className="plate-meta">Total pieces made by this plate. Leave blank if unknown.</p>
       {supplies.length > 0 && filaments.map(f => <label key={f.id}>Filament {f.id} ({f.type}) is costed as<select aria-label={`Costed filament for filament ${f.id}`} value={fmap[String(f.id)] || ""} onChange={e=>setFmap({...fmap,[String(f.id)]:e.target.value})}><option value="">Default for {f.type}{defaults[f.type] ? ` (${supplies.find(x=>x.id===defaults[f.type])?.name || "set"})` : " (not set)"}</option>{supplies.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>)}
-      <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save print details"}</button>
-    </form></div>}
+    </Dialog>}
   </>;
 }
 
@@ -473,19 +472,9 @@ function PlateViewer({ file, assets, onClose }: { file: LibraryFile; assets: Ass
   const linked = (plate?.coverage || []).map((c) => assets.find((a) => a.id === c.assetId)).filter((a): a is Asset => !!a && a.hasStl !== false);
   const [view, setView] = useState<"toolpath" | "model">("toolpath");
   const color = plate?.filaments[0]?.color || "#e0201b";
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", key);
-    return () => document.removeEventListener("keydown", key);
-  }, []);
   if (!plate) return null;
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal plate-viewer" role="dialog" aria-modal="true" aria-label={`${file.name} in 3D`} onClick={(e) => e.stopPropagation()}>
-        <div className="section-top">
-          <h3>{file.name}</h3>
-          <button className="icon-button" aria-label="Close" onClick={onClose}><X size={18} /></button>
-        </div>
+    <Dialog className="plate-viewer" title={file.name} label={`${file.name} in 3D`} onClose={onClose}>
         <p className="plate-meta">{file.plates.length > 1 ? `Plate ${plate.index} · ` : ""}{duration(plate.minutes)} · {plate.grams} g</p>
         <div className="plate-viewer-tabs">
           {file.plates.length > 1 && (
@@ -504,8 +493,7 @@ function PlateViewer({ file, assets, onClose }: { file: LibraryFile; assets: Ass
             : <StlViewer urls={linked.map((a) => `/api/assets/${a.id}/stl`)} colors={linked.map(() => color)} />}
         </Suspense>
         {view === "model" && linked.length > 0 && <p className="plate-meta">{linked.map((a) => a.name).join(" · ")}</p>}
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -530,22 +518,21 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
   return <div className="plate-assets">
     <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
     <button className="asset-add-pill" aria-label="Edit assets" title="Edit assets" onClick={open}><Plus size={15} /></button>
-    {editing && <div className="modal-backdrop" onClick={() => !busy && setEditing(false)}><div className="modal plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Assets for ${file.name}`} onClick={e => e.stopPropagation()} onKeyDown={e => e.key === "Escape" && !busy && setEditing(false)}>
-      <div className="section-top"><h3>{file.name}{file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}</h3><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div>
+    {editing && <Dialog className="plate-assets-editor" title={`${file.name}${file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}`} label={`Assets for ${file.name}`} busy={busy} onClose={() => setEditing(false)}
+      footer={<><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button><button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button></>}>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
       <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search assets" value={query} onChange={e => setQuery(e.target.value)} />
       <div className="plate-types" role="group" aria-label="Asset type">{["All", ...PLATE_TYPES].map(t => <button key={t} className={`filter-chip${type === t ? " selected" : ""}`} aria-pressed={type === t} onClick={() => setType(t)}>{t === "All" ? "All" : `${t}s`} <small>{choosable.filter(a => t === "All" || a.type === t).length}</small></button>)}</div>
       <div className="plate-options">{choosable.filter(a => (type === "All" || a.type === type) && a.name.toLowerCase().includes(query.toLowerCase())).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
       <p className="plate-meta">Choose every part this plate prints.</p>
-      <button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button>
-    </div></div>}
+    </Dialog>}
   </div>;
 }
 
 function PrintMetadata({file}:{file:LibraryFile}) {
  const [open,setOpen]=useState(false),[data,setData]=useState<Record<string,unknown>|null>(null),[error,setError]=useState("");
  const show=()=>{setOpen(true);setError("");setData(null);api<{settings:Record<string,unknown>}>(`/api/library/${file.id}/metadata`).then(d=>setData(d.settings)).catch(e=>setError(e.message));};
- return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><section className="plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Print settings for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Escape'&&setOpen(false)}><div className="section-top"><h3>{file.name}</h3><button className="icon-button" aria-label="Close" onClick={()=>setOpen(false)}><X size={18}/></button></div><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></section></div>}</>;
+ return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<Dialog className="print-settings" title={file.name} label={`Print settings for ${file.name}`} onClose={()=>setOpen(false)}><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></Dialog>}</>;
 }
 
 // An asset's sliced prints: the plates linked to it, uploading a new sliced file for it (linked automatically),
