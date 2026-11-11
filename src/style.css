@@ -74,6 +74,12 @@
   --nav-line: #2b465a;
   --tab-bar: 69px; /* the phone tab bar's height, without the home indicator under it */
 
+  /* Touch and keyboard. */
+  --tap: 44px; /* the smallest a control may be on a touch layout (DESIGN.md) */
+  --focus-ring: 3px solid var(--focus);
+  --focus-offset: 2px;
+  --focus-halo: 0 0 0 var(--focus-offset) var(--surface); /* fills the gap under the ring, so it reads on dark and photo backgrounds */
+
   /* Corners. */
   --radius-sm: 6px; /* buttons, inputs, badges */
   --radius-md: 10px; /* cards inside panels, menus, photos */
@@ -125,12 +131,12 @@ a {
   color: inherit;
   text-decoration: none;
 }
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 4px;
+/* The one keyboard focus ring: orange, on a white halo so it reads on white, tints, the navy sidebar and tab bar, and
+   the water home. Programmatic focus targets (tabindex -1: <main>, dialogs) don't get it. */
+:is(a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  box-shadow: var(--focus-halo);
 }
 ::selection {
   background: #b4e9e3;
@@ -1263,9 +1269,15 @@ main[tabindex="-1"]:focus {
   font-size: var(--text-xs);
   outline: none;
 }
+/* The field draws the ring around the icon and input together. */
 .search-field:focus-within {
-  outline: 3px solid var(--focus);
-  outline-offset: 3px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  box-shadow: var(--focus-halo);
+}
+.search-field:focus-within input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 .orders-toolbar > span {
   margin-left: auto;
@@ -1611,7 +1623,7 @@ main[tabindex="-1"]:focus {
 .part-row .part-color { flex-shrink: 0; width: 38px; height: 38px; padding: 3px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface); cursor: pointer; }
 .asset-title input { width: 100%; padding: 4px 8px; margin-left: -8px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; font: inherit; color: inherit; }
 .asset-title input:hover { border-color: var(--line-strong); }
-.asset-title input:focus { border-color: var(--teal); background: var(--surface); outline: none; }
+.asset-title input:focus { border-color: var(--teal); background: var(--surface); }
 .upload-asset { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; min-height: 42px; }
 .delete-asset { display: inline-flex; align-items: center; gap: 6px; margin: 12px 0 0 8px; }
 .upload-dialog .dialog-body { display: flex; flex-direction: column; gap: 12px; }
@@ -1895,7 +1907,6 @@ main[tabindex="-1"]:focus {
 .printer-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, calc(50% - 8px)), 1fr)); gap: 16px; }
 .printer-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: var(--navy); font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; }
 .printer-card:hover { box-shadow: 0 10px 28px rgba(16, 45, 68, 0.1); transform: translateY(-1px); }
-.printer-card:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
 .printer-card.offline { opacity: 0.75; }
 .printer-feed { position: relative; display: block; aspect-ratio: 14 / 9; background: #0e2a35; overflow: hidden; }
 .printer-feed img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -2089,7 +2100,7 @@ main[tabindex="-1"]:focus {
 .floating-spool img { display: block; width: 100%; pointer-events: none; }
 .floating-spool.dragging { cursor: grabbing; }
 .floating-spool.dragging img, .floating-spool.returning img { animation-play-state: paused; }
-.floating-spool:focus-visible { outline: 2px solid #fff; outline-offset: 6px; border-radius: var(--radius-lg); }
+.floating-spool:focus-visible { border-radius: var(--radius-lg); }
 .sidebar-bottom > .floating-spool { border: 0; padding: 0; }
 .sidebar-bottom:has(.floating-spool.dragging), .sidebar-bottom:has(.floating-spool.returning) { z-index: var(--z-lifted); }
 
@@ -2230,7 +2241,6 @@ main[tabindex="-1"]:focus {
 .inventory th[scope="row"], .inventory thead th:first-child { position: sticky; left: 0; z-index: var(--z-raised); background: var(--surface); text-align: left; font-weight: 600; color: var(--navy); }
 .inventory-group th { padding-top: 14px; text-align: left; color: var(--muted); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; }
 .inventory-count { width: 56px; min-height: 36px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); font-size: var(--text-lg); text-align: center; font-variant-numeric: tabular-nums; color: var(--navy); background: var(--surface); }
-.inventory-count:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
 .inventory-hide { width: 36px; }
 .inventory-hide .icon-button { color: var(--muted); opacity: 0.55; }
 .inventory tr:hover .inventory-hide .icon-button, .inventory-hide .icon-button:focus-visible, .inventory-hidden .inventory-hide .icon-button { opacity: 1; }
@@ -2241,7 +2251,10 @@ main[tabindex="-1"]:focus {
 @media (max-width: 760px) { .inventory-toolbar, .inventory-scroll, .inventory > .plate-meta { padding-left: 12px; padding-right: 12px; } .inventory-count { width: 48px; } }
 /* Sliced prints: the thumbnail opens a 3D view of the plate. */
 .sliced-thumb-open { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
-.sliced-thumb-open:focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
+/* Rings that would be cut off draw inside the edge instead: the sliced-print thumbnail fills a box that clips, and
+   the phone tab bar's tabs fill the bar edge to edge. Same ring, same halo. */
+.sliced-card .sliced-thumb-open:focus-visible { outline-offset: -5px; box-shadow: inset var(--focus-halo); }
+@media (max-width: 760px) { .sidebar .nav-item:focus-visible { outline-offset: -5px; box-shadow: inset var(--focus-halo); } }
 .plate-viewer { --dialog-width: 760px; color: var(--navy); }
 .plate-viewer .dialog-body { gap: 10px; }
 .plate-viewer p { margin: 0; }
@@ -2272,7 +2285,7 @@ main[tabindex="-1"]:focus {
 /* On phones the orders sort is an icon button; tapping it opens the native picker. */
 @media (max-width: 760px) {
   .orders-toolbar .sort-select { flex: none; }
-  .orders-toolbar .sort-select select { width: 42px; min-height: 44px; padding: 0; color: transparent; -webkit-appearance: none; appearance: none; }
+  .orders-toolbar .sort-select select { width: var(--tap); min-height: var(--tap); padding: 0; color: transparent; -webkit-appearance: none; appearance: none; }
   .orders-toolbar .sort-select svg { left: 13px; }
 }
 @media (max-width: 760px) { .orders-toolbar .sort-select option { color: var(--text-soft); } }
@@ -2303,7 +2316,7 @@ main[tabindex="-1"]:focus {
 .auto-switch-track span { display: block; width: 17px; height: 17px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px #10284040; transition: transform .15s; }
 .auto-switch input:checked + .auto-switch-track { background: var(--teal); }
 .auto-switch input:checked + .auto-switch-track span { transform: translateX(15px); }
-.auto-switch input:focus-visible + .auto-switch-track { outline: 3px solid var(--focus); outline-offset: 2px; }
+.auto-switch input:focus-visible + .auto-switch-track { outline: var(--focus-ring); outline-offset: var(--focus-offset); box-shadow: var(--focus-halo); }
 .auto-switch:has(input:disabled) { opacity: .5; cursor: not-allowed; }
 @media (max-width: 760px) { .order-queue .section-top { flex-wrap: wrap; gap: 10px; } .queue-top-right { width: 100%; justify-content: space-between; } }
 
@@ -2471,7 +2484,9 @@ button.home-note-order:hover { background: #f7dba6; }
 .chat-limit, .chat-error { margin: 0 16px 6px; font-size: var(--text-xs); padding: 8px 11px; border-radius: var(--radius-md); background: var(--alert-bg); color: var(--alert-text); }
 .chat-limit.warn { background: var(--wait-bg); color: var(--wait-text); }
 .chat-compose { display: flex; align-items: flex-end; gap: 8px; margin: 6px 12px calc(12px + env(safe-area-inset-bottom)); padding: 6px 6px 6px 14px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-pill); }
-.chat-compose:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px #087b7822; }
+/* The pill draws the ring around the box and its send button together. */
+.chat-compose:focus-within { outline: var(--focus-ring); outline-offset: var(--focus-offset); box-shadow: var(--focus-halo); }
+.chat-compose:focus-within textarea:focus-visible { outline: none; box-shadow: none; }
 .chat-compose textarea { flex: 1; border: 0; outline: 0; resize: none; background: transparent; font: inherit; font-size: var(--text-md); line-height: 1.4; padding: 7px 0; max-height: 140px; field-sizing: content; color: var(--text); }
 .chat-send { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--teal); color: #fff; }
 .chat-send:disabled { background: var(--line-dark); }
@@ -2697,3 +2712,92 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 .settings-status svg { color: var(--claude); flex: none; }
 .settings .auto-print .check-row { border-top: 0; padding-top: 4px; }
 .material-offer > .offer-manual { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; gap: 18px; padding-left: 80px; }
+
+/* Touch sizes: every control is at least --tap (44px) tall, and the narrow ones as wide, on the tablet and phone
+   layouts (1150px and under, where DESIGN.md's layout steps down) and on any coarse pointer (an iPad in landscape is
+   wider than 1150px). Width has to trigger it as well as the pointer: a narrow window here is a tablet or phone, and
+   the audit's 820px run uses a fine pointer. These are floors: !important only lifts a control that a component rule
+   made smaller (the :not() list sets bigger minimums of its own). Desktop with a mouse is untouched. */
+@media (max-width: 1150px), (pointer: coarse) {
+  :is(button, summary, select, a[href], [role=button], [role=tab], [role=radio], [role=switch],
+      input:not([type=checkbox], [type=radio], [type=hidden], [type=range], [type=file], [type=color])):not(.asset-row, .asset-pill.with-thumb, .upload-dialog .primary) {
+    min-height: var(--tap) !important;
+  }
+  :where(textarea) {
+    min-height: var(--tap);
+  }
+  /* Checkboxes and radios are tapped by their label. */
+  label:has(> input:is([type=checkbox], [type=radio])) {
+    min-height: var(--tap);
+  }
+  /* Icon-only and one-word controls: as wide as they are tall. (Not every control: a minimum width on a flex item
+     replaces its content minimum, and buttons would squeeze their icons out.) */
+  :is(.icon-button, .icon-only, .asset-add-pill, .home-note-order, .view-toggle button, .inventory-kinds button) {
+    min-width: var(--tap) !important;
+  }
+  /* The part-type filter wraps, so its buttons size from their labels (flex-basis auto), never narrower than --tap. */
+  .segmented[aria-label="Asset type"] button {
+    flex-basis: auto;
+    min-width: var(--tap) !important;
+  }
+  /* The search box is the field you see; its input fills it. */
+  .search-field {
+    padding-block: 0;
+  }
+  /* Text buttons have no box, so their taller tap area reaches into the space around them instead of moving it
+     (the footprint stays the text plus its usual 7px above and below). */
+  .text-button {
+    padding-block: 0;
+    margin-block: calc((1lh - var(--tap)) / 2 + 7px);
+  }
+  /* A heading that is a link (an assembly's name): the padding that makes it 44px tall comes back out as negative
+     margin, so the tap area grows around the title without moving it. */
+  :is(h2, h3, h4) > a[href]:only-child {
+    display: block;
+    padding-block: calc((var(--tap) - 1lh) / 2);
+    margin-block: calc((1lh - var(--tap)) / 2);
+  }
+  /* Chips keep their size: the extra height is a transparent border the background stops at, taken back out of the
+     layout with a negative margin. --chip-h is the height the chip shows. */
+  :is(.print-readiness summary, .home-note-order, .asset-add-pill) {
+    --hit: max(0px, calc((var(--tap) - var(--chip-h)) / 2));
+    border-block: var(--hit) solid transparent;
+    margin-block: calc(-1 * var(--hit));
+    background-clip: padding-box !important; /* state and hover rules reset it with the background shorthand */
+  }
+  .print-readiness summary {
+    --chip-h: calc(1lh + 8px);
+  }
+  .home-note-order {
+    --chip-h: calc(1lh + 4px);
+    border-radius: var(--radius-sm) / calc(var(--radius-sm) + var(--hit)); /* the visible corners stay --radius-sm */
+  }
+  .asset-add-pill {
+    --chip-h: 26px;
+  }
+  /* The round edit and delete buttons on a sliced print's picture: 32px circles in a 44px hit area, in the same
+     place, a little further apart so the hit areas don't overlap. */
+  :is(.sliced-edit, .sliced-delete) {
+    border: calc((var(--tap) - 32px) / 2) solid transparent;
+    background-clip: padding-box !important; /* .icon-button:hover resets it */
+  }
+  .sliced-delete {
+    top: 2px;
+    right: 2px;
+  }
+  .sliced-edit {
+    top: 2px;
+    right: 44px;
+  }
+  /* Order checklist rows: the 44px label and Print button set the row height, without extra padding. */
+  .order-fulfillment .print-check-row {
+    padding-block: 0;
+  }
+  .order-fulfillment .order-ship-footer {
+    margin-top: 0;
+  }
+  /* Inventory counts: the 44px field sets the row height (the table becomes cards in a later change). */
+  .inventory td:has(input, button) {
+    padding-block: 0;
+  }
+}
