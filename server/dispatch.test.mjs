@@ -411,3 +411,28 @@ test("the plate can be marked by its four corners; checks then blank everything 
   const boxed = await sharp(await cropArea(white, { left: 0.1, top: 0.1, right: 0.9, bottom: 0.9 })).raw().toBuffer({ resolveWithObject: true });
   assert.ok(boxed.data[0] > 240);
 });
+
+test("a print sent from an order that never starts stops holding the printer and the order", async () => {
+  const s = setup();
+  try {
+    s.orderPrints.sent("P1", { orderId: "o10181", orderNumber: "#10181", assetIds: ["case"] });
+    await s.d.tick();
+    assert.equal(s.orderPrints.pending.has("P1"), true, "a print just sent gets time to start");
+    assert.equal(s.d.view().offers.length, 0, "the printer isn't offered while it's starting");
+    s.later(4 * 60000);
+    await s.d.tick();
+    assert.equal(s.orderPrints.pending.has("P1"), false);
+    const push = s.pushes.find((p) => /didn't start/.test(p.title));
+    assert.equal(push.title, "AMS 3 didn't start the print");
+    assert.match(push.body, /#10181 was sent but never began/);
+    assert.equal(s.d.view().offers.length, 1, "the printer and the order are free again");
+    // A printer that did start keeps its reservation until the watcher claims it.
+    s.orderPrints.sent("P1", { orderId: "o10177", orderNumber: "#10177", assetIds: ["case"] });
+    s.view.rawState = "PREPARE";
+    s.later(10 * 60000);
+    await s.d.tick();
+    assert.equal(s.orderPrints.pending.has("P1"), true);
+  } finally {
+    s.done();
+  }
+});

@@ -7,6 +7,7 @@ const IDLE = ["IDLE", "FINISH", "FAILED"];
 const SNOOZE = 60 * 60000;
 const RECHECK = 5 * 60000; // a bed that wasn't clear (or was too dark) is looked at again this often
 const RETRY = 10 * 60000;
+const UNSTARTED = 3 * 60000; // a print sent from an order that hasn't begun by then never will
 const CONFIRMED_FOR = 30 * 60000; // how long teaching the empty bed counts as you saying it's clear
 const orderNumber = (o) => Number(String(o.number).replace(/\D/g, "")) || 0;
 
@@ -82,6 +83,7 @@ export class Dispatcher {
     if (this.busy) return;
     this.busy = true;
     try {
+      this.dropUnstarted();
       // Pieces already printing, waiting for an answer, or offered elsewhere aren't offered again.
       const taken = this.watcher.inFlight();
       for (const tag of this.orderPrints.pending.values()) for (const a of tag.assetIds) taken.add(`${tag.orderId}:${a}`);
@@ -117,6 +119,17 @@ export class Dispatcher {
       console.error("Dispatcher:", e.message);
     } finally {
       this.busy = false;
+    }
+  }
+  // A print sent from an order that the printer accepted but never began (often a filament mismatch, or a
+  // question on its own screen) stops holding the printer and the order after a few minutes, and says so.
+  dropUnstarted() {
+    for (const [serial, tag] of [...this.orderPrints.pending]) {
+      if (this.now() - tag.at < UNSTARTED) continue;
+      const view = this.printers.statuses().find((p) => p.serial === serial)?.view;
+      if (!view?.connected || !IDLE.includes(view.rawState) || this.printers.busy.has(serial)) continue;
+      this.orderPrints.cancel(serial);
+      this.notifications?.broadcast({ id: `unstarted:${serial}:${tag.at}`, title: `${view.name} didn't start the print`, body: `The print for ${tag.orderNumber} was sent but never began. Check ${view.name}'s screen and loaded filament; the order is back in the queue.`, url: "/" });
     }
   }
   reference(serial) {
