@@ -21,13 +21,13 @@ Evidence comes from a capture of every page, dialog and state at 1440, 820 and 4
 | P4 | When Spoolside can't be reached, the page looks like an empty workshop: 0 orders, 0 printers, auto-print shown on. | ![](assets/ui-ux-pass-2026-11/now-desktop-failed-load.png) |
 | P5 | Inventory on a phone: the colour columns are off-screen (674 elements past the right edge at 428 px, 513 at 820 px), and the All / Cases / Faceplates filter never shows which is selected. | ![](assets/ui-ux-pass-2026-11/now-phone-inventory.png) `src/Inventory.tsx:93` sets `active`; the style is `.segmented button.selected` (`src/style.css:1683`) |
 | P6 | Phone Library: 81 elements run past the right edge on Assets and 8 on Sliced prints. 33 asset names are cut off on desktop. | audit `m-library-assets`, `m-library-sliced`, `d-library-assets` |
-| P7 | Photo links in Needs you have no name for screen readers; the asset detail's status is two unlabeled icon buttons. | audit `unnamed`; `src/AssetLibrary.tsx:254` |
+| P7 | The asset detail's status is two icon-only buttons with no visible label. Photo links in Needs you lose their name when the photo fails to load (corrected in A1: they are named while the photo shows). | `src/AssetLibrary.tsx:254` |
 
 **Inconsistent**
 
 | # | What happens | Evidence |
 |---|---|---|
-| P8 | Of 12 dialogs opened, Escape closes 5, focus stays inside 3, and focus returns to the button that opened it in 2. On desktop the page behind still scrolls. | audit-dialogs.json; `modal-backdrop` is hand-written in 6 files |
+| P8 | The app has 16 dialogs (A1's count; the review opened 12). Escape closes 10, focus stays inside 2, and focus returns to the button that opened it in 1. On desktop the page behind still scrolls. | `tests/ui-audit.spec.ts` `KNOWN`; `modal-backdrop` is hand-written in 6 files |
 | P9 | 12 actions (stop print, delete, resume all) use the browser's plain `confirm()` box. | `grep -n "confirm(" src/*.tsx` |
 | P10 | The stylesheet has 26 font sizes (8 to 34 px), 199 colours (130 used once), 17 corner radii, 11 stacking levels and only 6 shared variables. `DESIGN.md` names a far smaller set. | `src/style.css` (2,973 lines) |
 | P11 | On the phone, many controls are under the 44 px that `DESIGN.md` requires (20 on home, 69 on Orders, 227 on Inventory), tab labels and much of Supplies are under 12 px, and grey meta text (`#8a9aa0`) is too faint on white. | audit `smallTap`, `tinyText`, `lowContrast`; `src/style.css:2812`, `:2840` |
@@ -63,7 +63,7 @@ Mockups show layout and behavior. Colours, fonts and artwork stay as `DESIGN.md`
 | # | Outcome | How it's verified |
 |---|---|---|
 | S1 | No page has content past the right edge, a phone control under 44 px, phone text under 12 px, text below 4.5:1 contrast, or an unnamed control. | `npx playwright test tests/ui-audit.spec.ts` passes with an empty known-failures list at 1440, 820 and 428 px |
-| S2 | All 13 dialogs close with Escape, keep focus inside, return focus to their opener, and stop the page behind from scrolling. No `confirm(` remains in `src/`. | the dialog section of the same spec; `grep -c "confirm(" src/*.tsx` is 0 |
+| S2 | All 16 dialogs close with Escape, keep focus inside, return focus to their opener, and stop the page behind from scrolling. No `confirm(` remains in `src/`. | the dialog section of the same spec; `grep -c "confirm(" src/*.tsx` is 0 |
 | S3 | Failures look like failures and stay until dismissed; loading never shows an empty message; a failed load keeps the last data visible. | `tests/states.spec.ts` |
 | S4 | Tablet Overview shows printers within the first 900 px (now 3,560). Phone Orders with 8 orders is under 1,400 px (now 2,983). Sliced prints on a tablet is under 6,000 px fully open (now 14,885). Phone Supplies is under 3,000 px (now 6,049). | assertions in the specs each task adds |
 | S5 | Nothing else changed: both existing suites pass, and the five everyday flows work on Shelby's phone after each deploy. | `node --test server/*.test.mjs` (120), `npx playwright test` (45 plus new), then Shelby's check on the live app |
@@ -88,7 +88,7 @@ Tasks run one at a time, in this order. "Model" is who does the task.
 | T0 | Opus | Create worktree `/Users/shelbyklein/Vibes/worktrees/ui-ux-pass` on branch `claude/ui-ux-pass` from `origin/main`; `npm ci`; commit this plan and assets; run both suites. | 120 server and 45 browser tests pass on the untouched branch |
 | A1 | Opus | Add `tests/ui-audit.spec.ts`: loads every page at 1440, 820 and 428 px with mock data and checks S1 and S2. Start with a `KNOWN` list of today's failures so it passes; later tasks delete their entries. | spec passes; `KNOWN` matches the Problem tables |
 | A2 | Opus | Tokens in `src/style.css`: type scale (12, 13, 14, 16, 19, 24, 30), named colours including state pills, radii (6, 10, 14, 999), stacking layers. Replace literals with tokens; snap near-duplicates. Muted text meets 4.5:1. | at most 9 distinct `font-size` values and 8 `z-index` literals; `lowContrast` is 0 on Overview, Queue and Printers; before/after screenshots show no layout shift over 2 px |
-| A3 | Opus | `src/Dialog.tsx`: one dialog (label, Escape, focus kept inside and returned, page scroll locked, backdrop closes unless busy; a bottom sheet at 760 px and under, full screen for large ones). Move all 13 dialogs onto it. | S2's dialog checks pass 13 of 13; dialog entries removed from `KNOWN` |
+| A3 | Opus | `src/Dialog.tsx`: one dialog (label, Escape, focus kept inside and returned, page scroll locked, backdrop closes unless busy; a bottom sheet at 760 px and under, full screen for large ones). Move all 16 dialogs onto it. | S2's dialog checks pass 16 of 16; dialog entries removed from `KNOWN` |
 | A4 | Opus | Toasts and confirm: `notify(message, { kind, action })`. Errors use an alert icon and `role="alert"` and stay until dismissed; successes clear after 4.5 s; toasts sit above the tab bar. Replace all `confirm()` calls with an in-app confirm (danger style for stop and delete). | an error toast is still visible after 6 s and has Dismiss; `grep -c "confirm(" src/*.tsx` is 0; specs that used `page.on('dialog')` click the in-app confirm |
 | A5 | Opus | Global minimums at 760 px and under: buttons, tabs, inputs and icon buttons at least 44 px; text at least 12 px; one visible keyboard focus ring everywhere. | `smallTap` and `tinyText` are 0 at 428 px on home, Printers, Queue, Orders and Settings |
 | B1 | Sonnet | Phone home Upload menu opens above the printer pills (as a sheet from A3) with readable items. | at 428 px, the element at each menu item's centre is that item |
