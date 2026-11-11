@@ -863,6 +863,9 @@ export function createApp({
     try { if (!dispatcher) return res.sendStatus(503); res.set("Cache-Control", "no-store").type("jpeg").send(dispatcher.warning(req.params.printer).jpeg); } catch (e) { fail(res, e); }
   });
   app.delete("/api/dispatch/:printer/bed-warning", bedRoute((req) => dispatcher.dismissWarning(req.params.printer)));
+  app.post("/api/dispatch/:printer/recheck", async (req, res) => {
+    try { if (!dispatcher) return res.sendStatus(503); res.json(await dispatcher.recheck(req.params.printer)); } catch (e) { fail(res, e); }
+  });
   app.post("/api/dispatch/auto", (req, res) => {
     try {
       if (!dispatcher) return res.sendStatus(503);

@@ -7,6 +7,7 @@ const IDLE = ["IDLE", "FINISH", "FAILED"];
 const SNOOZE = 60 * 60000;
 const RECHECK = 5 * 60000; // a bed that wasn't clear (or was too dark) is looked at again this often
 const RETRY = 10 * 60000;
+const CONFIRMED_FOR = 30 * 60000; // how long teaching the empty bed counts as you saying it's clear
 const orderNumber = (o) => Number(String(o.number).replace(/\D/g, "")) || 0;
 
 // Notices when a printer is free and an order needs a piece it can print (a Bambu TPU for AMS spool
@@ -30,6 +31,7 @@ export class Dispatcher {
     this.tried = new Map(); // offerId -> { at, reason }
     this.beds = new Map(); // printer -> { key, at, empty, reason }: the last camera check of the bed
     this.held = new Map(); // printer -> { printerName, reason }: free, but the bed check says no
+    this.confirmedClear = new Map(); // printer -> { job, at }: you taught its empty bed; clear until the next print, for half an hour
     this.warnings = new Map(); // printer -> { id, printer, printerName, job, reason, at, jpeg }: you started a print the camera doubted
     this.busy = false;
   }
@@ -224,9 +226,17 @@ export class Dispatcher {
     if (area !== undefined) this.db.prepare("UPDATE bed_references SET area=? WHERE printer=?").run(area ? JSON.stringify({left:area.left,top:area.top,right:area.right,bottom:area.bottom}) : null, serial);
     this.referenceCaptures.delete(serial);
     this.beds.delete(serial);
+    // Teaching is you confirming this bed is clear right now: the hold goes, and it counts as clear until the next print.
+    this.confirmedClear.set(serial, { job: capture.job, at: this.now() });
+    this.held.delete(serial);
     this.referenceRevisions.set(serial,(this.referenceRevisions.get(serial)||0)+1);
     const offer=this.offers.get(serial);if(offer)this.tried.delete(offer.id);
     return {ok:true};
+  }
+  // You taught this printer's empty bed since its last print, within the half hour, so you've already said it's clear.
+  confirmedByYou(serial, last) {
+    const c = this.confirmedClear.get(serial);
+    return !!c && c.job === (last?.id || "none") && this.now() - c.at < CONFIRMED_FOR;
   }
   // One careful look right now, for a print started by hand.
   async checkBedNow(serial) {
@@ -242,6 +252,7 @@ export class Dispatcher {
     if (!this.bedCheck) return { empty: true, reason: "" };
     const revision=this.referenceRevisions.get(serial)||0;
     const key = last ? `${last.id}:${last.outcome}` : "none";
+    if (this.confirmedByYou(serial, last)) return { key, at: this.now(), empty: true, reason: "You confirmed the bed is clear." };
     const seen = this.beds.get(serial);
     if (seen?.key === key && (seen.empty || this.now() - seen.at < RECHECK)) return seen;
     let result;
@@ -263,7 +274,8 @@ export class Dispatcher {
     const block = (reason) => { this.tried.set(offer.id, { at: this.now(), reason }); offer.autoBlocked = reason; return false; };
     if (!this.bedCheck) return block("Camera checks need the vision key");
     let bed;
-    try {
+    if (this.confirmedByYou(serial, this.watcher.lastFor(serial))) bed = { empty: true, reason: "You confirmed the bed is clear." };
+    else try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
       if (brightness < 18) return block("Too dark to check the bed");
       bed = await this.bedCheck(jpeg, "confirm", this.context(serial));
@@ -294,6 +306,17 @@ export class Dispatcher {
       if (this.orderPrints.pending.get(offer.printer) === reservation) this.orderPrints.cancel(offer.printer);
       throw error;
     }
+  }
+  // "Bed cleared": forget the last look at this printer's bed and look again now, instead of in a few minutes.
+  // Waits for the answer, so the app can say straight away whether it's offered (or started) or still held.
+  async recheck(serial) {
+    serial = String(serial);
+    if (!this.printers.statuses().some((p) => p.serial === serial)) throw Object.assign(Error("Unknown printer"), { status: 404 });
+    this.beds.delete(serial);
+    for (const id of this.tried.keys()) if (id.startsWith(serial + ":")) this.tried.delete(id);
+    while (this.busy) await new Promise((r) => setTimeout(r, 200));
+    await this.tick();
+    return this.view();
   }
   dismiss(printer) {
     const offer = this.offers.get(printer);

@@ -2755,3 +2755,13 @@ button.home-note-order:hover { background: #f7dba6; }
   .bed-warning-body { flex-direction: column; }
   .bed-warning-body img { width: 100%; }
 }
+
+/* A free printer waiting on its bed: what the camera sees, with a photo, and the two answers. */
+.held-card { border-color: #e6dcc9; background: #fffcf6; }
+.held-card h3 svg { color: #b7791f; }
+.held-body { display: flex; gap: 12px; align-items: flex-start; }
+.held-body img { display: block; width: 120px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 7px; background: #e6eded; flex: none; }
+.held-body p { margin: 0; font-size: 13px; line-height: 1.45; color: #193347; }
+.held-body p span { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 2px; }
+.held-card .watch-actions button { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 760px) { .held-body img { width: 96px; } }

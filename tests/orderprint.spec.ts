@@ -122,10 +122,10 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await expect(orderRow.getByText('Printer available',{exact:true})).toBeVisible();
   await expect(orderRow.getByLabel('Files ready',{exact:true})).toHaveText('Files');
   await orderRow.screenshot({path:'handoff/spoolside-order-availability-desktop.png'});
-  await expect(page.getByText('could print the next order, but the camera says: A grey case is still on the plate')).toBeVisible();
+  await expect(page.getByRole('article', { name: 'AMS 2 is waiting on its bed' })).toContainText('A grey case is still on the plate.');
   await page.setViewportSize({width:428,height:926});
   const home=page.getByRole('region',{name:'Spoolside home'});
-  await expect(home.getByText(/could print the next order/)).toHaveCount(0);
+  await expect(home.getByText(/waiting on its bed/)).toHaveCount(0);
   const blockedPill=home.getByRole('button',{name:/AMS 2, .*bed needs clearing/});
   await expect(blockedPill).toBeVisible();
   await expect(blockedPill.locator('.home-dot')).toHaveCSS('background-color','rgb(255, 90, 79)');
