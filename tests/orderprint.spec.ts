@@ -104,7 +104,7 @@ test('a free printer offers the next order piece; Not now and the automatic prin
     const url = new URL(route.request().url());
     if (url.pathname === '/api/workspace') return route.fulfill({ json: state });
     if (url.pathname === '/api/dispatch') return route.fulfill({ json: dispatch });
-    if (url.pathname.startsWith('/api/dispatch/')) {
+    if (url.pathname.startsWith('/api/dispatch/') && route.request().method() !== 'GET') {
       posts.push([url.pathname, route.request().postDataJSON()]);
       dispatch = url.pathname.endsWith('dismiss') ? { ...dispatch, offers: [] } : { ...dispatch, auto: route.request().postDataJSON().on };
       return route.fulfill({ json: dispatch });

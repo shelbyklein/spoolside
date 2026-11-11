@@ -2729,3 +2729,29 @@ button.home-note-order:hover { background: #f7dba6; }
 @media (prefers-reduced-motion: reduce) {
   .chat-thinking span, .chat-tool .spin, .chat-msg.streaming .chat-markdown > :last-child::after { animation: none; }
 }
+
+/* Bed check: a warning after a print you started, and each printer's tuning. */
+.bed-warning { border-color: #f0c9a4; background: #fff8f1; }
+.bed-warning h3 svg { color: #c2622d; }
+.bed-warning-body { display: flex; gap: 12px; align-items: flex-start; }
+.bed-warning-body img { display: block; width: 132px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 7px; background: #e6eded; flex: none; }
+.bed-warning-body p { margin: 0; font-size: 13px; line-height: 1.45; }
+.bed-warning .watch-actions { flex-wrap: wrap; }
+.bed-warning .watch-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.bed-settings { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.bed-settings h3 { margin: 0; font-size: 15px; }
+.bed-settings h4 { margin: 4px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.bed-settings .plate-meta { margin: 0; }
+.bed-settings .check-row { align-items: flex-start; }
+.bed-settings .check-row span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 600; }
+.bed-settings .check-row small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.bed-allow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bed-allow li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #eef4f3; font-size: 12.5px; line-height: 1.4; }
+.bed-allow li span { flex: 1; overflow-wrap: anywhere; }
+.bed-allow-add { display: flex; gap: 8px; }
+.bed-allow-add input { flex: 1; min-width: 0; border: 1px solid #d5dfe0; border-radius: 7px; padding: 9px 11px; font: inherit; font-size: 13px; }
+.bed-allow-add button { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 760px) {
+  .bed-warning-body { flex-direction: column; }
+  .bed-warning-body img { width: 100%; }
+}

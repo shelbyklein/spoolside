@@ -625,6 +625,18 @@ export function createApp({
     const bed = await dispatcher.checkBedNow(String(serial));
     if (!bed.empty) throw bedError(`The camera sees something on the bed: ${bed.reason}`);
   };
+  // Prints you start in the app go straight through; the photo from just before is judged afterwards and you're
+  // warned if the camera doubted it. Starts from API keys (Claude, Codex, plugins) are still held until the bed
+  // is confirmed clear. Returns what to run once the print has started.
+  const bedGate = async (req, serial, bedClear, job) => {
+    if (bedClear === true) return () => {};
+    if (req.apiKey) {
+      await ensureBedClear(serial, bedClear);
+      return () => {};
+    }
+    const frame = await dispatcher?.frameBeforeStart(String(serial));
+    return () => void dispatcher?.warnAfterStart(String(serial), frame, job).catch(() => {});
+  };
   const checkStart = (plates, { plate, amsMapping, useAms }) => {
     const plateInfo = plates.find((p) => p.index === plate);
     if (!plateInfo) throw Error("Choose a sliced plate");
@@ -679,8 +691,9 @@ export function createApp({
       const last = await printers.lastPrint(req.params.id);
       if (!last) throw Object.assign(Error("The last print isn't on the printer anymore"), { status: 404 });
       checkStart(last.plates, req.body || {});
-      await ensureBedClear(req.params.id, req.body?.bedClear);
+      const started = await bedGate(req, req.params.id, req.body?.bedClear, last.name);
       await printers.reprint(req.params.id, { plate, amsMapping, useAms: !!useAms, bedLevelling: bedLevelling !== false });
+      started();
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);
@@ -692,7 +705,7 @@ export function createApp({
       const file = library?.get(String(fileId));
       if (!file) throw Error("Choose a file from the library");
       checkStart(file.plates, req.body || {});
-      await ensureBedClear(req.params.id, req.body?.bedClear);
+      const started = await bedGate(req, req.params.id, req.body?.bedClear, file.name);
       await printers.startPrint(req.params.id, {
         localFile: library.file(file.id),
         name: file.name,
@@ -701,6 +714,7 @@ export function createApp({
         useAms: !!useAms,
         bedLevelling: bedLevelling !== false,
       });
+      started();
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);
@@ -727,7 +741,7 @@ export function createApp({
       // A single-plate file prints its only plate unless told otherwise.
       const plate = opts.plate ?? (plates.length === 1 ? plates[0].index : undefined);
       checkStart(plates, { ...opts, plate });
-      await ensureBedClear(req.params.id, opts.bedClear);
+      const started = await bedGate(req, req.params.id, opts.bedClear, name);
       tmp = path.join(os.tmpdir(), `spoolside-once-${randomUUID()}.3mf`);
       fs.writeFileSync(tmp, req.body, { mode: 0o600 });
       await printers.startPrint(req.params.id, {
@@ -738,6 +752,7 @@ export function createApp({
         useAms: !!opts.useAms,
         bedLevelling: opts.bedLevelling !== false,
       });
+      started();
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);
@@ -791,7 +806,7 @@ export function createApp({
       const file = library.get(next.fileId);
       if (!file) throw Error("That sliced print is no longer in the library");
       checkStart(file.plates, { ...req.body, plate: next.plate });
-      await ensureBedClear(printer, req.body?.bedClear);
+      const started = await bedGate(req, printer, req.body?.bedClear, `${next.name} for ${order.number}`);
       // Everything this plate makes that the order still needs gets credited when it comes out fine.
       const covered = new Set((file.plates.find((p) => p.index === next.plate)?.coverage || []).map((c) => c.assetId));
       const assetIds = [...new Set(plan.flatMap((g) => g.pieces).filter((p) => covered.has(p.assetId) && p.done < p.needed).map((p) => p.assetId))];
@@ -807,6 +822,7 @@ export function createApp({
         if (orderPrints.pending.get(String(printer)) === reservation) orderPrints.cancel(String(printer));
         throw error;
       }
+      started();
       res.json({ ok: true, machines: printers.snapshot() });
     } catch (e) {
       fail(res, e);
@@ -823,6 +839,30 @@ export function createApp({
   app.post("/api/dispatch/:printer/reference", (req,res) => {
     try {if(!dispatcher)return res.sendStatus(503);const result=dispatcher.teachReference(req.params.printer,req.body?.capture,req.body?.clear,req.body?.note,req.body?.area);res.json(result);void dispatcher.tick().catch(()=>{});}catch(e){fail(res,e);}
   });
+  // Tuning each printer's bed check: judge the visible plate or the whole plate, and notes on what's fine.
+  const bedRoute = (fn) => async (req, res) => {
+    try {
+      if (!dispatcher) return res.sendStatus(503);
+      if (!printers?.statuses().some((p) => p.serial === req.params.printer)) throw Object.assign(Error("Unknown printer"), { status: 404 });
+      res.set("Cache-Control", "no-store").json(await fn(req));
+    } catch (e) {
+      fail(res, e);
+    }
+  };
+  app.get("/api/dispatch/:printer/bed-settings", bedRoute((req) => dispatcher.bedSettings(req.params.printer)));
+  app.put("/api/dispatch/:printer/bed-settings", bedRoute((req) => dispatcher.setVisibleOnly(req.params.printer, req.body?.visibleOnly)));
+  app.post("/api/dispatch/:printer/bed-allow", bedRoute((req) => {
+    const result = dispatcher.allowOnBed(req.params.printer, req.body?.text);
+    // Remembered from a warning about a print you started: that warning is answered.
+    if (req.body?.warning) dispatcher.dismissWarning(req.params.printer);
+    void dispatcher.tick().catch(() => {});
+    return result;
+  }));
+  app.delete("/api/dispatch/:printer/bed-allow/:id", bedRoute((req) => dispatcher.removeAllowance(req.params.printer, req.params.id)));
+  app.get("/api/dispatch/:printer/bed-warning.jpg", (req, res) => {
+    try { if (!dispatcher) return res.sendStatus(503); res.set("Cache-Control", "no-store").type("jpeg").send(dispatcher.warning(req.params.printer).jpeg); } catch (e) { fail(res, e); }
+  });
+  app.delete("/api/dispatch/:printer/bed-warning", bedRoute((req) => dispatcher.dismissWarning(req.params.printer)));
   app.post("/api/dispatch/auto", (req, res) => {
     try {
       if (!dispatcher) return res.sendStatus(503);

@@ -97,7 +97,7 @@ const repeater = new Repeater(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlit
   notifications,
   shrink: shrinkFrame,
   bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS) : null,
-  reference: (serial) => dispatcher.reference(serial),
+  reference: (serial) => dispatcher.context(serial),
 });
 dispatcher.repeating = (serial) => repeater.active(serial);
 const repeatTimer = setInterval(() => repeater.tick().catch(() => {}), 20000);
