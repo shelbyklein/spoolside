@@ -121,3 +121,19 @@ export function LoadedMaterial({ machines, materialId }: { machines: Machine[]; 
     </p>
   );
 }
+
+// The printer details' spools: one tile per slot, the one feeding outlined.
+export function SpoolTiles({ machine }: { machine: Machine }) {
+  const spools = loadedSpools(machine);
+  if (!spools.length) return <p className="plate-meta">{machine.connected && !machine.stale ? "No spool information" : "Printer offline"}</p>;
+  return (
+    <ul className="spool-tiles" aria-label="Loaded spools">
+      {spools.map((s) => (
+        <li key={s.key} className={`${s.feeding ? "feeding" : ""}${s.empty ? " empty" : ""}`}>
+          <b><Dot color={s.color} /> {s.empty ? "Empty" : short(s.type)}</b>
+          <small>{s.label}{s.feeding ? " · feeding" : s.remain != null && !s.empty ? ` · ${s.remain}%` : ""}</small>
+        </li>
+      ))}
+    </ul>
+  );
+}

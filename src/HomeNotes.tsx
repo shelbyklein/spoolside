@@ -48,6 +48,8 @@ export function HomeNotes({ orders, openOrder, notify, water = false }: { orders
     try { setNotes(await p); if (done) notify(done); } catch (e) { notify((e as Error).message); throw e; }
   };
   if (!notes) return null;
+  // With nothing to remember, just the way to add one.
+  if (!notes.length && !adding) return <button className={`text-button add-reminder${water ? " on-water" : ""}`} onClick={() => setAdding(true)}><Plus size={15} /> Add a reminder</button>;
   return (
     <section className={`home-notes${water ? " on-water" : ""}`} aria-label="Reminders">
       <div className="home-notes-head">

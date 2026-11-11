@@ -166,6 +166,8 @@ export class Dispatcher {
     const clean = typeof text === "string" ? text.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 300) : "";
     if (!clean) throw Error("Say what's fine on this printer's bed");
     const { allow } = this.bedSettings(serial);
+    // The same note twice adds nothing.
+    if (allow.some((a) => a.text.toLowerCase() === clean.toLowerCase())) { this.held.delete(String(serial)); return this.bedSettings(serial); }
     if (allow.length >= 20) throw Error("This printer has 20 notes already. Remove one first.");
     this.held.delete(String(serial));
     return this.saveBedSettings(serial, { allow: [...allow, { id: randomUUID(), text: clean, at: this.now() }] });

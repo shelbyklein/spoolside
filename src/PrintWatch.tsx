@@ -1,3 +1,4 @@
+import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, ClipboardCheck, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
@@ -167,7 +168,7 @@ export function useWatches(enabled: boolean) {
 }
 
 // Alerts first, then "how did it go?" for finished prints. Renders nothing when all is quiet.
-export function WatchAttention({ watches, refresh, notify, water = false }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void; water?: boolean }) {
+export function WatchAttention({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void }) {
   const [busy, setBusy] = useState(""), [failing, setFailing] = useState(""), [noting, setNoting] = useState(""), [succeeding, setSucceeding] = useState(""), [addToLibrary, setAddToLibrary] = useState<Record<string, boolean>>({});
   const act = async (key: string, run: () => Promise<unknown>, done: string) => {
     setBusy(key);
@@ -200,28 +201,26 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
   const saveToLibrary = (w: Watch) => { if (wantsLibrary(w)) startImport(w, refresh); };
   if (!alerts.length && !asks.length) return null;
   return (
-    <div className={`watch-attention${water ? " on-water" : ""}`}>
+    <>
       {alerts.map((w) => (
-        <article key={w.id} className="watch-card alert" aria-label={`${w.printerName} alert`}>
-          <h3><AlertTriangle size={17} /> {w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}</h3>
-          <p className="watch-job">{jobName(w.job)} · {ago(w.alert!.at)}</p>
-          <img src={photo(w, w.alert!.file)!} alt={`Camera photo of ${w.printerName} when the problem was spotted`} loading="lazy" />
-          <p>{w.alert!.reason}</p>
-          <div className="watch-actions">
-            <button className="primary" disabled={!!busy} onClick={() => act(w.id + "ok", () => post(`/api/watches/${w.id}/false-alarm`), w.alert!.paused ? `Resumed ${w.printerName}.` : "Thanks, noted.")}>
-              {w.alert!.paused ? <><Play size={15} /> False alarm, resume</> : <><Check size={15} /> Looks fine</>}
-            </button>
+        <NeedRow key={w.id} tone="alert" label={`${w.printerName} alert`} title={w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}
+          media={<a href={photo(w, w.alert!.file)!} target="_blank" rel="noreferrer"><NeedPhoto src={photo(w, w.alert!.file)!} alt={`Camera photo of ${w.printerName} when the problem was spotted`} /></a>}
+          actions={<>
             <button className="secondary danger" disabled={!!busy} onClick={() => window.confirm(`Stop the print on ${w.printerName}? This can't be undone.`) && act(w.id + "stop", () => post(`/api/printers/${w.printer}/stop`), `Stopped ${w.printerName}.`)}>
-              <Square size={14} /> Stop print
+              <Square size={13} /> Stop print
             </button>
-          </div>
-        </article>
+            <button className="primary" disabled={!!busy} onClick={() => act(w.id + "ok", () => post(`/api/watches/${w.id}/false-alarm`), w.alert!.paused ? `Resumed ${w.printerName}.` : "Thanks, noted.")}>
+              {w.alert!.paused ? <><Play size={14} /> False alarm, resume</> : <><Check size={14} /> Looks fine</>}
+            </button>
+          </>}>
+          {w.alert!.reason} <span className="need-meta">{jobName(w.job)} · {ago(w.alert!.at)}</span>
+        </NeedRow>
       ))}
       {asks.length > 0 && (
-        <button className="review-summary" onClick={() => setReviewing(true)}>
-          <ClipboardCheck size={18} />
-          <span><strong>{asks.length === 1 ? "1 print to review" : `${asks.length} prints to review`}</strong><small>Optional · helps the watcher learn</small></span>
-        </button>
+        <NeedRow tone="ok" label="Prints to review" title={asks.length === 1 ? "1 print to review" : `${asks.length} prints to review`} media={<NeedIcon tone="ok"><ClipboardCheck size={18} /></NeedIcon>}
+          actions={<button className="secondary" onClick={() => setReviewing(true)}>Review</button>}>
+          {asks.length === 1 ? `${jobName(asks[0].job)} on ${asks[0].printerName} · ${ago(asks[0].ended!)}` : "Optional · helps the watcher learn"}
+        </NeedRow>
       )}
       {reviewing && asks.length > 0 && createPortal(
         <div className="modal-backdrop" onClick={() => setReviewing(false)}>
@@ -268,7 +267,7 @@ export function WatchAttention({ watches, refresh, notify, water = false }: { wa
         </div>,
         document.body,
       )}
-    </div>
+    </>
   );
 }
 
