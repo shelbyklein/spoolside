@@ -340,3 +340,22 @@ test("the bed prompt follows the printer's settings, with or without an empty-be
   assert.match(request.system, /only if you can see the whole plate/);
   assert.ok(!request.messages[0].content.some((c) => c.type === "text" && /owner's notes/.test(c.text)));
 });
+
+test("a printer is only offered an order whose colorway one of its spools actually is", async () => {
+  // AMS 2's real spools: red, blue and grey TPU. Grey's RGB numbers sit close to green's, but grey isn't green.
+  const s = setup({ trays: [{ slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 2, color: "#5898DD", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 3, color: "#939393", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] });
+  try {
+    s.orders.splice(0, s.orders.length, { id: "g", number: "#10416", commercial: "processing", assembled: false, items: [{ id: "i", colorway: "Green" }] });
+    await s.d.tick();
+    assert.equal(s.d.view().offers.length, 0, "no green spool, no green offer");
+    assert.equal(s.d.view().available.length, 0);
+    // Load lime green TPU and the order is offered from that slot.
+    s.view.trays.push({ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" });
+    s.later(60 * 60000);
+    await s.d.tick();
+    assert.equal(s.d.view().offers[0]?.orderNumber, "#10416");
+    assert.equal(s.d.view().offers[0].slot, 0);
+  } finally {
+    s.done();
+  }
+});

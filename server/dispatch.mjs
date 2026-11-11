@@ -1,14 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-// Store colorway names to the color looked for among loaded spools (matches the app's print dialog).
-const COLORWAYS = {
-  red: "#e0201b", green: "#3baa35", blue: "#2f6fd6", black: "#111111", grey: "#8a8a8a", gray: "#8a8a8a", white: "#f2f2f2",
-  orange: "#f07818", purple: "#7e3fb5", pink: "#f06eaa", yellow: "#f5d000", teal: "#0f8c8c",
-};
-const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
-const distance = (a, b) => rgb(a).reduce((n, v, i) => n + (v - rgb(b)[i]) ** 2, 0);
-export const FAR = 20000;
+import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "./colorway.mjs";
 const MATERIAL = "bambu-tpu-ams"; // for now, only Bambu TPU for AMS spools are matched
 const IDLE = ["IDLE", "FINISH", "FAILED"];
 const SNOOZE = 60 * 60000;
@@ -60,17 +53,19 @@ export class Dispatcher {
       .filter(({ order }) => (!orderId || order.id === orderId) && String(order.commercial).toLowerCase() === "processing" && !order.refundReview && !order.sourceReview && !order.assembled)
       .sort((a, b) => orderNumber(a.order) - orderNumber(b.order));
     for (const { order, plan } of work) {
-      const target = COLORWAYS[String(order.items.find((i) => i.colorway)?.colorway || "").toLowerCase()];
+      const colorway = order.items.find((i) => i.colorway)?.colorway;
+      const target = COLORWAYS[colorwayName(colorway)];
       if (!target) continue;
+      // Only spools that read as the order's colorway (a grey spool is never "close enough" to green).
+      const matching = trays.filter((t) => matchesColorway(t.color, colorway));
+      if (!matching.length) continue;
       for (const group of plan) {
         const next = group.next;
         if (!next || taken.has(`${order.id}:${next.assetId}`)) continue;
         const plate = this.library.get(next.fileId)?.plates.find((p) => p.index === next.plate);
         if (!plate?.filaments.length || !plate.filaments.every((f) => /^TPU/i.test(f.type))) continue;
-        const best = trays.map((t) => ({ t, off: distance(t.color, target) })).sort((a, b) => a.off - b.off)[0];
-        if (best.off > FAR) continue;
+        const best = matching.map((t) => ({ t, off: deltaE(t.color, target) })).sort((a, b) => a.off - b.off)[0];
         const slots = Math.max(...plate.filaments.map((f) => f.id));
-        const colorway = order.items.find((i) => i.colorway)?.colorway;
         return {
           id: `${view.id}:${order.id}:${group.key}:${next.fileId}:${next.plate}`,
           printer: view.id, printerName: view.name, orderId: order.id, orderNumber: order.number, group: group.key, groupLabel: group.label,
