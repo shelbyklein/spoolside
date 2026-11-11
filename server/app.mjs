@@ -37,6 +37,7 @@ export function createApp({
   inventory,
   repeater,
   notes,
+  chat,
 } = {}) {
   if (
     !pinHash ||
@@ -414,6 +415,27 @@ export function createApp({
   app.post("/api/notes", noteRoute((req) => notes.add(req.body || {})));
   app.patch("/api/notes/:id", noteRoute((req) => notes.update(req.params.id, req.body || {})));
   app.delete("/api/notes/:id", noteRoute((req) => notes.remove(req.params.id)));
+  // Claude, through Shelby's Claude subscription, with the Spoolside MCP's tools.
+  const chatRoute = (fn) => (req, res) => {
+    try {
+      if (!chat) return res.sendStatus(503);
+      res.set("Cache-Control", "no-store").json(fn(req));
+    } catch (e) {
+      fail(res, e);
+    }
+  };
+  app.get("/api/chat", chatRoute(() => chat.view()));
+  app.post("/api/chat", chatRoute((req) => chat.send(req.body?.text)));
+  app.post("/api/chat/stop", chatRoute(() => chat.stop()));
+  app.delete("/api/chat", chatRoute(() => chat.reset()));
+  app.get("/api/chat/images/:file", (req, res) => {
+    try {
+      if (!chat) return res.sendStatus(404);
+      res.set("Cache-Control", "private, max-age=86400").sendFile(chat.image(req.params.file), (e) => e && !res.headersSent && res.sendStatus(404));
+    } catch (e) {
+      fail(res, e);
+    }
+  });
   app.get("/api/inventory", (_req, res) => (inventory ? res.set("Cache-Control", "no-store").json(inventoryView()) : res.sendStatus(503)));
   app.put("/api/inventory", (req, res) => {
     try {
