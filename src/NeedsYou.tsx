@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import type { Machine } from "./live-workspace";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 // Everything that needs you, in one list with one row shape: a coloured edge for how urgent, a photo or icon,
 // what happened, and the actions on the right (below it, on a phone).
@@ -30,11 +32,11 @@ export function NeedsYou({ count, children, water = false }: { count: number; ch
 // Printers waiting at a pause they made themselves (a pause in the file, a runout, the screen): one row, since
 // they usually pause together for inserts, with resume for each or all.
 export const pausedByPrinter = (machines: Machine[], heldBySpoolside: Set<string>) => machines.filter((m) => m.connected && !m.stale && m.rawState === "PAUSE" && !heldBySpoolside.has(m.id));
-export function PausedRow({ machines, notify, refresh }: { machines: Machine[]; notify: (m: string) => void; refresh: () => void }) {
+export function PausedRow({ machines, notify, refresh }: { machines: Machine[]; notify: Notify; refresh: () => void }) {
   const [busy, setBusy] = useState(false);
   if (!machines.length) return null;
-  const resume = async (list: Machine[]) => {
-    if (list.length > 1 && !window.confirm(`Resume ${list.map((m) => m.name).join(", ")}? Make sure each one is ready.`)) return;
+  const resume = async (list: Machine[]): Promise<void> => {
+    if (list.length > 1 && !(await confirmAction({ title: `Resume ${list.map((m) => m.name).join(", ")}?`, body: "Make sure each one is ready.", confirmLabel: "Resume all" }))) return;
     setBusy(true);
     const failed: string[] = [];
     for (const m of list) {
@@ -42,7 +44,8 @@ export function PausedRow({ machines, notify, refresh }: { machines: Machine[]; 
       if (!r?.ok) failed.push(m.name);
     }
     setBusy(false);
-    notify(failed.length ? `Couldn't resume ${failed.join(", ")}.` : `Resumed ${list.map((m) => m.name).join(", ")}.`);
+    if (failed.length) notify(`Couldn't resume ${failed.join(", ")}.`, failure(() => resume(list.filter((m) => failed.includes(m.name)))));
+    else notify(`Resumed ${list.map((m) => m.name).join(", ")}.`);
     refresh();
   };
   const one = machines.length === 1 ? machines[0] : null;

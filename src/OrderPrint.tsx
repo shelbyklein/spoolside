@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Play, Printer, X } from "lucide-react";
+import { Check, Play, Printer } from "lucide-react";
+import { Dialog } from "./Dialog";
 import type { Machine } from "./live-workspace";
 import type { Order, PrintGroup } from "./order-model";
 import { BedHeld, useLibrary } from "./PrintControls";
@@ -8,6 +9,7 @@ import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
 
 // Shared with the server's print offers, so both agree on which spool is the order's color.
 import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "../server/colorway.mjs";
+import { failure, type Notify } from "./Toast";
 const idle = (m: Machine) => !!m.connected && !m.stale && ["IDLE", "FINISH", "FAILED"].includes(m.rawState || "");
 export const colorwayOf = (order: Order) => order.items.find((i) => i.colorway)?.colorway || "";
 const groupTitle = (g: PrintGroup) => `Print ${g.label}`;
@@ -50,7 +52,7 @@ export function OrderPrintButtons({ order, onPrint, onTick }: { order: Order; on
 }
 
 // Choose the printer and spool for one order piece, check the bed, and send it.
-export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify, printer: suggested }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: (m: string) => void; printer?: string }) {
+export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify, printer: suggested }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: Notify; printer?: string }) {
   const next = group.next!;
   const { files } = useLibrary();
   const plate = files?.find((f) => f.id === next.fileId)?.plates.find((p) => p.index === next.plate);
@@ -79,11 +81,6 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
     const pick = target ? closestTray(printer, colorway, material)?.tray.slot ?? -1 : -1;
     setMapping(Array.from({ length: slots }, () => pick));
   }, [plate, printerId]);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && !sending && onClose();
-    document.addEventListener("keydown", key);
-    return () => document.removeEventListener("keydown", key);
-  }, [sending]);
   const match = printer && target ? closestTray(printer, colorway, material) : null;
   const send = async (anyway = false) => {
     setSending(true);
@@ -101,18 +98,13 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
       onSent();
       onClose();
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setSending(false);
     }
   };
   return (
-    <div className="modal-backdrop" onClick={() => !sending && onClose()}>
-      <div className="modal order-print-dialog" role="dialog" aria-modal="true" aria-label={`${groupTitle(group)} for ${order.number}`} onClick={(e) => e.stopPropagation()}>
-        <div className="section-top">
-          <h3>{groupTitle(group)} · {order.number}</h3>
-          <button className="icon-button" aria-label="Close" disabled={sending} onClick={onClose}><X size={18} /></button>
-        </div>
+    <Dialog className="order-print-dialog" title={<>{groupTitle(group)} · {order.number}</>} label={`${groupTitle(group)} for ${order.number}`} busy={sending} onClose={onClose}>
         <div className="order-print-piece">
           <img src={`/api/library/${next.fileId}/preview.png`} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
           <span>
@@ -163,8 +155,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
             {held && <BedHeld reason={held} busy={sending} onAnyway={() => send(true)} />}
           </>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

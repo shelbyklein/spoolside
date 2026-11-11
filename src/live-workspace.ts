@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Order, Job, PrintGroup } from "./order-model";
+import { confirmAction } from "./Confirm";
 export type Machine = {
   id: string;
   name: string;
@@ -55,12 +56,16 @@ export function useLiveWorkspace(enabled: boolean) {
   const [data, setData] = useState<Data>(empty),
     [loading, setLoading] = useState(enabled),
     [error, setError] = useState(""),
+    // Set while the last workspace load failed (cleared by the next good one); loadedAt is when data last arrived.
+    [loadFailure, setLoadFailure] = useState<null | "auth" | "unreachable">(null),
+    [loadedAt, setLoadedAt] = useState<number | null>(null),
     [saving, setSaving] = useState(false);
   const current = useRef(empty),
     dirty = useRef(false),
     busy = useRef(false),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     version = useRef(0);
+  const loaded = () => { setLoadFailure(null); setLoadedAt(Date.now()); setLoading(false); };
   const accept = (value: Data) => {
     current.current = value;
     setData(value);
@@ -71,13 +76,9 @@ export function useLiveWorkspace(enabled: boolean) {
     const at = version.current;
     try {
       const r = await fetch("/api/workspace", { cache: "no-store" });
-      if (!r.ok)
-        throw Error(
-          r.status === 401
-            ? "Your session expired. Sign in again."
-            : "Could not load your workshop. Retry when the connection returns.",
-        );
+      if (!r.ok) throw Object.assign(Error("load failed"), { auth: r.status === 401 });
       const value = await r.json();
+      loaded();
       if (value.revision < current.current.revision) return;
       if (!dirty.current && at === version.current && !busy.current) {
         accept(value);
@@ -87,7 +88,7 @@ export function useLiveWorkspace(enabled: boolean) {
         setData(current.current);
       }
     } catch (e) {
-      setError((e as Error).message);
+      setLoadFailure((e as { auth?: boolean }).auth ? "auth" : "unreachable");
       setLoading(false);
     }
   };
@@ -152,13 +153,15 @@ export function useLiveWorkspace(enabled: boolean) {
     data,
     loading,
     error,
+    loadFailure,
+    loadedAt,
     saving,
     update,
     retry: () => (dirty.current ? save() : load()),
-    reload: () => {
+    reload: async () => {
       if (
         dirty.current &&
-        !window.confirm("Discard unsaved changes and reload server state?")
+        !(await confirmAction({ title: "Discard unsaved changes?", body: "Reload the server state, without the changes that haven't saved.", confirmLabel: "Discard", danger: true }))
       )
         return;
       dirty.current = false;
@@ -175,7 +178,7 @@ export function useLiveWorkspace(enabled: boolean) {
         const r = await fetch("/api/sync", { method: "POST" });
         if (!r.ok) throw Error("Store refresh failed");
         const value = await r.json();
-        if (at === version.current && !dirty.current) accept(value);
+        if (at === version.current && !dirty.current) { accept(value); loaded(); }
         else setError("Store refreshed while you were editing. Reload to review updated orders before saving.");
       } catch (e) {
         setError((e as Error).message);

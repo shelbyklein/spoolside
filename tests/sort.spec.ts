@@ -14,24 +14,15 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
     { id: 'a', name: 'Alpha', size: 1, created: '2026-09-01T00:00:00Z', plates: [plate(90, 10)] },
     { id: 'c', name: 'Charlie', size: 1, created: '2026-10-10T00:00:00Z', plates: [plate(60, 30)] },
   ];
-  const inventory = { colors: ['Black', 'Red'], updated: null, items: [
-    { kind: 'case', id: 'c1', name: 'iPhone 13', counts: { Black: 1 } },
-    { kind: 'case', id: 'c2', name: 'iPhone 16', counts: { Black: 5, Red: 2 } },
-    { kind: 'case', id: 'c3', name: 'Pixel 9', counts: {} },
-  ] };
   await page.route('https://spoolside.shelbyklein.com/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/workspace') return route.fulfill({ json: state });
     if (url.pathname === '/api/library') return route.fulfill({ json: library });
-    if (url.pathname === '/api/inventory' && route.request().method() === 'PUT') {
-      const b = route.request().postDataJSON();
-      inventory.items = inventory.items.map((i) => (i.id === b.id ? { ...i, counts: { ...i.counts, [b.color]: b.count } } : i));
-    }
-    if (url.pathname === '/api/inventory') return route.fulfill({ json: inventory });
     if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: false, watches: [], recent: [] } });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ json: ['/api/assets', '/api/categories'].includes(url.pathname) ? [] : {} });
     if (/\.(jpg|png)$/.test(url.pathname) && !url.pathname.startsWith('/assets')) return route.fulfill({ status: 404, body: '' });
-    return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) });
+    // The test moves between pages quickly; a request from the page it just left may be cancelled mid-flight.
+    return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) }).catch(() => {});
   });
   await page.route('https://playcase.gg/**', (route) => route.fulfill({ status: 404, body: '' }));
 
@@ -57,19 +48,6 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
   await expect(orders.first()).toHaveAttribute('aria-label', 'Order #10190');
   await expect(orders.last()).toHaveAttribute('aria-label', 'Order #10181');
 
-  // Inventory: most on hand first.
-  await page.goto('https://spoolside.shelbyklein.com/inventory');
-  const rows = page.locator('.inventory tbody tr:not(.inventory-group) th');
-  await expect(rows).toHaveText(['iPhone 13', 'iPhone 16', 'Pixel 9']);
-  await page.getByLabel('Sort inventory').selectOption({ label: 'Most on hand' });
-  await expect(rows).toHaveText(['iPhone 16', 'iPhone 13', 'Pixel 9']);
-  // Typing a count doesn't move rows under your fingers.
-  await page.getByLabel('Pixel 9 Black').fill('9');
-  await page.getByLabel('Pixel 9 Black').press('Enter');
-  await expect.poll(() => inventory.items.find((i) => i.id === 'c3')!.counts).toEqual({ Black: 9 });
-  await expect(rows).toHaveText(['iPhone 16', 'iPhone 13', 'Pixel 9']);
-  await page.reload();
-  await expect(rows).toHaveText(['Pixel 9', 'iPhone 16', 'iPhone 13']);
 
   // Printers: by name, or finishing soonest.
   await page.goto('https://spoolside.shelbyklein.com/printers');
@@ -92,7 +70,5 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
   await page.locator('.sliced-filters').screenshot({ path: 'handoff/spoolside-sort-sliced-mobile.png' });
   await page.goto('https://spoolside.shelbyklein.com/library');
   await expect(page.getByLabel('Sort assets')).toBeVisible();
-  await page.goto('https://spoolside.shelbyklein.com/inventory');
-  await page.locator('.inventory-toolbar').screenshot({ path: 'handoff/spoolside-sort-inventory-mobile.png' });
   await context.close();
 });

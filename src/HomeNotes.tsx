@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Pencil, Plus, StickyNote } from "lucide-react";
 import type { Order } from "./order-model";
+import { failure, type Notify } from "./Toast";
 
 type Note = { id: string; text: string; order: string | null; created: number; updated: number };
 
@@ -36,7 +37,7 @@ function NoteForm({ initial, onSave, onCancel }: { initial?: Note; onSave: (text
 }
 
 // Home page: reminder cards for customer service to-dos, above the orders.
-export function HomeNotes({ orders, openOrder, notify, water = false }: { orders: Order[]; openOrder: (id: string) => void; notify: (m: string) => void; water?: boolean }) {
+export function HomeNotes({ orders, openOrder, notify, water = false }: { orders: Order[]; openOrder: (id: string) => void; notify: Notify; water?: boolean }) {
   const [notes, setNotes] = useState<Note[] | null>(null), [adding, setAdding] = useState(false), [editing, setEditing] = useState("");
   useEffect(() => {
     const load = () => fetch("/api/notes", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => Array.isArray(d) && setNotes(d)).catch(() => {});
@@ -45,7 +46,7 @@ export function HomeNotes({ orders, openOrder, notify, water = false }: { orders
     return () => clearInterval(timer);
   }, []);
   const run = async (p: Promise<Note[]>, done?: string) => {
-    try { setNotes(await p); if (done) notify(done); } catch (e) { notify((e as Error).message); throw e; }
+    try { setNotes(await p); if (done) notify(done); } catch (e) { notify((e as Error).message, failure()); throw e; }
   };
   if (!notes) return null;
   // With nothing to remember, just the way to add one.

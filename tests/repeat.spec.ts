@@ -37,7 +37,7 @@ test('a printer can repeat its current print each time the bed is cleared', asyn
   await expect(active).toContainText('Printing (0 repeated so far)');
   await expect(details.getByRole('button', { name: 'Repeat this print…' })).toHaveCount(0);
   // The printer card says so too, with what it's doing.
-  await page.locator('.detail-overlay').click({ position: { x: 5, y: 5 } });
+  await page.locator('.dialog-backdrop').click({ position: { x: 5, y: 5 } });
   const card = page.getByRole('button', { name: 'Membrane, Printing' });
   await expect(card.locator('.printer-card-repeat')).toContainText('Repeating 0/10 · Printing (0 repeated so far)');
   await card.screenshot({ path: 'handoff/spoolside-repeat-card.png' });

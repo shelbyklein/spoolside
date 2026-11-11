@@ -162,7 +162,12 @@ test('Library sections sit inside the PlayCase menu and under Library in the sid
   await expect(menu.getByRole('tab', { name: 'Sliced prints' })).toHaveAttribute('aria-selected', 'true');
   await page.goBack();
   await expect(menu.getByRole('tab', { name: 'Assemblies' })).toHaveAttribute('aria-selected', 'true');
-  await menu.getByRole('button', { name: 'Inventory' }).click();
+  await menu.getByRole('button', { name: 'Orders' }).click();
   await expect(page.locator('.library-subnav')).toHaveCount(0);
   await expect(menu.getByRole('tab', { name: 'Assets' })).toHaveCount(0);
+  // Inventory was removed: PlayCase is Orders and Library, and old links land on Orders.
+  await expect(menu.getByRole('button', { name: 'Inventory' })).toHaveCount(0);
+  // An old /inventory link opens Orders (the app rewrites the address).
+  await page.evaluate(() => { history.pushState(null, '', '/inventory'); dispatchEvent(new PopStateEvent('popstate')); });
+  await expect(page).toHaveURL(/\/orders$/);
 });
