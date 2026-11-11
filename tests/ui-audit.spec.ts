@@ -25,8 +25,8 @@ type Size = 1440 | 820 | 428;
 type Check = 'offRight' | 'smallTap' | 'tinyText' | 'lowContrast' | 'unnamed';
 type DialogCheck = 'named' | 'escape' | 'trap' | 'return' | 'scroll';
 
-// Today's failures: counts per page, and failing checks per dialog (space-separated). In the plan's terms: inventory
-// and phone Library offRight are P5 and P6, smallTap / tinyText / lowContrast are P11, the dialogs are P8.
+// Today's failures: counts per page, and failing checks per dialog (space-separated). In the plan's terms: phone Library
+// offRight is P6, smallTap / tinyText / lowContrast are P11, the dialogs are P8.
 const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>>; dialogs: Record<string, string> }> = {
   1440: {
     pages: {
@@ -36,7 +36,6 @@ const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>
   },
   820: {
     pages: {
-      inventory: { offRight: 485 },
     },
     dialogs: {}, // dialogs are opened at 1440 and 428 only
   },
@@ -44,7 +43,6 @@ const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>
     pages: {
       library: { offRight: 3 },
       sliced: { offRight: 2 },
-      inventory: { offRight: 543 },
     },
     dialogs: {},
   },
@@ -69,7 +67,6 @@ const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, s
   { name: 'library', path: '/library', ready: (p) => [p.locator('.asset-pill').first(), p.locator('.part-card').first()] },
   { name: 'assemblies', path: '/library/assemblies', ready: (p) => [p.locator('.assembly-tile').first(), p.getByText('Preview unavailable'), p.locator('.tile-cost').first()] },
   { name: 'sliced', path: '/library/sliced', ready: (p) => [p.locator('.sliced-card').nth(9), p.locator('.part-chip').first()] },
-  { name: 'inventory', path: '/inventory', ready: (p) => [p.locator('.inventory tbody tr').first()] },
   { name: 'personal', path: '/personal', ready: (p) => [p.locator('.personal-project-card').first()] },
   { name: 'supplies', path: '/supplies', ready: (p) => [p.locator('.material-offer').first(), p.locator('.loaded-printers'), p.locator('.costing-settings')] },
   { name: 'settings', path: '/settings', ready: (p) => [p.locator('.settings-printers li').first(), p.locator('.notification-settings button.primary')] },

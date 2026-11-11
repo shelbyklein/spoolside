@@ -55,6 +55,7 @@ Mockups show layout and behavior. Colours, fonts and artwork stay as `DESIGN.md`
 
 - Phone bottom bar becomes 5 tabs: Home, Printers, PlayCase, Queue (with a count), More. Personal, Supplies and Settings open from More. (Shelby, 2026-11-11)
 - Phone Orders rows start collapsed and open on tap. (Shelby, 2026-11-11)
+- The Inventory page is removed rather than reworked (P5 no longer applies). Its server routes and data are kept, so it can come back. (Shelby, 2026-11-11)
 - Overview orders become one-line rows; the full checklist stays on the Orders page. (Shelby, 2026-11-11)
 - Work is linear, on one branch, in two PRs. Models are Opus and Sonnet as Shelby asked.
 
@@ -93,7 +94,7 @@ Tasks run one at a time, in this order. "Model" is who does the task.
 | A5 | Opus | Global minimums at 760 px and under: buttons, tabs, inputs and icon buttons at least 44 px; text at least 12 px; one visible keyboard focus ring everywhere. | `smallTap` and `tinyText` are 0 at 428 px on home, Printers, Queue, Orders and Settings |
 | B1 | Sonnet | Phone home Upload menu opens above the printer pills (as a sheet from A3) with readable items. | at 428 px, the element at each menu item's centre is that item |
 | B2 | Sonnet | States: while loading, show placeholder rows and no empty message or zero counts; when a load fails after a good one, keep the last data dimmed under "Can't reach Spoolside. Showing what loaded at …" with Retry; no printers at all gets its own message, on the Printers page and the phone home. Add `tests/states.spec.ts`. | S3 passes: delayed load shows no "No orders found"; a 500 after a good load keeps the earlier orders visible |
-| B3 | Sonnet | Inventory: fix the filter's selected style; at 1100 px and under show each item as a card with every colour's count and + / − buttons. | 0 elements past the right edge at 428 and 820 px; selected filter is visibly marked; + sends the same PUT as typing a count |
+| B3 | Coordinator | **Changed 2026-11-11 (Shelby: "We can remove inventory"):** remove the Inventory page instead of reworking it. PlayCase becomes Orders and Library; old `/inventory` links open Orders. The server's inventory routes and stored counts stay untouched. | no Inventory button anywhere; `/inventory` lands on `/orders`; inventory entries gone from the audit's `KNOWN` |
 | B4 | Sonnet | Library overflow and names: nothing past the right edge on Assets and Sliced prints at 428 px; asset and job names wrap to two lines; photo links get names; asset status buttons show "Up to date" / "Needs an update". | `offRight`, `clipped` and `unnamed` are 0 on Library pages; entries removed from `KNOWN` |
 | G1 | Shelby | **Gate:** PR 1 is merged and deployed; Shelby checks the live app on the phone. | Shelby says it's fine to continue |
 | C1 | Opus | Phone bottom bar: Home, Printers, PlayCase, Queue (count badge), More. More is a sheet with Personal, Supplies, Settings and marks itself selected on those pages. Routes don't change. | at 428 px there are 5 tabs with labels at least 12 px; `/settings` opens with More selected; nav steps in existing specs updated |
@@ -129,7 +130,7 @@ Every brief also carries: work only in `/Users/shelbyklein/Vibes/worktrees/ui-ux
 ## Scope boundaries
 
 Not in this plan:
-- Any server, API, database or MCP change.
+- Any server, API, database or MCP change. Removing the Inventory page leaves `/api/inventory` and its table in place.
 - Bed checks, print starting, auto-print, repeat, order sync or costs: behavior stays exactly as it is.
 - Dark mode, new features, new pages, or a new visual identity. The water home artwork, desktop sidebar and sign-in page stay as they are.
 - The `codex/cricut-svg-14` and `codex/tokenledger` branches and their worktrees.

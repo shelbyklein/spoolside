@@ -2229,26 +2229,6 @@ main[tabindex="-1"]:focus {
 .asset-slices-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .asset-slices-actions select { min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); font-size: var(--text-base); color: var(--navy); background: var(--surface); }
 /* PlayCase > Inventory: cases and faceplates on hand, by color. */
-.inventory { padding-bottom: 14px; }
-.inventory-toolbar { display: flex; align-items: center; gap: 8px; padding: 16px 20px 12px; }
-.inventory-toolbar .search-field { flex: 1; max-width: 360px; }
-.inventory-add-color input { min-height: 40px; width: 140px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); font-size: var(--text-base); }
-.inventory-scroll { overflow-x: auto; padding: 0 20px; }
-.inventory table { border-collapse: collapse; min-width: 100%; font-size: var(--text-base); }
-.inventory th, .inventory td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
-.inventory thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-size: var(--text-xs); font-weight: 600; }
-.inventory thead th .color-dot { vertical-align: -1px; }
-.inventory th[scope="row"], .inventory thead th:first-child { position: sticky; left: 0; z-index: var(--z-raised); background: var(--surface); text-align: left; font-weight: 600; color: var(--navy); }
-.inventory-group th { padding-top: 14px; text-align: left; color: var(--muted); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; }
-.inventory-count { width: 56px; min-height: 36px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); font-size: var(--text-lg); text-align: center; font-variant-numeric: tabular-nums; color: var(--navy); background: var(--surface); }
-.inventory-hide { width: 36px; }
-.inventory-hide .icon-button { color: var(--muted); opacity: 0.55; }
-.inventory tr:hover .inventory-hide .icon-button, .inventory-hide .icon-button:focus-visible, .inventory-hidden .inventory-hide .icon-button { opacity: 1; }
-.inventory-hidden th[scope="row"], .inventory-hidden .inventory-count { opacity: 0.5; }
-.inventory-hidden th[scope="row"] small { font-weight: 400; color: var(--muted); }
-.inventory-show-hidden { font-size: var(--text-sm); white-space: nowrap; }
-.inventory > .plate-meta { padding: 10px 20px 0; }
-@media (max-width: 760px) { .inventory-toolbar, .inventory-scroll, .inventory > .plate-meta { padding-left: 12px; padding-right: 12px; } .inventory-count { width: 48px; } }
 /* Sliced prints: the thumbnail opens a 3D view of the plate. */
 .sliced-thumb-open { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
 /* Rings that would be cut off draw inside the edge instead: the sliced-print thumbnail fills a box that clips, and
@@ -2264,9 +2244,6 @@ main[tabindex="-1"]:focus {
 .gcode-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: var(--text-sm); }
 .gcode-progress input { flex: 1; accent-color: var(--teal); }
 .gcode-progress small { width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
-.inventory-toolbar { flex-wrap: wrap; }
-.inventory-kinds { flex: none; }
-@media (max-width: 760px) { .inventory-kinds { width: 100%; } .inventory-kinds button { flex: 1; } }
 /* Library > Assets on All: a labeled section per type. */
 .asset-section-title { display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px; font-size: var(--text-xl); }
 .asset-section-title small { color: var(--muted); font-size: var(--text-xs); font-weight: 500; }
@@ -2281,7 +2258,6 @@ main[tabindex="-1"]:focus {
 .fleet-heading { gap: 8px; }
 .fleet-heading h2 { margin-right: auto; }
 .orders-toolbar .sort-select select { font-size: var(--text-xs); padding-top: 10px; padding-bottom: 10px; }
-.inventory-toolbar .sort-select select, .personal-library .sort-select select { min-height: 38px; font-size: var(--text-sm); }
 /* On phones the orders sort is an icon button; tapping it opens the native picker. */
 @media (max-width: 760px) {
   .orders-toolbar .sort-select { flex: none; }
@@ -2687,13 +2663,10 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
   .sliced-filters > select { display: none; }
   .sliced-filters.open > select { display: block; }
 }
+.personal-library .sort-select select { min-height: 38px; font-size: var(--text-sm); }
 .personal-project-card { justify-content: flex-start; }
 .personal-project-card p { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 /* Inventory: an empty cell is a faint dash until you touch it; what you have stands out. */
-.inventory-count:not(.has) { border-color: transparent; background: transparent; }
-.inventory-count:not(.has)::placeholder { color: var(--line-dark); }
-.inventory tr:hover .inventory-count:not(.has), .inventory-count:not(.has):focus { border-color: var(--line-strong); background: var(--surface); }
-.inventory-count.has { background: var(--teal-tint); border-color: var(--teal-line); font-weight: 700; color: var(--teal-ink); }
 .offer-manual { grid-column: 1 / -1; display: flex; gap: 16px; padding-left: 58px; }
 .offer-delivery > .text-button:only-child { color: var(--muted); }
 /* Settings: every section spaced the same, headed the same. */
@@ -2732,7 +2705,7 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
   }
   /* Icon-only and one-word controls: as wide as they are tall. (Not every control: a minimum width on a flex item
      replaces its content minimum, and buttons would squeeze their icons out.) */
-  :is(.icon-button, .icon-only, .asset-add-pill, .home-note-order, .view-toggle button, .inventory-kinds button) {
+  :is(.icon-button, .icon-only, .asset-add-pill, .home-note-order, .view-toggle button) {
     min-width: var(--tap) !important;
   }
   /* The part-type filter wraps, so its buttons size from their labels (flex-basis auto), never narrower than --tap. */
@@ -2795,9 +2768,5 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
   }
   .order-fulfillment .order-ship-footer {
     margin-top: 0;
-  }
-  /* Inventory counts: the 44px field sets the row height (the table becomes cards in a later change). */
-  .inventory td:has(input, button) {
-    padding-block: 0;
   }
 }
