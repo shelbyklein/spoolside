@@ -128,6 +128,10 @@ const { app, close } = createApp({
 const server = app.listen(Number(process.env.PORT || 3000), "0.0.0.0", () =>
   console.log("Spoolside server listening"),
 );
+// The Cloudflare tunnel keeps idle connections open for 90 seconds. Node's default of 5 would close one just as the
+// tunnel reuses it, and the request (a save, which isn't retried) fails with the tunnel's error page.
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 125000;
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () =>
     server.close(() => {

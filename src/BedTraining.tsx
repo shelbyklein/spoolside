@@ -17,7 +17,7 @@ function PlateBox({src,alt,area,onArea,onLoad,onError}:{src:string;alt:string;ar
 export function BedTraining({printer, onClose, onSaved}: {printer:{id:string;name:string};onClose:()=>void;onSaved:()=>void}) {
  const [capture,setCapture]=useState<{id:string;at:number;area?:Area|null}|null>(null),[area,setArea]=useState<Area|null>(null),[loaded,setLoaded]=useState(false),[clear,setClear]=useState(false),[note,setNote]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const base=`/api/dispatch/${encodeURIComponent(printer.id)}/reference`;
- async function post(url:string,body:unknown={}) {const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'Could not save');return d;}
+ async function post(url:string,body:unknown={}) {const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>null);if(!d)throw Error("Spoolside didn't answer. Try again.");if(!r.ok)throw Error(d.error||'Could not save');return d;}
  async function refresh() {setBusy(true);setError('');setCapture(null);setLoaded(false);setClear(false);try{const c=await post(base+'/capture');setCapture(c);setArea(c.area||null);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  useEffect(()=>{void refresh();},[printer.id]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy)onClose();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[busy,onClose]);
