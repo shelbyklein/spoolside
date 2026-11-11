@@ -30,10 +30,6 @@ type DialogCheck = 'named' | 'escape' | 'trap' | 'return' | 'scroll';
 const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>>; dialogs: Record<string, string> }> = {
   1440: {
     pages: {
-      overview: { lowContrast: 4 },
-      printers: { lowContrast: 1 },
-      queue: { lowContrast: 3 },
-      assemblies: { lowContrast: 2 },
       sliced: { offRight: 2 },
     },
     dialogs: {
@@ -57,12 +53,12 @@ const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>
   },
   820: {
     pages: {
-      overview: { smallTap: 59, lowContrast: 4 },
-      printers: { smallTap: 19, lowContrast: 1 },
+      overview: { smallTap: 59 },
+      printers: { smallTap: 19 },
       orders: { smallTap: 49 },
-      queue: { smallTap: 12, lowContrast: 3 },
+      queue: { smallTap: 12 },
       library: { smallTap: 29 },
-      assemblies: { smallTap: 29, lowContrast: 2 },
+      assemblies: { smallTap: 29 },
       sliced: { smallTap: 58 },
       inventory: { offRight: 485, smallTap: 267 },
       personal: { smallTap: 9 },
@@ -73,18 +69,18 @@ const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>
   },
   428: {
     pages: {
-      overview: { smallTap: 25, tinyText: 8 },
-      home: { smallTap: 25, tinyText: 8 },
-      printers: { smallTap: 15, tinyText: 19, lowContrast: 1 },
-      orders: { smallTap: 44, tinyText: 49 },
-      queue: { smallTap: 8, tinyText: 12, lowContrast: 3 },
-      library: { offRight: 3, smallTap: 22, tinyText: 8 },
-      assemblies: { smallTap: 22, tinyText: 21, lowContrast: 2 },
-      sliced: { offRight: 2, smallTap: 72, tinyText: 23 },
-      inventory: { offRight: 543, smallTap: 263, tinyText: 10 },
-      personal: { smallTap: 5, tinyText: 8 },
-      supplies: { smallTap: 29, tinyText: 53 },
-      settings: { smallTap: 10, tinyText: 14 },
+      overview: { smallTap: 25 },
+      home: { smallTap: 25 },
+      printers: { smallTap: 15 },
+      orders: { smallTap: 44 },
+      queue: { smallTap: 8 },
+      library: { offRight: 3, smallTap: 22 },
+      assemblies: { smallTap: 22 },
+      sliced: { offRight: 2, smallTap: 72 },
+      inventory: { offRight: 543, smallTap: 263 },
+      personal: { smallTap: 5 },
+      supplies: { smallTap: 29 },
+      settings: { smallTap: 10 },
     },
     dialogs: {
       'reviews': 'escape trap return',
