@@ -11,6 +11,7 @@ import { OrderPrints } from "./orderprints.mjs";
 import { Inventory } from "./inventory.mjs";
 import { Repeater } from "./repeat.mjs";
 import { Notes } from "./notes.mjs";
+import { ClaudeChat } from "./chat.mjs";
 import { Dispatcher, claudeBedCheck } from "./dispatch.mjs";
 import { MODELS } from "./watcher.mjs";
 import { orderPrintPlan } from "./readiness.mjs";
@@ -103,6 +104,7 @@ const repeatTimer = setInterval(() => repeater.tick().catch(() => {}), 20000);
 const materials = workspace ? new Materials(workspace.db) : null;
 materials?.refresh();
 const materialTimer=setInterval(()=>materials?.refresh(),6*60*60*1000);
+const chat = new ClaudeChat(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", process.env.SPOOLSIDE_CHAT_DIR || "/data/chat", { port: Number(process.env.PORT || 3000) });
 const { app, close } = createApp({
   library,
   materials,
@@ -116,6 +118,7 @@ const { app, close } = createApp({
   inventory,
   repeater,
   notes,
+  chat,
   database: process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite",
   pinHash: process.env.SPOOLSIDE_PIN_HASH,
   origin: process.env.SPOOLSIDE_ORIGIN || "https://spoolside.shelbyklein.com",
@@ -138,6 +141,7 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(repeatTimer);
       repeater.close();
       notes.close();
+      chat.close();
       backup();
       printers.close();
       library.close();
