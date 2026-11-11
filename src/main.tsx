@@ -8,6 +8,8 @@ import { OrderQueue } from "./OrderQueue";
 import { materialName } from "./FilamentManager";
 import { Supplies } from "./Supplies";
 import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats, RepeatCard } from "./PrintControls";
+import { Skeleton } from "./Skeleton";
+import { UploadMenu } from "./UploadMenu";
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
@@ -564,14 +566,27 @@ function App() {
       </div>
     </section>
   );
-  // One Upload menu: a sliced print or an asset.
-  const overviewUploads = remote ? <details className="upload-menu">
-    <summary className="secondary"><Upload size={16} /> Upload</summary>
-    <div className="upload-menu-list">
-      <PrintUploadButton label="Sliced print (.3mf)" notify={notify} onUploaded={() => {live.retry();dispatch.refresh();}} />
-      <AssetUploadButton notify={notify} onUploaded={() => {live.retry();dispatch.refresh();}} />
+  // What the workspace shows before data arrives or after a refresh fails: placeholders first, then (if the first load
+  // failed) still placeholders under the banner; once something loaded, a failed refresh keeps it, dimmed.
+  const placeholder: "loading" | "unavailable" | undefined = !remote || live.loadedAt ? undefined : live.loading ? "loading" : "unavailable";
+  const stale = remote && !!live.loadFailure && !!live.loadedAt;
+  const noPrinters = remote && !placeholder && machines.length === 0;
+  const loadTime = live.loadedAt ? new Date(live.loadedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  const loadBanner = remote && live.loadFailure ? (
+    <div className="live-error" role="alert" key="load-failed">
+      <span>{live.loadFailure === "auth" ? "Your session expired. Sign in again." : `Can't reach Spoolside.${loadTime ? ` Showing what loaded at ${loadTime}.` : ""}`}</span>
+      <button onClick={live.retry}>Retry</button>
     </div>
-  </details> : null;
+  ) : null;
+  const blockWhenStale = (e: React.MouseEvent) => {
+    if (!stale || (e.target as HTMLElement).closest(".page-heading, .live-error, .offline-note, .sidebar")) return;
+    if ((e.target as HTMLElement).closest("button, a, summary, label, input, select")) { e.preventDefault(); e.stopPropagation(); }
+  };
+  // One Upload menu: a sliced print or an asset.
+  const overviewUploads = remote ? <UploadMenu wide={wideScreen}>{(close) => <>
+    <PrintUploadButton label="Sliced print (.3mf)" notify={notify} onUploaded={() => {close();live.retry();dispatch.refresh();}} />
+    <AssetUploadButton notify={notify} onUploaded={() => {close();live.retry();dispatch.refresh();}} />
+  </>}</UploadMenu> : null;
   // Everything that needs you, as one list: bed warnings, watcher alerts, held beds, paused printers, offers, reviews.
   const refreshFarm = () => { watch.refresh(); live.retry(); dispatch.refresh(); };
   const heldBySpoolside = new Set(watch.watches.filter((w) => !w.ended && w.alert?.paused).map((w) => w.printer));
@@ -608,7 +623,7 @@ function App() {
             >
               <t.icon size={20} />
               <span>{t.name}</span>
-              {t.name === "Queue" && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
+              {t.name === "Queue" && !placeholder && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
             </button>
             {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button>{tab === "Library" && <div className="library-subnav">{LIBRARY_SECTIONS.map(s => <button key={s.name} className={sectionFromPath(path) === s.name ? "selected" : ""} onClick={() => goTo(s.path)}>{s.name}</button>)}</div>}</div>}
             </React.Fragment>
@@ -630,9 +645,9 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome tools={remote ? <><ClaudeButton compact />{overviewUploads}</> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{needs(true)}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={notify} />}</>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome tools={remote ? <><ClaudeButton compact />{overviewUploads}</> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{needs(true)}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={notify} />}</>} machines={machines} orders={overviewOrders} loading={!!placeholder} banner={loadBanner} stale={stale} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
-        <div className="main-content">
+        <div className={["Overview", "Queue", "Printers", "Orders"].includes(tab) && stale ? "main-content stale" : "main-content"} onClickCapture={blockWhenStale}>
           <div className="page-heading">
             <div>
               <h1>{["Orders","Library"].includes(tab) ? "PlayCase" : tab}</h1>
@@ -669,6 +684,7 @@ function App() {
               )}
             </div>
           </div>
+          {loadBanner}
           {remote && live.error && (
             <div className="live-error" role="alert">
               <span>{live.error}</span>
@@ -681,9 +697,7 @@ function App() {
               {live.data.syncError}. Last successful orders are retained.
             </div>
           )}
-          {remote && live.loading && (
-            <div className="empty">Loading…</div>
-          )}
+          {placeholder === "loading" && <div className="sr-only" role="status">Loading…</div>}
           {!online && (
             <div className="offline-note">
               {remote
@@ -698,14 +712,14 @@ function App() {
             {/* What needs you leads, then reminders, then the queue and the orders it comes from. */}
             {needs()}
             {remote && <HomeNotes orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={notify} />}
-            {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
+            {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} placeholder={placeholder} control={placeholder ? undefined : <AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
             <section className="overview-orders" aria-label="PlayCase orders overview">
               <div className="section-top">
-                <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2></div>
+                <div><h2>PlayCase orders <span className="order-count">{placeholder ? "—" : overviewOrders.length}</span></h2></div>
                 <button className="text-button" onClick={() => {setFocusedOrder(null);setTab("Orders");}}>View orders <ArrowUpRight size={16} /></button>
               </div>
               <div className="orders-list">
-                {remote && live.loading ? <div className="empty"><p>Loading orders…</p></div> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
+                {placeholder ? <Skeleton rows={3} still={placeholder === "unavailable"} tall /> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
                   return <OrderRow key={order.id} order={order} printerAvailable={availableOrders.includes(order.id)} onChange={updateOrder} onPrint={printOrder} onTick={tickPiece} />;
                 })}
               </div>
@@ -715,7 +729,7 @@ function App() {
           )}
           {tab === "Overview" && remote && (
             <div className="fleet-column">
-              <PrinterRows machines={printerSort.sort(machines)} live={remote} onOpen={openDetail} heldBySpoolside={heldBySpoolside} onAll={() => setTab("Printers")} />
+              <PrinterRows placeholder={placeholder} machines={printerSort.sort(machines)} live={remote} onOpen={openDetail} heldBySpoolside={heldBySpoolside} onAll={() => setTab("Printers")} />
             </div>
           )}
           {(tab === "Printers" || (tab === "Overview" && !remote)) && (
@@ -723,7 +737,7 @@ function App() {
               {tab === "Printers" && needs()}
               <div className="fleet-heading">
                 <h2>
-                  Your printers <span>{machines.length}</span>
+                  Your printers {!placeholder && <span>{machines.length}</span>}
                 </h2>
                 <select
                   aria-label="Filter printers"
@@ -739,6 +753,8 @@ function App() {
                 {printerSort.menu}
               </div>
               <PrinterCards
+                placeholder={placeholder}
+                total={machines.length}
                 machines={printerSort.sort(machines.filter((m) => filter === "All printers" || m.state === filter))}
                 live={remote}
                 onOpen={openDetail}
@@ -753,7 +769,7 @@ function App() {
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
-              {tab !== "Supplies" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
+              {tab !== "Supplies" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} placeholder={placeholder} control={placeholder ? undefined : <AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
               {tab === "Supplies" && remote ? <Supplies notify={notify} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
@@ -762,6 +778,7 @@ function App() {
           {tab === "Library" && <AssetLibrary notify={notify} />}
           {tab === "Orders" && (
             <Orders
+              placeholder={placeholder}
               openOrderId={focusedOrder}
               live={remote}
               orders={orders}

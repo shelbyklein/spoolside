@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Printer, Repeat, Thermometer, VideoOff } from "lucide-react";
 import type { Machine } from "./live-workspace";
+import { Skeleton } from "./Skeleton";
 import { SpoolChips, loadedSpools } from "./LoadedSpools";
 
 export const jobName = (job: string) => job.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " ");
@@ -79,11 +80,11 @@ export const shortPause = (m: Machine) => {
 export const stateLabel = (m: Machine, heldBySpoolside?: Set<string>) => (m.state === "Paused" && heldBySpoolside?.has(m.id) ? "Held by Spoolside" : m.state);
 
 // The Overview's printers: one compact row each (small live view, state, job, progress, the spool feeding).
-export function PrinterRows({ machines, live, onOpen, heldBySpoolside, onAll }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; heldBySpoolside?: Set<string>; onAll: () => void }) {
+export function PrinterRows({ placeholder, machines, live, onOpen, heldBySpoolside, onAll }: { placeholder?: "loading" | "unavailable"; machines: Machine[]; live: boolean; onOpen: (id: string) => void; heldBySpoolside?: Set<string>; onAll: () => void }) {
   return (
     <section className="printer-rows-section" aria-label="Printers">
-      <div className="section-title"><h2>Printers <span className="count">{machines.length}</span></h2><button className="text-button" onClick={onAll}>All printers →</button></div>
-      <div className="printer-rows">
+      <div className="section-title"><h2>Printers {!placeholder && <span className="count">{machines.length}</span>}</h2><button className="text-button" onClick={onAll}>All printers →</button></div>
+      {placeholder ? <div className="printer-rows"><Skeleton rows={2} still={placeholder === "unavailable"} /></div> : machines.length === 0 ? <div className="printer-rows"><p className="queue-empty">No printers are connected yet.</p></div> : <div className="printer-rows">
         {machines.map((m) => {
           const label = stateLabel(m, heldBySpoolside), state = m.state.toLowerCase(), active = m.state === "Printing" || m.state === "Paused";
           const feeding = loadedSpools(m).find((x) => x.feeding) || (!m.hasAms ? loadedSpools(m)[0] : undefined);
@@ -99,14 +100,15 @@ export function PrinterRows({ machines, live, onOpen, heldBySpoolside, onAll }: 
             </button>
           );
         })}
-      </div>
+      </div>}
     </section>
   );
 }
 
-export function PrinterCards({ machines, live, onOpen, repeats = [], heldBySpoolside }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[]; heldBySpoolside?: Set<string> }) {
+export function PrinterCards({ machines, total, placeholder, live, onOpen, repeats = [], heldBySpoolside }: { total?: number; placeholder?: "loading" | "unavailable"; machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[]; heldBySpoolside?: Set<string> }) {
   return (
     <section className="printer-cards" aria-label="Printers">
+      {placeholder && <Skeleton rows={3} still={placeholder === "unavailable"} tall />}
       {machines.map((m) => {
         const state = m.state.toLowerCase(), active = m.state === "Printing" || m.state === "Paused";
         return (
@@ -144,9 +146,9 @@ export function PrinterCards({ machines, live, onOpen, repeats = [], heldBySpool
           </button>
         );
       })}
-      {machines.length === 0 && (
-        <div className="empty">
-          <p>No printers in this state.</p>
+      {!placeholder && machines.length === 0 && (
+        <div className="empty centered">
+          <p>{total === 0 ? "No printers are connected yet." : "No printers in this state."}</p>
         </div>
       )}
     </section>

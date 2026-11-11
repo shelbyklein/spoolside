@@ -94,11 +94,13 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
 
 // The phone home screen: the spool floating on the pool, with printers and orders at a glance as pills.
 // Tap a printer for its details, or a card to open that page.
-export function WaterHome({ attention, tools, machines, orders, loading, bedsToClear = [], openPrinter, openOrder, go }: {
+export function WaterHome({ attention, tools, machines, orders, loading, banner, stale = false, bedsToClear = [], openPrinter, openOrder, go }: {
   bedsToClear?: string[];
   machines: Machine[];
   orders: Order[];
   loading: boolean;
+  banner?: React.ReactNode;
+  stale?: boolean;
   attention?: React.ReactNode;
   tools?: React.ReactNode;
   openPrinter: (id: string) => void;
@@ -109,13 +111,15 @@ export function WaterHome({ attention, tools, machines, orders, loading, bedsToC
   return (
     <section className="water-home" aria-label="Spoolside home">
       <WaterBackground className="home-water" />
-      <div className="home-content">
+      <div className={stale ? "home-content stale" : "home-content"}>
         <header className="home-mark">
           <FloatingCases orders={orders} openOrder={openOrder} />
           <FloatingSpool />
         </header>
+        {banner}
         {attention}
         {tools && <div className="home-tools">{tools}</div>}
+        {!loading && machines.length === 0 && <p className="home-empty">No printers are connected yet.</p>}
         <div className="home-pills">
           {machines.map((m) => {
             const needsClear = bedsToClear.includes(m.id);

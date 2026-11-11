@@ -28,9 +28,9 @@ test('Overview uploads prints and assets directly on desktop and phone',async({b
  await expect.poll(()=>uploads).toEqual(['print','asset']);
  await page.screenshot({path:'handoff/spoolside-overview-upload-shortcuts.png'});
  await page.setViewportSize({width:428,height:926});
- const phoneMenu=page.locator('summary',{hasText:'Upload'}).first();await expect(phoneMenu).toBeVisible();
- if(!await page.getByRole('button',{name:'Upload asset',exact:true}).isVisible())await phoneMenu.click();
- await page.getByRole('button',{name:'Upload asset',exact:true}).click();await expect(dialog).toBeVisible();
+ const phoneMenu=page.getByRole('button',{name:'Upload',exact:true});await expect(phoneMenu).toBeVisible();
+ await phoneMenu.click();
+ await page.getByRole('dialog',{name:'Upload'}).getByRole('button',{name:'Upload asset',exact:true}).click();await expect(dialog).toBeVisible();
  const box=(await dialog.boundingBox())!;expect(box.width).toBeLessThanOrEqual(428);
  await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);
  await page.screenshot({path:'handoff/spoolside-overview-upload-shortcuts-mobile.png'});

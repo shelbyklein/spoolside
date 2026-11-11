@@ -74,7 +74,8 @@ const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, s
 ];
 
 // Each dialog in src/ (grep 'role="dialog"'), and the button that opens it. `before` gets to where that button is.
-const DIALOGS: { name: string; path: string; opener: (page: Page) => Locator; before?: (page: Page) => Promise<void> }[] = [
+const DIALOGS: { name: string; path: string; sizes?: Size[]; opener: (page: Page) => Locator; before?: (page: Page) => Promise<void> }[] = [
+  { name: 'upload-menu', path: '/', sizes: [428], opener: (p) => p.getByRole('button', { name: 'Upload', exact: true }) }, // the phone's Upload sheet; wide screens get a dropdown
   { name: 'printer-details', path: '/printers', opener: (p) => p.getByRole('button', { name: 'Dogwood, Ready' }) },
   { name: 'reviews', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Prints to review' }).getByRole('button', { name: 'Review' }) },
   { name: 'teach-bed', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Dogwood is waiting on its bed' }).getByRole('button', { name: 'Teach empty bed' }) },
@@ -287,6 +288,7 @@ async function closeDialog(page: Page, dialog: Locator) {
 
 for (const size of [1440, 428] as Size[]) {
   for (const d of DIALOGS) {
+    if (d.sizes && !d.sizes.includes(size)) continue;
     test(`dialog ${d.name} at ${size}`, async ({ browser }) => {
       const { context, page } = await open(browser, size);
       const result = {} as Record<DialogCheck, boolean>;

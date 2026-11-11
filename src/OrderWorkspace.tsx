@@ -4,6 +4,7 @@ import { Search, ShoppingBag, ArrowUpRight, Truck, Check, CircleAlert, Printer }
 import { OrderContents } from "./OrderContents";
 import { type Order, type PrintGroup, initialOrders, isOpenOrder, storeStatus } from "./order-model";
 import { OrderPrintButtons } from "./OrderPrint";
+import { Skeleton } from "./Skeleton";
 import { useSort } from "./sort";
 export { initialOrders };
 
@@ -52,7 +53,7 @@ export function OrderRow({ order, onPrint, onTick, printerAvailable = false, cos
 const orderNumber = (o: Order) => Number(o.number.replace(/\D/g, "")) || 0;
 const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"];
 
-export function Orders({ live = false, openOrderId, orders, availableOrders = [], onOrderChange, onPrint, onTick }: { live?: boolean; availableOrders?: string[]; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
+export function Orders({ live = false, openOrderId, orders, availableOrders = [], onOrderChange, onPrint, onTick, placeholder }: { placeholder?: 'loading' | 'unavailable'; live?: boolean; availableOrders?: string[]; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   const focus = orders.find((o) => o.id === openOrderId);
   const costs = useOrderCosts(live, orders.map((o) => o.id).join());
   const [search, setSearch] = useState(focus ? focus.number : ""),
@@ -97,10 +98,11 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
           {FILTERS.map((s) => <option key={s}>{s}</option>)}
         </select>
         {sorting.menu}
-        <span>{visible.length} of {orders.length} orders</span>
+        {!placeholder && <span>{visible.length} of {orders.length} orders</span>}
       </div>
       <div className="orders-list">
-        {visible.length === 0 && (
+        {placeholder && <Skeleton rows={4} still={placeholder === "unavailable"} tall />}
+        {!placeholder && visible.length === 0 && (
           <div className="empty">
             <Search />
             <h3>No orders found</h3>
