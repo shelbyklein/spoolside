@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import { useSort, byName } from "./sort";
 import { Dialog } from "./Dialog";
 import { Search, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 const StlViewer = lazy(() => import("./StlViewer"));
 
@@ -63,7 +65,7 @@ export const goTo = (path: string) => {
 };
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
-export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
+export function AssetLibrary({ notify }: { notify: Notify }) {
   const assemblyReturnPath=useRef(window.location.pathname);
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [designs, setDesigns] = useState<{id:string;name:string;source:string}[]>([]),
@@ -96,9 +98,10 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   useEffect(() => { loadCategories(); }, []);
   // Each item carries its category's color so previews can use it as the default.
   const colored = useMemo(() => assets?.map((a) => ({ ...a, categoryColor: categories.find((c) => c.id === a.category)?.color })) || null, [assets, categories]);
+  const loadDesigns = (): Promise<void> => fetch("/api/designfiles").then(r=>{if(!r.ok)throw Error();return r.json();}).then(setDesigns).catch(()=>notify("Could not load design files", failure(loadDesigns)));
   useEffect(() => {
     load();
-    fetch("/api/designfiles").then(r=>{if(!r.ok)throw Error();return r.json();}).then(setDesigns).catch(()=>notify("Could not load design files"));
+    loadDesigns();
   }, []);
   const visible = useMemo(
     () =>
@@ -131,7 +134,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
   const save = async (a: Asset, patch: Partial<Asset>) => {
     const r = await fetch(`/api/assets/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const body = await r.json();
-    if (!r.ok) return notify(body.error || "Couldn't save");
+    if (!r.ok) return notify(body.error || "Couldn't save", failure(() => save(a, patch)));
     setAssets((list) => list?.map((x) => (x.id === a.id ? body : x)) || null);
   };
   const sectionTabs = <div className="segmented library-sections" role="tablist" aria-label="Library section">
@@ -243,7 +246,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
             {open.type !== "Cut template" && <label className="design-picker">Design file
               <select aria-label="Design file" value={open.designFile?.id || ""} onChange={async e=>{
                 const r=await fetch(`/api/assets/${open.id}/design`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({designId:e.target.value || null})});
-                if(!r.ok){notify("Could not save design link");return;}const updated=await r.json();setAssets(list=>list?.map(a=>a.id===updated.id?updated:a)||null);
+                if(!r.ok){notify("Could not save design link",failure());return;}const updated=await r.json();setAssets(list=>list?.map(a=>a.id===updated.id?updated:a)||null);
               }}><option value="">Missing design</option>{designs.map(d=><option key={d.id} value={d.id}>{d.source}</option>)}</select>
             </label>}
             </>}
@@ -279,10 +282,10 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
               </div>
             )}
             <button className="secondary danger delete-asset" onClick={async () => {
-              if (!window.confirm(`Delete ${open.name} from the library? The original file in Dropbox is not touched, and the folder import won't bring it back.`)) return;
+              if (!(await confirmAction({ title: `Delete ${open.name} from the library?`, body: "The original file in Dropbox is not touched, and the folder import won't bring it back.", confirmLabel: "Delete", danger: true }))) return;
               const r = await fetch(`/api/assets/${open.id}`, { method: "DELETE" });
               const body = await r.json().catch(() => ({}));
-              if (!r.ok) return notify(body.error || "Couldn't delete");
+              if (!r.ok) return notify(body.error || "Couldn't delete", failure());
               setAssets((all) => all?.filter((x) => x.id !== open.id) || null);
               setOpenId(null);
               notify(`Deleted ${open.name}.`);
@@ -322,7 +325,7 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
 
 const STYLES = ["Handheld", "DS", "Classic", "3DS", "N64", "MAME", "Keyboard"];
 // Adds either an STL with an optional design file, or a native SVG cut template.
-export function AssetUploadButton({notify, onUploaded}: {notify: (message: string) => void; onUploaded?: () => void}) {
+export function AssetUploadButton({notify, onUploaded}: {notify: Notify; onUploaded?: () => void}) {
   const [open, setOpen] = useState(false), [categories, setCategories] = useState<Category[]>([]), [loading, setLoading] = useState(false);
   const show = async () => {
     setLoading(true);
@@ -330,7 +333,7 @@ export function AssetUploadButton({notify, onUploaded}: {notify: (message: strin
       const r = await fetch("/api/categories");
       if (!r.ok) throw Error("Could not load asset categories. Try again.");
       const list = await r.json(); setCategories(Array.isArray(list) ? list : []); setOpen(true);
-    } catch (e) { notify((e as Error).message); } finally { setLoading(false); }
+    } catch (e) { notify((e as Error).message, failure(show)); } finally { setLoading(false); }
   };
   return <>
     <button className="secondary" disabled={loading} onClick={show}><Upload size={16} /> {loading ? "Loading…" : "Upload asset"}</button>
@@ -338,7 +341,7 @@ export function AssetUploadButton({notify, onUploaded}: {notify: (message: strin
   </>;
 }
 
-function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Category[]; onClose: () => void; onAdded: (a: Asset) => void; notify: (m: string) => void }) {
+function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Category[]; onClose: () => void; onAdded: (a: Asset) => void; notify: Notify }) {
   const [stl, setStl] = useState<File | null>(null),
     [design, setDesign] = useState<File | null>(null),
     [name, setName] = useState(""),
@@ -366,7 +369,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
         if (!r.ok) throw Error(asset.error || "Could not add");
         notify(`Added ${asset.name}.`);
         onAdded(asset);
-      } catch (err) { notify((err as Error).message); } finally { setBusy(false); }
+      } catch (err) { notify((err as Error).message, failure()); } finally { setBusy(false); }
       return;
     }
     if (!stl) return;
@@ -387,7 +390,7 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
       notify(`Added ${asset.name}.`);
       onAdded(asset);
     } catch (err) {
-      notify((err as Error).message);
+      notify((err as Error).message, failure());
     } finally {
       setBusy(false);
     }
@@ -415,11 +418,11 @@ function UploadDialog({ categories, onClose, onAdded, notify }: { categories: Ca
 
 export type Category = { id: string; name: string; color: string; printer?: string | null };
 // Name and color each category; the color is the default for its items in 3D previews.
-function CategoryManager({ categories, assets, onChange, onClose, notify }: { categories: Category[]; assets: Asset[]; onChange: () => void; onClose: () => void; notify: (m: string) => void }) {
-  const send = async (url: string, method: string, body?: object) => {
+function CategoryManager({ categories, assets, onChange, onClose, notify }: { categories: Category[]; assets: Asset[]; onChange: () => void; onClose: () => void; notify: Notify }) {
+  const send = async (url: string, method: string, body?: object): Promise<void> => {
     const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
     const out = await r.json().catch(() => ({}));
-    if (!r.ok) notify(out.error || "Couldn't save category");
+    if (!r.ok) notify(out.error || "Couldn't save category", failure(() => send(url, method, body)));
     onChange();
   };
   const [printers, setPrinters] = useState<{id:string;name:string}[]>([]);
@@ -437,7 +440,7 @@ function CategoryManager({ categories, assets, onChange, onClose, notify }: { ca
                 <input aria-label="Category name" defaultValue={c.name} maxLength={40} onBlur={(e) => e.target.value.trim() && e.target.value !== c.name && send(`/api/categories/${c.id}`, "PUT", { name: e.target.value.trim(), color: c.color })} />
                 <select aria-label={`Default printer for ${c.name}`} value={c.printer || ""} onChange={e=>send(`/api/categories/${c.id}`, "PUT", {...c, printer:e.target.value || null})}><option value="">No default printer</option>{printers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 <small>{count} {count === 1 ? "item" : "items"}</small>
-                <button className="icon-button" aria-label={`Delete ${c.name}`} onClick={() => window.confirm(`Delete ${c.name}? Its ${count} items become uncategorized.`) && send(`/api/categories/${c.id}`, "DELETE")}><Trash2 size={16} /></button>
+                <button className="icon-button" aria-label={`Delete ${c.name}`} onClick={async () => { if (await confirmAction({ title: `Delete ${c.name}?`, body: `Its ${count} items become uncategorized.`, confirmLabel: "Delete", danger: true })) send(`/api/categories/${c.id}`, "DELETE"); }}><Trash2 size={16} /></button>
               </li>
             );
           })}

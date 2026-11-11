@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Package, Plus, Trash2 } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import { FilamentManager } from "./FilamentManager";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 // Supplies: everything bought to make a product. Filament keeps its restock view; parts (magnets,
 // rubber bands) and packaging (boxes, bubble pouches) are priced per piece from offers added by hand.
@@ -20,17 +22,17 @@ export async function supplyApi(url: string, method = "GET", body?: unknown): Pr
 const GROUPS = [["filament", "Filament"], ["part", "Parts"], ["packaging", "Packaging"]] as const;
 const FILAMENT_TYPES = ["TPU-AMS", "TPU", "PLA", "PETG"];
 
-export function Supplies({ notify, machines = [] }: { notify: (s: string) => void; machines?: Machine[] }) {
+export function Supplies({ notify, machines = [] }: { notify: Notify; machines?: Machine[] }) {
   const initial = new URLSearchParams(window.location.search).get("group");
   const [group, setGroup] = useState<"filament" | "part" | "packaging">(initial === "parts" ? "part" : initial === "packaging" ? "packaging" : "filament");
   const [catalog, setCatalog] = useState<SupplyCatalog | null>(null), [busy, setBusy] = useState(false);
   // Only a well-formed catalogue is shown; anything else leaves the filament view working on its own.
   const valid = (c: SupplyCatalog) => (Array.isArray(c?.supplies) && c.settings?.filamentMap ? c : null);
-  const load = () => supplyApi("/api/supplies").then((c) => setCatalog(valid(c))).catch((e) => notify(e.message));
+  const load = (): Promise<void> => supplyApi("/api/supplies").then((c) => setCatalog(valid(c))).catch((e) => notify(e.message, failure(load)));
   useEffect(() => { load(); }, []);
   const save = async (url: string, method: string, body?: unknown) => {
     setBusy(true);
-    try { setCatalog(valid(await supplyApi(url, method, body))); return true; } catch (e) { notify((e as Error).message); return false; } finally { setBusy(false); }
+    try { setCatalog(valid(await supplyApi(url, method, body))); return true; } catch (e) { notify((e as Error).message, failure()); return false; } finally { setBusy(false); }
   };
   const pick = (g: typeof group) => { setGroup(g); const u = new URL(window.location.href); if (g === "filament") u.searchParams.delete("group"); else u.searchParams.set("group", g === "part" ? "parts" : "packaging"); history.replaceState(history.state, "", u); };
   return (
@@ -104,7 +106,7 @@ function PieceSupplies({ kind, catalog, busy, save }: { kind: "part" | "packagin
                   <div className="form-actions"><button className="primary" disabled={busy}>Save offer</button><button type="button" className="text-button" onClick={() => setOfferFor("")}>Cancel</button></div>
                 </form>
               )}
-              {s.custom && <button className="text-button danger remove-supply" disabled={busy} onClick={() => { if (confirm(`Remove ${s.name} and its offers?`)) save("/api/supplies/" + s.id, "DELETE"); }}>Remove {noun}</button>}
+              {s.custom && <button className="text-button danger remove-supply" disabled={busy} onClick={async () => { if (await confirmAction({ title: `Remove ${s.name} and its offers?`, body: "Its seller offers are removed with it.", confirmLabel: "Remove", danger: true })) save("/api/supplies/" + s.id, "DELETE"); }}>Remove {noun}</button>}
             </section>
           );
         })}

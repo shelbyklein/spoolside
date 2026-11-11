@@ -2,6 +2,8 @@ import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
 import { Dialog } from "./Dialog";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, ClipboardCheck, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -77,7 +79,7 @@ async function startImport(watch: Watch, refresh: () => void) {
   if (importState?.watch.id === watch.id) setImport({ ...importState, sending: false, error });
   refresh();
 }
-function ImportButton({ watch, refresh, primary = false }: { watch: Watch; refresh: () => void; notify?: (m: string) => void; primary?: boolean }) {
+function ImportButton({ watch, refresh, primary = false }: { watch: Watch; refresh: () => void; notify?: Notify; primary?: boolean }) {
   const state = useImportState();
   const mine = state?.watch.id === watch.id;
   const working = !!watch.importing || (mine && state!.sending);
@@ -87,7 +89,7 @@ function ImportButton({ watch, refresh, primary = false }: { watch: Watch; refre
     </button>
   );
 }
-export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void }) {
+export function ImportDialogHost({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: Notify }) {
   const state = useImportState();
   const live = state && watches.find((w) => w.id === state.watch.id);
   const watch = live || state?.watch;
@@ -162,16 +164,16 @@ export function useWatches(enabled: boolean) {
 }
 
 // Alerts first, then "how did it go?" for finished prints. Renders nothing when all is quiet.
-export function WatchAttention({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: (m: string) => void }) {
+export function WatchAttention({ watches, refresh, notify }: { watches: Watch[]; refresh: () => void; notify: Notify }) {
   const [busy, setBusy] = useState(""), [failing, setFailing] = useState(""), [noting, setNoting] = useState(""), [succeeding, setSucceeding] = useState(""), [addToLibrary, setAddToLibrary] = useState<Record<string, boolean>>({});
-  const act = async (key: string, run: () => Promise<unknown>, done: string) => {
+  const act = async (key: string, run: () => Promise<unknown>, done: string): Promise<void> => {
     setBusy(key);
     try {
       await run();
       notify(done);
       refresh();
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure(() => act(key, run, done)));
     } finally {
       setBusy("");
     }
@@ -200,7 +202,7 @@ export function WatchAttention({ watches, refresh, notify }: { watches: Watch[];
         <NeedRow key={w.id} tone="alert" label={`${w.printerName} alert`} title={w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}
           media={<a href={photo(w, w.alert!.file)!} target="_blank" rel="noreferrer"><NeedPhoto src={photo(w, w.alert!.file)!} alt={`Camera photo of ${w.printerName} when the problem was spotted`} /></a>}
           actions={<>
-            <button className="secondary danger" disabled={!!busy} onClick={() => window.confirm(`Stop the print on ${w.printerName}? This can't be undone.`) && act(w.id + "stop", () => post(`/api/printers/${w.printer}/stop`), `Stopped ${w.printerName}.`)}>
+            <button className="secondary danger" disabled={!!busy} onClick={async () => { if (await confirmAction({ title: `Stop the print on ${w.printerName}?`, body: "This can't be undone.", confirmLabel: "Stop print", danger: true })) act(w.id + "stop", () => post(`/api/printers/${w.printer}/stop`), `Stopped ${w.printerName}.`); }}>
               <Square size={13} /> Stop print
             </button>
             <button className="primary" disabled={!!busy} onClick={() => act(w.id + "ok", () => post(`/api/watches/${w.id}/false-alarm`), w.alert!.paused ? `Resumed ${w.printerName}.` : "Thanks, noted.")}>
@@ -287,7 +289,7 @@ export function WatchStatus({ watch, vision }: { watch?: Watch; vision: boolean 
 }
 
 // A printer's latest answered prints; failed ones show their note, which can be added or edited.
-export function RecentPrints({ printer, recent, refresh, notify }: { printer: string; recent: Watch[]; refresh: () => void; notify: (m: string) => void }) {
+export function RecentPrints({ printer, recent, refresh, notify }: { printer: string; recent: Watch[]; refresh: () => void; notify: Notify }) {
   const [editing, setEditing] = useState(""), [busy, setBusy] = useState(false);
   const mine = recent.filter((w) => w.printer === printer).slice(0, 5);
   if (!mine.length) return null;
@@ -299,7 +301,7 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
       refresh();
       notify("Note saved.");
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setBusy(false);
     }

@@ -4,6 +4,8 @@ import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 import { Dialog } from "./Dialog";
 import { useSort, byName } from "./sort";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string; grams?: number | null }[] };
 export type LibraryFile = { filamentSupplies?: Record<string, string>; scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
@@ -52,16 +54,16 @@ export function BedHeld({ reason, busy, onAnyway }: { reason: string; busy: bool
   );
 }
 
-export function PrintControls({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
+export function PrintControls({ machine, notify }: { machine: Machine; notify: Notify }) {
   const [busy, setBusy] = useState(false);
-  const act = async (action: "pause" | "resume" | "stop") => {
-    if (action === "stop" && !window.confirm(`Stop the print on ${machine.name}? This can't be undone.`)) return;
+  const act = async (action: "pause" | "resume" | "stop"): Promise<void> => {
+    if (action === "stop" && !(await confirmAction({ title: `Stop the print on ${machine.name}?`, body: "This can't be undone.", confirmLabel: "Stop print", danger: true }))) return;
     setBusy(true);
     try {
       await api(`/api/printers/${machine.id}/${action}`, { method: "POST" });
       notify(`${machine.name}: ${action === "stop" ? "print stopped" : action === "pause" ? "paused" : "resumed"}.`);
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure(() => act(action)));
     } finally {
       setBusy(false);
     }
@@ -87,16 +89,16 @@ export function PrintControls({ machine, notify }: { machine: Machine; notify: (
 
 type RepeatView = { printer: string; name: string; plate: number; done: number; times: number | null; status: string };
 // The compact card for a printer that's repeating: what it's doing, the count, and Stop.
-export function RepeatCard({ repeat, printerName, notify }: { repeat: RepeatView; printerName: string; notify: (m: string) => void }) {
+export function RepeatCard({ repeat, printerName, notify }: { repeat: RepeatView; printerName: string; notify: Notify }) {
   const [busy, setBusy] = useState(false);
-  const stop = async () => {
+  const stop = async (): Promise<void> => {
     setBusy(true);
     try {
       await api(`/api/printers/${repeat.printer}/repeat`, { method: "DELETE" });
       window.dispatchEvent(new Event("spoolside-repeats"));
       notify(`${printerName} stopped repeating.`);
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure(stop));
     } finally {
       setBusy(false);
     }
@@ -128,7 +130,7 @@ export function useRepeats(enabled: boolean) {
   return repeats;
 }
 // Repeat this printer's current or last print: it starts again each time the camera sees the bed cleared.
-function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string) => void }) {
+function RepeatPrint({ machine, notify }: { machine: Machine; notify: Notify }) {
   const [repeats, setRepeats] = useState<RepeatView[] | null>(null), [last, setLast] = useState<LastPrint | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [plateIndex, setPlateIndex] = useState(0), [mapping, setMapping] = useState<number[]>([]), [useAms, setUseAms] = useState(() => (machine.trays || []).some((t) => t.type)), [level, setLevel] = useState(false), [times, setTimes] = useState("");
   const load = () => api<RepeatView[]>("/api/repeats").then((r) => setRepeats(Array.isArray(r) ? r : [])).catch(() => setRepeats([]));
@@ -154,7 +156,7 @@ function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string
       notify(method === "POST" ? `${machine.name} will repeat ${last!.name} each time the bed is cleared.` : `${machine.name} stopped repeating.`);
       setOpen(false);
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setBusy(false);
     }
@@ -193,7 +195,7 @@ function RepeatPrint({ machine, notify }: { machine: Machine; notify: (m: string
 
 type LastPrint = { name: string; plates: Plate[] };
 const LAST = "last";
-function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Machine; notify: (m: string) => void; initialFile?: string; onSent?: () => void }) {
+function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Machine; notify: Notify; initialFile?: string; onSent?: () => void }) {
   const { files } = useLibrary();
   // The job the printer just ran, if its file is still on the SD card: it can start again with no upload.
   const [last, setLast] = useState<LastPrint | null | undefined>(undefined);
@@ -240,7 +242,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
       notify(`Started ${file.name}${again ? " again" : ""} on ${machine.name}.`);
       onSent?.();
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setSending(false);
     }
@@ -297,7 +299,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   );
 }
 
-export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", scope = "playcase" }: { notify: (m: string) => void; onUploaded?: () => void; label?: string; scope?: "playcase" | "personal" }) {
+export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", scope = "playcase" }: { notify: Notify; onUploaded?: () => void; label?: string; scope?: "playcase" | "personal" }) {
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const upload = async (list: FileList | null) => {
@@ -315,7 +317,7 @@ export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", s
       const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
       notify([replaced && `Updated ${count(replaced, "print", "prints")} (linked assets kept)`, added && `added ${count(added, "new print", "new prints")}`].filter(Boolean).join(", ").replace(/^a/, "A") + ".");
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setUploading(false);
       onUploaded?.();
@@ -327,11 +329,12 @@ export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", s
   </>;
 }
 
-export function PrintLibrary({ notify, title = "Print library", scope = "playcase", fileIds }: { notify: (m: string) => void; title?: string; scope?: "playcase" | "personal"; fileIds?: string[] }) {
+export function PrintLibrary({ notify, title = "Print library", scope = "playcase", fileIds }: { notify: Notify; title?: string; scope?: "playcase" | "personal"; fileIds?: string[] }) {
   const [printing, setPrinting] = useState<LibraryFile | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [viewing, setViewing] = useState<LibraryFile | null>(null);
-  useEffect(() => { api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets")); }, []);
+  const loadAssets = (): Promise<void> => api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets", failure(loadAssets)));
+  useEffect(() => { loadAssets(); }, []);
   const { files: allFiles, refresh } = useLibrary(scope);
   const files=allFiles?.filter(f=>!fileIds || fileIds.includes(f.id));
   const [query,setQuery]=useState(""), [printerFilter,setPrinterFilter]=useState(""), [typeFilter,setTypeFilter]=useState(""), [categoryFilter,setCategoryFilter]=useState(""), [materialFilter,setMaterialFilter]=useState("");
@@ -370,8 +373,8 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
   })();
   const shown=(name:string)=>shared&&name.startsWith(shared)?name.slice(shared.length):name;
   const remove = async (f: LibraryFile) => {
-    if (!window.confirm(`Remove ${f.name} from the library?`)) return;
-    await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message));
+    if (!(await confirmAction({ title: `Remove ${f.name} from the library?`, body: "The sliced print is removed from Spoolside.", confirmLabel: "Remove", danger: true }))) return;
+    await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message, failure()));
     refresh();
   };
   return (
@@ -419,7 +422,7 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
   );
 }
 
-function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify: (m:string) => void; onClose: () => void}) {
+function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify: Notify; onClose: () => void}) {
   const [machines, setMachines] = useState<Machine[]>([]), [selected, setSelected] = useState(""), [error, setError] = useState(""), [loaded, setLoaded] = useState(false);
   useEffect(() => {
     api<{machines:Machine[]}>("/api/workspace").then(data => {
@@ -433,7 +436,7 @@ function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify:
   </Dialog>;
 }
 
-function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: (m: string) => void}) {
+function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () => void; notify: Notify}) {
   const [editing, setEditing] = useState(false), [name, setName] = useState(file.name), [counts, setCounts] = useState<Record<number,string>>({}), [busy, setBusy] = useState(false);
   const [printers, setPrinters] = useState<Machine[]>([]), [printer, setPrinter] = useState(file.printer || "");
   // Which filament supply each of this print's filaments is costed as (blank: the filament-type default).
@@ -448,7 +451,7 @@ function PrintDetails({file, onSaved, notify}: {file: LibraryFile; onSaved: () =
       const changed = Object.fromEntries(Object.entries(fmap).filter(([k, v]) => (file.filamentSupplies?.[k] || "") !== v).map(([k, v]) => [k, v || null]));
       if (Object.keys(changed).length) await api(`/api/library/${file.id}/filaments`, {method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(changed)});
       await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name, printer: printer || null, quantities: file.plates.map(p => ({plate:p.index,quantity: counts[p.index] ? Number(counts[p.index]) : null}))})}); onSaved(); setEditing(false); notify("Print details saved"); }
-    catch(e) { notify((e as Error).message); } finally { setBusy(false); }
+    catch(e) { notify((e as Error).message, failure()); } finally { setBusy(false); }
   };
   return <><button className="icon-button sliced-edit" title="Edit details" aria-label={`Edit print details for ${file.name}`} onClick={open}><Pencil size={15} /></button>
     {editing && <Dialog className="plate-assets-editor print-details-editor" title="Print details" label={`Print details for ${file.name}`} busy={busy} onClose={() => setEditing(false)} onSubmit={save}
@@ -504,7 +507,7 @@ function SlicedPreview({ file }: { file: LibraryFile }) {
 }
 
 const PLATE_TYPES = ["Case", "Faceplate", "Sleeve", "Part"];
-function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: (m:string) => void}) {
+function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: Notify}) {
   const [editing, setEditing] = useState(false), [ids, setIds] = useState<string[]>([]), [query, setQuery] = useState(""), [busy, setBusy] = useState(false);
   const [type, setType] = useState("All");
   const choosable = assets.filter(a => a.hasStl && !ids.includes(a.id)).sort((x, y) => PLATE_TYPES.indexOf(x.type) - PLATE_TYPES.indexOf(y.type) || x.name.localeCompare(y.name));
@@ -512,7 +515,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
   const save = async () => {
     setBusy(true);
     try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plate: plate.index, assetIds: ids})}); onSaved(); setEditing(false); notify("Plate assets saved"); }
-    catch(e) { notify((e as Error).message); } finally { setBusy(false); }
+    catch(e) { notify((e as Error).message, failure()); } finally { setBusy(false); }
   };
   const open = () => { setIds(coverage.map(c => c.assetId)); setQuery(""); setType("All"); setEditing(true); };
   return <div className="plate-assets">
@@ -537,7 +540,7 @@ function PrintMetadata({file}:{file:LibraryFile}) {
 
 // An asset's sliced prints: the plates linked to it, uploading a new sliced file for it (linked automatically),
 // or linking a print already in the library.
-export function AssetSlices({ asset, notify }: { asset: Asset; notify: (m: string) => void }) {
+export function AssetSlices({ asset, notify }: { asset: Asset; notify: Notify }) {
   const { files, refresh } = useLibrary("playcase");
   const [uploading, setUploading] = useState(false), [choosing, setChoosing] = useState<{ file: LibraryFile; plate: number }[] | null>(null), [picked, setPicked] = useState<string[]>([]);
   const linked = (files || []).flatMap((f) => f.plates.filter((p) => (p.coverage || []).some((c) => c.assetId === asset.id)).map((p) => ({ file: f, plate: p })));
@@ -561,10 +564,10 @@ export function AssetSlices({ asset, notify }: { asset: Asset; notify: (m: strin
         // Several plates: ask which ones print this asset.
         setPicked([]);
         setChoosing(plates);
-        notify(`Split into ${plates.length} plates. Choose the ones that print ${asset.name}.`);
+        notify(`Split into ${plates.length} plates. Choose the ones that print ${asset.name}.`, { kind: "info" });
       }
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setUploading(false);
       refresh();
@@ -596,7 +599,7 @@ export function AssetSlices({ asset, notify }: { asset: Asset; notify: (m: strin
           <div className="watch-actions">
             <button className="primary" disabled={!picked.length} onClick={async () => {
               try { await link(choosing.filter((t) => picked.includes(key(t)))); notify(`Linked to ${asset.name}.`); setChoosing(null); }
-              catch (e) { notify((e as Error).message); }
+              catch (e) { notify((e as Error).message, failure()); }
               finally { refresh(); }
             }}>Link selected</button>
             <button className="text-button" onClick={() => setChoosing(null)}>Skip</button>
@@ -613,7 +616,7 @@ export function AssetSlices({ asset, notify }: { asset: Asset; notify: (m: strin
             const file = others.find((f) => f.id === e.target.value);
             if (!file) return;
             try { await link(file.plates.map((p) => ({ file, plate: p.index }))); notify(`Linked ${file.name} to ${asset.name}.`); }
-            catch (err) { notify((err as Error).message); }
+            catch (err) { notify((err as Error).message, failure()); }
             finally { refresh(); }
           }}>
             <option value="">Link an existing print…</option>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Plus, Search } from "lucide-react";
 import { useSort, byName } from "./sort";
+import { failure, type Notify } from "./Toast";
 
 type Item = { kind: "case" | "faceplate"; id: string; name: string; counts: Record<string, number>; hidden?: boolean };
 type Data = { colors: string[]; items: Item[]; updated: number | null };
@@ -32,7 +33,7 @@ function CountCell({ value, label, onSave }: { value: number; label: string; onS
 }
 
 // PlayCase > Inventory: finished cases and faceplates on hand, by color.
-export function Inventory({ notify }: { notify: (m: string) => void }) {
+export function Inventory({ notify }: { notify: Notify }) {
   const [data, setData] = useState<Data | null>(null), [query, setQuery] = useState(""), [adding, setAdding] = useState(""), [addOpen, setAddOpen] = useState(false), [kind, setKind] = useState<"all" | Item["kind"]>("all"), [showHidden, setShowHidden] = useState(false);
   const total = (i: Item) => Object.values(i.counts).reduce((n, c) => n + c, 0);
   const sorting = useSort<Item>("inventory", "inventory", [
@@ -42,26 +43,25 @@ export function Inventory({ notify }: { notify: (m: string) => void }) {
     { id: "fewest", label: "Fewest on hand", compare: (a, b) => total(a) - total(b) || byName(a.name, b.name) },
   ]);
   const [loads, setLoads] = useState(0);
-  useEffect(() => {
-    fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => { setData(d); setLoads((n) => n + 1); }).catch(() => notify("Couldn't load inventory"));
-  }, []);
+  const load = (): Promise<void> => fetch("/api/inventory", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => { setData(d); setLoads((n) => n + 1); }).catch(() => notify("Couldn't load inventory", failure(load)));
+  useEffect(() => { load(); }, []);
   // Rows keep their place while counts are typed in; they re-sort when the sort changes or the page loads.
   const order = useMemo(() => sorting.sort(data?.items || []).map((i) => `${i.kind}|${i.id}`), [sorting.id, loads, data?.items.length]);
   if (!data) return <div className="empty"><p>Loading inventory…</p></div>;
   const save = (item: Item, color: string, count: number) => {
     // Show it right away; the server's copy settles it.
     setData({ ...data, items: data.items.map((i) => (i === item ? { ...i, counts: { ...i.counts, [color]: count } } : i)) });
-    send("PUT", "/api/inventory", { kind: item.kind, id: item.id, color, count }).then(setData).catch((e) => notify(e.message));
+    send("PUT", "/api/inventory", { kind: item.kind, id: item.id, color, count }).then(setData).catch((e) => notify(e.message, failure()));
   };
   // Items not sold right now are hidden; their counts are kept.
   const hide = (item: Item, hidden: boolean) => {
     setData({ ...data, items: data.items.map((i) => (i === item ? { ...i, hidden } : i)) });
-    send("PUT", "/api/inventory/hidden", { kind: item.kind, id: item.id, hidden }).then(setData).catch((e) => notify(e.message));
+    send("PUT", "/api/inventory/hidden", { kind: item.kind, id: item.id, hidden }).then(setData).catch((e) => notify(e.message, failure()));
   };
   const hiddenCount = data.items.filter((i) => i.hidden && (kind === "all" || i.kind === kind)).length;
   const addColor = () => {
     if (!adding.trim()) return setAddOpen(false);
-    send("POST", "/api/inventory/colors", { color: adding }).then((d) => { setData(d); setAdding(""); setAddOpen(false); }).catch((e) => notify(e.message));
+    send("POST", "/api/inventory/colors", { color: adding }).then((d) => { setData(d); setAdding(""); setAddOpen(false); }).catch((e) => notify(e.message, failure()));
   };
   const place = (i: Item) => order.indexOf(`${i.kind}|${i.id}`);
   const shown = data.items.filter((i) => (kind === "all" || i.kind === kind) && (showHidden || !i.hidden) && i.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => place(a) - place(b));

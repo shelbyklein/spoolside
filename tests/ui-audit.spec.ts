@@ -113,6 +113,8 @@ const DIALOGS: { name: string; path: string; opener: (page: Page) => Locator; be
   { name: 'categories', path: '/library', opener: (p) => p.locator('button.categories-button') },
   { name: 'new-project', path: '/personal', opener: (p) => p.getByRole('button', { name: 'New project' }) },
   { name: 'shipping-quote', path: '/supplies', opener: (p) => p.getByRole('button', { name: 'Add a delivery quote' }).first() },
+  // The in-app confirm (src/Confirm.tsx), opened over printer details: Alder's Stop.
+  { name: 'confirm-stop', path: '/printers', before: async (p) => { await p.getByRole('button', { name: /^Alder, / }).first().click(); }, opener: (p) => p.getByRole('dialog', { name: 'Alder details' }).locator('.print-controls').getByRole('button', { name: 'Stop' }) },
 ];
 
 async function open(browser: Browser, size: Size) {
@@ -122,7 +124,6 @@ async function open(browser: Browser, size: Size) {
     ...(phone ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}),
   });
   const page = await context.newPage();
-  page.on('dialog', (d) => d.dismiss());
   await mockFarm(page, {}, { now: NOW });
   return { context, page };
 }

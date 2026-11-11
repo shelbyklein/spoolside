@@ -6,11 +6,12 @@ import {AssemblyCostPanel,costLabel,useAssemblyCosts} from './Costs';
 import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
+import {failure,type Notify} from './Toast';
 type Part={assetId:string;quantity:number;color?:string;positions?:number[][];hidden?:boolean};
 type Assembly={thumbKey?:string|null;partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false,components:[] as Assembly['components']});
-export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:(m:string)=>void}){
+export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:string)=>void;notify:Notify}){
  const [selectedId,setSelectedId]=useState<string|null>(assemblyFromPath);
  const [liveColors,setLiveColors]=useState<Assembly|null>(null);
  // The part (and copy) being positioned; its options replace the parts list.
@@ -23,7 +24,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
  const reorder=async(ids:string[])=>{
   setItems(prior=>ids.map(id=>prior.find(a=>a.id===id)!).concat(prior.filter(a=>!ids.includes(a.id))));
   const r=await fetch('/api/assembly-order',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
-  if(!r.ok)notify('Could not save the order');
+  if(!r.ok)notify('Could not save the order',failure(()=>reorder(ids)));
  };
  const load=()=>fetch('/api/assemblies',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Could not load assemblies');setItems(await r.json());setError('');}).catch(e=>setError(e.message)).finally(()=>setLoading(false));
  useEffect(()=>{load();},[]);
@@ -59,7 +60,7 @@ export function Assemblies({assets,onOpen,notify}:{assets:Asset[];onOpen:(id:str
 }
 
 // Inline part editing on the assembly page. Removing only moves a part to "Removed"; nothing is deleted.
-function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPreview,notify}:{assembly:Assembly;shown:Assembly;assets:Asset[];pick:PartPick|null;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;onPreview:(a:Assembly|null)=>void;notify:(m:string)=>void}){
+function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPreview,notify}:{assembly:Assembly;shown:Assembly;assets:Asset[];pick:PartPick|null;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onSaved:(a:Assembly)=>void;onPreview:(a:Assembly|null)=>void;notify:Notify}){
  const [query,setQuery]=useState(''),[busy,setBusy]=useState(false);
  const colorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  // Recolor the preview instantly while picking; save once the picker settles.
@@ -68,7 +69,7 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
  const save=async(next:Assembly,message:string)=>{
   setBusy(true);
   try{const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});const body=await r.json();if(!r.ok)throw Error(body.error||'Could not save');onSaved(body);notify(message);}
-  catch(e){notify((e as Error).message);}finally{setBusy(false);}
+  catch(e){notify((e as Error).message,failure(()=>save(next,message)));}finally{setBusy(false);}
  };
  const name=(id:string)=>assets.find(a=>a.id===id)?.name||'Missing asset';
  const remove=(c:{assetId:string;quantity:number})=>save({...assembly,components:assembly.components.filter(x=>x.assetId!==c.assetId),removed:[c,...removed.filter(x=>x.assetId!==c.assetId)]},`Removed ${name(c.assetId)}. Restore it under Removed.`);
@@ -157,7 +158,7 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
 }
 
 // Saves a moved copy: shown at once, saved once you pause.
-function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:Assembly)=>void,notify:(m:string)=>void){
+function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:Assembly)=>void,notify:Notify){
  let timer:ReturnType<typeof setTimeout>|undefined;
  let latest=assembly;
  return (p:PartPick,position:number[])=>{
@@ -166,7 +167,7 @@ function mover(assembly:Assembly,onPreview:(a:Assembly|null)=>void,onSaved:(a:As
   timer=setTimeout(async()=>{
    const r=await fetch('/api/assemblies/'+assembly.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
    const body=await r.json().catch(()=>({}));
-   if(!r.ok){notify(body.error||'Could not save position');return;}
+   if(!r.ok){notify(body.error||'Could not save position',failure());return;}
    onSaved(body);onPreview(null);
   },700);
  };

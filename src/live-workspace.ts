@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Order, Job, PrintGroup } from "./order-model";
+import { confirmAction } from "./Confirm";
 export type Machine = {
   id: string;
   name: string;
@@ -155,10 +156,10 @@ export function useLiveWorkspace(enabled: boolean) {
     saving,
     update,
     retry: () => (dirty.current ? save() : load()),
-    reload: () => {
+    reload: async () => {
       if (
         dirty.current &&
-        !window.confirm("Discard unsaved changes and reload server state?")
+        !(await confirmAction({ title: "Discard unsaved changes?", body: "Reload the server state, without the changes that haven't saved.", confirmLabel: "Discard", danger: true }))
       )
         return;
       dirty.current = false;

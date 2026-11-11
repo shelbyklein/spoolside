@@ -6,7 +6,6 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 test('bed checks can be tuned: warnings after your own start, a held bed checked again or taught, and per-printer settings', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
   const page = await context.newPage();
-  page.on('dialog', (d) => d.accept());
   const reason = 'The visible plate looks clear, but the bed is slid toward the camera and its front edge is cut off.';
   const dispatch = {
     auto: true, vision: true, available: [], held: [{ printer: 'b', printerName: 'AMS 2', reason: 'A green printed part is sitting on the build plate.' }],

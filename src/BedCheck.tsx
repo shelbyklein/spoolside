@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Check, Plus, Square, X } from "lucide-react";
 import { NeedPhoto, NeedRow } from "./NeedsYou";
+import { failure, type Notify } from "./Toast";
+import { confirmAction } from "./Confirm";
 
 export type BedWarning = { id: string; printer: string; printerName: string; job: string; reason: string; at: number };
 type Settings = { visibleOnly: boolean; allow: { id: string; text: string; at: number }[]; reference: { note: string; taught: number; area: boolean } | null };
@@ -15,11 +17,11 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
 // You started a print the camera had doubts about: the photo from just before, and what to do about it.
 // "It was clear" only answers this warning; notes on what's fine on a bed are written by hand in its settings,
 // so the camera is never told to ignore something it described as a part.
-export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarning[]; refresh: () => void; notify: (m: string) => void }) {
+export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarning[]; refresh: () => void; notify: Notify }) {
   const [busy, setBusy] = useState("");
-  const act = async (w: BedWarning, what: () => Promise<unknown>, done: string) => {
+  const act = async (w: BedWarning, what: () => Promise<unknown>, done: string): Promise<void> => {
     setBusy(w.id);
-    try { await what(); notify(done); } catch (e) { notify((e as Error).message); } finally { setBusy(""); refresh(); }
+    try { await what(); notify(done); } catch (e) { notify((e as Error).message, failure(() => act(w, what, done))); } finally { setBusy(""); refresh(); }
   };
   return (
     <>
@@ -27,8 +29,8 @@ export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarnin
         <NeedRow key={w.id} tone="warn" label={`Check ${w.printerName}'s bed`} title={`Check ${w.printerName}'s bed`}
           media={<a href={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} target="_blank" rel="noreferrer"><NeedPhoto src={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} alt={`${w.printerName}'s bed just before the print started`} /></a>}
           actions={<>
-            <button className="secondary danger" disabled={busy === w.id} onClick={() => {
-              if (!window.confirm(`Stop the print on ${w.printerName}? This can't be undone.`)) return;
+            <button className="secondary danger" disabled={busy === w.id} onClick={async () => {
+              if (!(await confirmAction({ title: `Stop the print on ${w.printerName}?`, body: "This can't be undone.", confirmLabel: "Stop print", danger: true }))) return;
               act(w, async () => { await send("POST", `/api/printers/${w.printer}/stop`); await send("DELETE", `/api/dispatch/${w.printer}/bed-warning`); }, `Stopped the print on ${w.printerName}.`);
             }}><Square size={13} /> Stop print</button>
             <button className="primary" disabled={busy === w.id} onClick={() => act(w, () => send("DELETE", `/api/dispatch/${w.printer}/bed-warning`), "Thanks. Teach its empty bed if the camera keeps getting it wrong.")}><Check size={14} /> It was clear</button>
@@ -45,7 +47,7 @@ export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarnin
 export const describesAPart = (text: string) => /\b(part|parts|object|piece|print|disc|strand|strands|blob|tool|case|membrane|material|filament)\b/i.test(text) && /\b(on|sitting|left|lying|resting)\b/i.test(text) && !/\b(fixture|tape|clip|sticker|outline|scratch|mark|edge|frame|glare)\b/i.test(text);
 
 // A printer's bed check, tuned: judge the visible plate or the whole plate, and notes on what's fine on it.
-export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: { printer: string; name: string; notify: (m: string) => void; onTeach: () => void; canTeach: boolean }) {
+export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: { printer: string; name: string; notify: Notify; onTeach: () => void; canTeach: boolean }) {
   const [s, setS] = useState<Settings | null>(null), [text, setText] = useState(""), [busy, setBusy] = useState(false);
   const url = `/api/dispatch/${printer}`;
   useEffect(() => {
@@ -54,7 +56,7 @@ export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: {
   }, [printer]);
   const save = async (p: Promise<Settings>, done?: string) => {
     setBusy(true);
-    try { setS(await p); if (done) notify(done); return true; } catch (e) { notify((e as Error).message); return false; } finally { setBusy(false); }
+    try { setS(await p); if (done) notify(done); return true; } catch (e) { notify((e as Error).message, failure()); return false; } finally { setBusy(false); }
   };
   // Until its settings load (or if they can't), the section still offers teaching the empty bed.
   if (!s) return canTeach ? <section className="bed-settings" aria-label={`${name} bed check`}><h3>Bed check</h3><p className="plate-meta"><button className="text-button" onClick={onTeach}>Teach bed check</button></p></section> : null;

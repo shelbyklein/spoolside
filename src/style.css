@@ -72,6 +72,7 @@
   --nav-selected: #214858;
   --nav-selected-text: #93e0dc;
   --nav-line: #2b465a;
+  --tab-bar: 69px; /* the phone tab bar's height, without the home indicator under it */
 
   /* Corners. */
   --radius-sm: 6px; /* buttons, inputs, badges */
@@ -88,7 +89,7 @@
   --z-dialog: 100; /* dialogs (src/Dialog.tsx), the app-update bar */
   --z-dialog-over: 110; /* a dialog opened from a dialog */
   --z-chat: 120; /* Claude panel */
-  --z-toast: 130; /* above dialogs, so a dialog's own messages show */
+  --z-toast: 130; /* toasts, above everything: a failure inside a dialog shows, and an error that stays can be dismissed */
 }
 * {
   box-sizing: border-box;
@@ -896,23 +897,125 @@ main[tabindex="-1"]:focus {
 .empty p {
   font-size: var(--text-xs);
 }
-.toast {
+/* Toasts (src/Toast.tsx): bottom centre, newest nearest the edge; on a phone just above the tab bar. They sit above
+   dialogs (--z-toast), so a dialog's own failures show and can be dismissed; only the toasts take clicks, not the
+   strip around them. Success and info are navy; errors use the alert colours. */
+.toasts {
   position: fixed;
-  bottom: 24px;
   left: 50%;
+  bottom: 24px;
   transform: translateX(-50%);
-  background: #173f43;
-  color: #fff;
-  padding: 14px 20px;
-  border-radius: var(--radius-md);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.toasts:empty {
+  display: none;
+}
+.toast {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 2px 2px 2px 16px;
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-md);
+  background: var(--navy);
+  color: var(--surface);
   box-shadow: 0 8px 25px #112f3526;
-  z-index: var(--z-toast);
-  font-size: var(--text-xs);
-  max-width: 90%;
-  width: max-content;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.toast-icon {
+  flex: none;
+  color: var(--nav-selected-text);
+}
+.toast-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 14px 10px 0;
+  overflow-wrap: anywhere;
+}
+.toast button {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.toast button:hover {
+  background: var(--nav-hover);
+}
+.toast-action {
+  padding: 0 12px;
+  color: var(--nav-selected-text);
+}
+.toast-error {
+  border-color: var(--alert-line);
+  background: var(--alert-bg);
+  color: var(--alert-text);
+}
+.toast-error .toast-icon {
+  color: var(--alert);
+}
+.toast-error .toast-action {
+  color: var(--alert-text);
+  text-decoration: underline;
+}
+.toast-error button:hover {
+  background: var(--surface);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@media (max-width: 760px) {
+  .toasts {
+    bottom: calc(var(--tab-bar) + 12px + env(safe-area-inset-bottom));
+    width: calc(100vw - 24px);
+  }
+  .toast {
+    width: 100%;
+  }
+  /* While a dialog is open, the tab bar is behind it and a bottom sheet's text and actions are where toasts would
+     be, so they move to the top, the newest nearest the top edge. */
+  html.dialog-open .toasts {
+    top: max(12px, env(safe-area-inset-top));
+    bottom: auto;
+    flex-direction: column-reverse;
+  }
+}
+/* The in-app confirm (src/Confirm.tsx). */
+.primary.danger {
+  background: var(--alert);
+}
+.primary.danger:hover {
+  background: var(--alert-text);
+}
+.confirm-dialog .dialog-foot button {
+  min-height: 44px;
+}
+.confirm-body {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+@media (max-width: 760px) {
+  .confirm-dialog .dialog-foot button {
+    flex: 1;
+  }
 }
 @media (min-width: 1550px) {
   .main-content {
@@ -976,7 +1079,7 @@ main[tabindex="-1"]:focus {
     padding: 0;
     background: var(--navy);
     z-index: var(--z-nav);
-    height: 69px;
+    height: var(--tab-bar);
   }
   .sidebar .brand,
   .workspace,
@@ -1010,7 +1113,7 @@ main[tabindex="-1"]:focus {
   }
   main {
     margin-left: 0;
-    padding-bottom: 69px;
+    padding-bottom: var(--tab-bar);
   }
   .main-content {
     padding: 25px 20px 24px;
@@ -1090,11 +1193,6 @@ main[tabindex="-1"]:focus {
   }
   .settings li {
     margin-bottom: 12px;
-  }
-  .toast {
-    bottom: 85px;
-    width: 90%;
-    line-height: 1.5;
   }
   .single-section .job-row {
     flex-wrap: wrap;
@@ -1303,14 +1401,14 @@ main[tabindex="-1"]:focus {
 }
 @media (max-width: 760px) {
   .sidebar {
-    height: calc(69px + env(safe-area-inset-bottom));
+    height: calc(var(--tab-bar) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
   }
   .sidebar nav {
-    height: 69px;
+    height: var(--tab-bar);
   }
   main {
-    padding-bottom: calc(69px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--tab-bar) + env(safe-area-inset-bottom));
   }
   .main-content {
     padding-top: calc(20px + env(safe-area-inset-top));
@@ -1737,7 +1835,7 @@ main[tabindex="-1"]:focus {
 .bed-check figcaption { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--text-xs); color: var(--muted); }
 .bed-check figcaption .text-button { display: inline-flex; align-items: center; gap: 4px; }
 /* Phone home screen: the spool on the water, with the farm at a glance on frosted cards. */
-.water-home { position: fixed; inset: 0 0 calc(69px + env(safe-area-inset-bottom)); z-index: var(--z-home); overflow: hidden; background: linear-gradient(160deg, #06404d, #022a36); color: #fff; }
+.water-home { position: fixed; inset: 0 0 calc(var(--tab-bar) + env(safe-area-inset-bottom)); z-index: var(--z-home); overflow: hidden; background: linear-gradient(160deg, #06404d, #022a36); color: #fff; }
 .home-water { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .home-content { position: relative; height: 100%; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 28px) 18px 24px; display: flex; flex-direction: column; gap: 12px; }
 .home-mark { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 250px; margin: -28px -18px 6px; padding: 28px 18px 18px; text-align: center; text-shadow: 0 2px 8px rgba(0, 20, 28, 0.55); }
@@ -2062,7 +2160,7 @@ main[tabindex="-1"]:focus {
 @media (max-width: 760px) {
   html, body, #root {height:100%;overflow:hidden;}
   .app {height:100dvh;min-height:0;}
-  main {position:fixed;inset:0 0 calc(69px + env(safe-area-inset-bottom));margin-left:0;padding-bottom:0;overflow-y:auto;overscroll-behavior-y:contain;scroll-padding:16px;-webkit-overflow-scrolling:touch;}
+  main {position:fixed;inset:0 0 calc(var(--tab-bar) + env(safe-area-inset-bottom));margin-left:0;padding-bottom:0;overflow-y:auto;overscroll-behavior-y:contain;scroll-padding:16px;-webkit-overflow-scrolling:touch;}
 }
 .playcase-subnav {display:flex;flex-direction:column;margin:0 0 8px 28px;gap:2px;}
 .playcase-subnav button {justify-content:flex-start;padding:7px 12px;color:rgba(255,255,255,.8);font-size:var(--text-xs);border-radius:var(--radius-md);}

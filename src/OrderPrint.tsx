@@ -9,6 +9,7 @@ import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
 
 // Shared with the server's print offers, so both agree on which spool is the order's color.
 import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "../server/colorway.mjs";
+import { failure, type Notify } from "./Toast";
 const idle = (m: Machine) => !!m.connected && !m.stale && ["IDLE", "FINISH", "FAILED"].includes(m.rawState || "");
 export const colorwayOf = (order: Order) => order.items.find((i) => i.colorway)?.colorway || "";
 const groupTitle = (g: PrintGroup) => `Print ${g.label}`;
@@ -51,7 +52,7 @@ export function OrderPrintButtons({ order, onPrint, onTick }: { order: Order; on
 }
 
 // Choose the printer and spool for one order piece, check the bed, and send it.
-export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify, printer: suggested }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: (m: string) => void; printer?: string }) {
+export function OrderPrintDialog({ order, group, machines, onClose, onSent, notify, printer: suggested }: { order: Order; group: PrintGroup; machines: Machine[]; onClose: () => void; onSent: () => void; notify: Notify; printer?: string }) {
   const next = group.next!;
   const { files } = useLibrary();
   const plate = files?.find((f) => f.id === next.fileId)?.plates.find((p) => p.index === next.plate);
@@ -97,7 +98,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
       onSent();
       onClose();
     } catch (e) {
-      notify((e as Error).message);
+      notify((e as Error).message, failure());
     } finally {
       setSending(false);
     }
