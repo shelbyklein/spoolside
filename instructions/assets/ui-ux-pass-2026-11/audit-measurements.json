@@ -1,0 +1,1129 @@
+{
+ "d-overview": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 94,
+  "smallTap": 36,
+  "smallTapEx": [
+   "Files ready",
+   "Case printed",
+   "Handheld faceplate printed",
+   "DS faceplate printed",
+   "Print case",
+   "Print Handheld faceplate"
+  ],
+  "tinyText": 81,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Add a reminder"
+  ],
+  "lowContrast": 4,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 1 m",
+   "12 pieces · 7 orders",
+   "Handheld faceplate · Classic faceplate h",
+   "held until the order is reviewed"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 1,
+  "clippedEx": [
+   "ds bridge test - 4 pairs - conductive · "
+  ],
+  "fontSizes": 12,
+  "headings": "12222",
+  "docHeight": 3512
+ },
+ "d-printers": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 34,
+  "smallTap": 0,
+  "smallTapEx": [],
+  "tinyText": 27,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Live"
+  ],
+  "lowContrast": 1,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 1 m"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "122",
+  "docHeight": 1515
+ },
+ "d-orders": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 83,
+  "smallTap": 39,
+  "smallTapEx": [
+   "Pirate Ship",
+   "Open store",
+   "Search orders",
+   "Files ready",
+   "Case printed",
+   "Handheld faceplate printed"
+  ],
+  "tinyText": 80,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "playcase.gg"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 1644
+ },
+ "d-queue": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 23,
+  "smallTap": 0,
+  "smallTapEx": [],
+  "tinyText": 9,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Printing now"
+  ],
+  "lowContrast": 3,
+  "lowContrastEx": [
+   "12 pieces · 7 orders",
+   "Handheld faceplate · Classic faceplate h",
+   "held until the order is reviewed"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 11,
+  "headings": "12",
+  "docHeight": 1218
+ },
+ "d-library-assets": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 154,
+  "smallTap": 4,
+  "smallTapEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "Search assets"
+  ],
+  "tinyText": 7,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 33,
+  "clippedEx": [
+   "DS Plus Faceplate Bridge",
+   "Handheld & Classic - Faceplate Bridge",
+   "Handheld Plus - Faceplate Bridge",
+   "PlayPad - Bottom faceplate"
+  ],
+  "fontSizes": 11,
+  "headings": "123333333233322233333333332",
+  "docHeight": 4853
+ },
+ "d-library-assemblies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 374,
+  "smallTap": 36,
+  "smallTapEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "Search assemblies",
+   "Classic",
+   "Classic Plus"
+  ],
+  "tinyText": 171,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 50,
+  "lowContrastEx": [
+   "Preview unavailable",
+   "35",
+   "33",
+   "31",
+   "30"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 9,
+  "headings": "1333333333333333333333333333333333",
+  "docHeight": 2534
+ },
+ "d-library-sliced": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 250,
+  "smallTap": 58,
+  "smallTapEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "Edit assets"
+  ],
+  "tinyText": 68,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "12",
+  "docHeight": 5765
+ },
+ "d-inventory": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 240,
+  "smallTap": 32,
+  "smallTapEx": [
+   "Search inventory",
+   "Hide iPhone 12",
+   "Hide iPhone 12 Pro",
+   "Hide iPhone 12 Pro Max",
+   "Hide iPhone 13",
+   "Hide iPhone 13 Pro"
+  ],
+  "tinyText": 6,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Cases"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 1824
+ },
+ "d-personal": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 21,
+  "smallTap": 0,
+  "smallTapEx": [],
+  "tinyText": 4,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Online"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 900
+ },
+ "d-supplies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 71,
+  "smallTap": 0,
+  "smallTapEx": [],
+  "tinyText": 91,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Slot 1"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 11,
+  "headings": "123333334343434343",
+  "docHeight": 3927
+ },
+ "d-settings": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 28,
+  "smallTap": 0,
+  "smallTapEx": [],
+  "tinyText": 10,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Print the next thing in the queue on a f"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "1222222222",
+  "docHeight": 1615
+ },
+ "t-overview": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 94,
+  "smallTap": 78,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Upload"
+  ],
+  "tinyText": 81,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Add a reminder"
+  ],
+  "lowContrast": 4,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 2 m",
+   "12 pieces · 7 orders",
+   "Handheld faceplate · Classic faceplate h",
+   "held until the order is reviewed"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 13,
+  "headings": "12222",
+  "docHeight": 4157
+ },
+ "t-printers": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 34,
+  "smallTap": 18,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 28,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Live"
+  ],
+  "lowContrast": 1,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 2 m"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "122",
+  "docHeight": 1866
+ },
+ "t-orders": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 83,
+  "smallTap": 74,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 80,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "playcase.gg"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 2358
+ },
+ "t-queue": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 23,
+  "smallTap": 14,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 9,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Printing now"
+  ],
+  "lowContrast": 3,
+  "lowContrastEx": [
+   "12 pieces · 7 orders",
+   "Handheld faceplate · Classic faceplate h",
+   "held until the order is reviewed"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 11,
+  "headings": "12",
+  "docHeight": 1207
+ },
+ "t-library-assets": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 154,
+  "smallTap": 29,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 7,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 36,
+  "clippedEx": [
+   "AB Button Membrane",
+   "DS Faceplate Bridge",
+   "DS Plus Faceplate Bridge",
+   "Handheld & Classic - Faceplate Bridge"
+  ],
+  "fontSizes": 11,
+  "headings": "123333333233322233333333332",
+  "docHeight": 6678
+ },
+ "t-library-assemblies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 374,
+  "smallTap": 317,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 171,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 50,
+  "lowContrastEx": [
+   "Preview unavailable",
+   "35",
+   "33",
+   "31",
+   "30"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 9,
+  "headings": "1333333333333333333333333333333333",
+  "docHeight": 3517
+ },
+ "t-library-sliced": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 250,
+  "smallTap": 186,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 68,
+  "tinyTextEx": [
+   "Assets",
+   "Assemblies",
+   "Sliced prints",
+   "12"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "12",
+  "docHeight": 14885
+ },
+ "t-inventory": {
+  "overflowX": false,
+  "offRight": 513,
+  "offRightEx": [
+   "Item Black Grey Red Green Blue YellowCas",
+   "Item Black Grey Red Green Blue Yellow",
+   "Red"
+  ],
+  "controls": 240,
+  "smallTap": 231,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "All"
+  ],
+  "tinyText": 6,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Cases"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 1864
+ },
+ "t-personal": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 21,
+  "smallTap": 9,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 4,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Online"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 1180
+ },
+ "t-supplies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 71,
+  "smallTap": 62,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 91,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Slot 1"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 11,
+  "headings": "123333334343434343",
+  "docHeight": 4546
+ },
+ "t-settings": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 28,
+  "smallTap": 15,
+  "smallTapEx": [
+   "Spoolside home",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Ask Claude",
+   "Refresh orders"
+  ],
+  "tinyText": 10,
+  "tinyTextEx": [
+   "12",
+   "Getting connected",
+   "Spoolside · early access",
+   "Print the next thing in the queue on a f"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "1222222222",
+  "docHeight": 1725
+ },
+ "m-overview": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 30,
+  "smallTap": 20,
+  "smallTapEx": [
+   "Stop print",
+   "It was clear",
+   "False alarm, resume",
+   "Review",
+   "Teach empty bed",
+   "Bed cleared"
+  ],
+  "tinyText": 8,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 3,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 2 m",
+   "Sliced print (.3mf)",
+   "Upload asset"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 6,
+  "headings": "2",
+  "docHeight": 926
+ },
+ "m-printers": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 28,
+  "smallTap": 14,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "Stop print",
+   "It was clear",
+   "False alarm, resume",
+   "Review"
+  ],
+  "tinyText": 18,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 1,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 2 m"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 4,
+  "clippedEx": [
+   "DS Plus Faceplate - Top + Bottom",
+   "Handheld Plus Faceplate - Top + Bottom",
+   "ds bridge test - 4 pairs - conductive",
+   "Handheld Faceplate - Top + Bottom"
+  ],
+  "fontSizes": 10,
+  "headings": "122",
+  "docHeight": 1738
+ },
+ "m-orders": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 77,
+  "smallTap": 69,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "Orders",
+   "Library",
+   "Inventory",
+   "Pirate Ship"
+  ],
+  "tinyText": 80,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 8,
+  "headings": "1",
+  "docHeight": 2983
+ },
+ "m-queue": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 17,
+  "smallTap": 10,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "Print case",
+   "Print Handheld faceplate",
+   "Print Classic faceplate",
+   "Review order"
+  ],
+  "tinyText": 13,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 3,
+  "lowContrastEx": [
+   "12 pieces · 7 orders",
+   "Handheld faceplate · Classic faceplate h",
+   "held until the order is reviewed"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 11,
+  "headings": "12",
+  "docHeight": 1367
+ },
+ "m-library-assets": {
+  "overflowX": false,
+  "offRight": 81,
+  "offRightEx": [
+   "iPhone 11",
+   "iPhone 11iPhone 11 Pro",
+   "iPhone 11, Up to date"
+  ],
+  "controls": 145,
+  "smallTap": 22,
+  "smallTapEx": [
+   "Ask Claude",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 8,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 13,
+  "clippedEx": [
+   "AB Button Membrane",
+   "DS Faceplate Bridge",
+   "DS Plus Faceplate Bridge",
+   "Handheld & Classic - Faceplate Bridge"
+  ],
+  "fontSizes": 8,
+  "headings": "123333333233322233333333332",
+  "docHeight": 10470
+ },
+ "m-library-assemblies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 365,
+  "smallTap": 316,
+  "smallTapEx": [
+   "Ask Claude",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 172,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 50,
+  "lowContrastEx": [
+   "Preview unavailable",
+   "35",
+   "33",
+   "Rendering preview…",
+   "31"
+  ],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 9,
+  "headings": "1333333333333333333333333333333333",
+  "docHeight": 5266
+ },
+ "m-library-sliced": {
+  "overflowX": false,
+  "offRight": 8,
+  "offRightEx": [
+   "Handheld & Classic - Faceplate Bridge",
+   "PlayPad - Top faceplate (housing)PlayPad",
+   "PlayPad - Top faceplate (housing)"
+  ],
+  "controls": 348,
+  "smallTap": 286,
+  "smallTapEx": [
+   "Ask Claude",
+   "Orders",
+   "Library",
+   "Assets",
+   "Assemblies",
+   "Sliced prints"
+  ],
+  "tinyText": 69,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 9,
+  "headings": "12",
+  "docHeight": 12968
+ },
+ "m-inventory": {
+  "overflowX": false,
+  "offRight": 674,
+  "offRightEx": [
+   "Item Black Grey Red Green Blue YellowCas",
+   "Item Black Grey Red Green Blue Yellow",
+   "Item"
+  ],
+  "controls": 234,
+  "smallTap": 227,
+  "smallTapEx": [
+   "Ask Claude",
+   "Orders",
+   "Library",
+   "Inventory",
+   "All",
+   "Cases"
+  ],
+  "tinyText": 10,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 7,
+  "headings": "1",
+  "docHeight": 1899
+ },
+ "m-personal": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 15,
+  "smallTap": 5,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "Search personal projects",
+   "Sort projects",
+   "New project"
+  ],
+  "tinyText": 8,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 5,
+  "headings": "1",
+  "docHeight": 926
+ },
+ "m-supplies": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 65,
+  "smallTap": 57,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "Filament",
+   "Parts",
+   "Packaging",
+   "Sort restock offers"
+  ],
+  "tinyText": 95,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "123333334343434343",
+  "docHeight": 6049
+ },
+ "m-settings": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 22,
+  "smallTap": 10,
+  "smallTapEx": [
+   "Ask Claude",
+   "Refresh orders",
+   "View orders",
+   "Bed check →",
+   "Refresh app",
+   "Sign out"
+  ],
+  "tinyText": 14,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 0,
+  "lowContrastEx": [],
+  "unnamed": 0,
+  "unnamedEx": [],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 10,
+  "headings": "1222222222",
+  "docHeight": 1848
+ },
+ "m-home": {
+  "overflowX": false,
+  "offRight": 0,
+  "offRightEx": [],
+  "controls": 30,
+  "smallTap": 20,
+  "smallTapEx": [
+   "Stop print",
+   "It was clear",
+   "False alarm, resume",
+   "Review",
+   "Teach empty bed",
+   "Bed cleared"
+  ],
+  "tinyText": 8,
+  "tinyTextEx": [
+   "Overview",
+   "Printers",
+   "PlayCase",
+   "Personal"
+  ],
+  "lowContrast": 3,
+  "lowContrastEx": [
+   "DS - Faceplate Bridge - conductive · 3 m",
+   "Sliced print (.3mf)",
+   "Upload asset"
+  ],
+  "unnamed": 2,
+  "unnamedEx": [
+   "<a href=\"/api/dispatch/0300CA622203965/bed-warning.jpg?id=w1\" target=\"",
+   "<a href=\"/api/watches/00000000-0000-4000-8000-000000000002/2.jpg\" targ"
+  ],
+  "clipped": 0,
+  "clippedEx": [],
+  "fontSizes": 6,
+  "headings": "2",
+  "docHeight": 926
+ }
+}
