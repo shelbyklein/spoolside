@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Play, Printer, X } from "lucide-react";
+import { Camera, Check, Play, Printer, X } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import type { Order, PrintGroup } from "./order-model";
 import { BedHeld, useLibrary } from "./PrintControls";
@@ -174,13 +174,15 @@ export function useDispatch(enabled: boolean) {
     const timer = window.setInterval(refresh, 20000);
     return () => clearInterval(timer);
   }, [enabled]);
-  const post = async (url: string, body?: unknown) => {
+  const post = async (url: string, body?: unknown): Promise<Dispatch> => {
     const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
-    const d = await r.json().catch(() => ({}));
+    const d = await r.json().catch(() => null);
+    if (!d) throw Error("Spoolside didn't answer. Try again.");
     if (!r.ok) throw Error(d.error || "Couldn't save");
     setData(d);
+    return d;
   };
-  return { ...data, refresh, dismiss: (printer: string) => post(`/api/dispatch/${printer}/dismiss`), setAuto: (on: boolean) => {
+  return { ...data, refresh, dismiss: (printer: string) => post(`/api/dispatch/${printer}/dismiss`), recheck: (printer: string) => post(`/api/dispatch/${printer}/recheck`), setAuto: (on: boolean) => {
     // Show the change right away; the server's answer settles it.
     setData((d) => ({ ...d, auto: on }));
     return post("/api/dispatch/auto", { on }).catch((e) => { refresh(); throw e; });
@@ -188,15 +190,32 @@ export function useDispatch(enabled: boolean) {
 }
 
 // "AMS 3 is free: print the iPhone 12 Case for #10177?"
-export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onRemember, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; onRemember?: (printer: string, name: string, reason: string) => void; water?: boolean }) {
+// A free printer the camera won't hand the next order to: what it sees, with a photo, and the two answers.
+// "Bed cleared" looks again now; "Teach empty bed" is for when the camera is wrong about this printer.
+function HeldCard({ held, onRecheck, onTeach }: { held: Held; onRecheck?: (printer: string, name: string) => Promise<void>; onTeach?: (printer: string, name: string) => void }) {
+  const [checking, setChecking] = useState(false);
+  const [stamp, setStamp] = useState(Date.now());
+  useEffect(() => setStamp(Date.now()), [held.reason]);
+  return (
+    <article className="watch-card held-card" aria-label={`${held.printerName} is waiting on its bed`}>
+      <h3><Camera size={17} /> {held.printerName} is waiting on its bed</h3>
+      <div className="held-body">
+        <img src={`/api/printers/${held.printer}/feed.jpg?t=${stamp}`} alt={`${held.printerName}'s bed now`} onError={(e) => (e.currentTarget.style.display = "none")} />
+        <p><span>The camera sees:</span> {held.reason}</p>
+      </div>
+      <div className="watch-actions">
+        {onRecheck && <button className="primary" disabled={checking} onClick={async () => { setChecking(true); try { await onRecheck(held.printer, held.printerName); } finally { setChecking(false); setStamp(Date.now()); } }}><Check size={15} /> {checking ? "Checking the bed…" : "Bed cleared"}</button>}
+        {onTeach && <button className="secondary" disabled={checking} onClick={() => onTeach(held.printer, held.printerName)}>Teach empty bed</button>}
+      </div>
+    </article>
+  );
+}
+
+export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onRecheck, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; onRecheck?: (printer: string, name: string) => Promise<void>; water?: boolean }) {
   if (!offers.length && !held.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
-      {held.map((h) => (
-        <p key={h.printer} className="held-note">
-          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes. {onRemember && <button className="text-button" onClick={() => onRemember(h.printer, h.printerName, h.reason)}>Wrong, remember this</button>}{" "}{onTeach && <button className="text-button" onClick={() => onTeach(h.printer,h.printerName)}>Teach bed check</button>}
-        </p>
-      ))}
+      {held.map((h) => <HeldCard key={h.printer} held={h} onRecheck={onRecheck} onTeach={onTeach} />)}
       {offers.map((o) => (
         <article key={o.id} className="watch-card offer-card" aria-label={`${o.printerName} is free`}>
           <h3><Printer size={17} /> {o.printerName} is free</h3>
@@ -204,7 +223,6 @@ export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onR
           {o.autoBlocked && <p className="watch-job">Didn't start automatically: {o.autoBlocked}</p>}
           <div className="watch-actions">
             <button className="primary" onClick={() => onPrint(o)}><Play size={15} /> Print…</button>
-            {onRemember && o.autoBlocked?.startsWith("Bed check:") && <button className="secondary" onClick={() => onRemember(o.printer, o.printerName, o.autoBlocked!)}>Wrong, remember this</button>}
             <button className="text-button" onClick={() => onDismiss(o)}>Not now</button>
           </div>
         </article>

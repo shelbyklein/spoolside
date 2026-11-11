@@ -179,7 +179,7 @@ test("print-opportunity notifications wait for 9am New York time and stop at 11p
 });
 
 
-test("empty-bed teaching uses an exact fresh confirmed photo without bypassing vision", async()=>{
+test("empty-bed teaching uses an exact fresh confirmed photo; your confirmation clears the hold until the next print or half an hour", async()=>{
  const s=setup({bed:{empty:false,reason:"Fixture mistaken for part"}});
  try {
   await s.d.tick();const capture=await s.d.captureReference("P1");
@@ -200,8 +200,18 @@ test("empty-bed teaching uses an exact fresh confirmed photo without bypassing v
   assert.deepEqual(s.d.reference("P1").area,{left:0,top:0.44,right:0.57,bottom:1},"re-teaching without a box keeps it");
   assert.equal(s.d.reference("other"),null);
   assert.equal(s.d.beds.has("P1"),false);
-  await s.d.tick();assert.equal(s.references.at(-1).note,"White circle is a fixture");
-  assert.equal(s.d.view().offers.length,0,"reference never forces clear");assert.equal(s.started.length,0);
+  // Teaching is you confirming the bed is clear: the hold goes at once and the order is offered without another look.
+  assert.equal(s.d.view().held.length,0,"the hold clears as soon as it's taught");
+  const looks=s.checks.length;
+  await s.d.tick();
+  assert.equal(s.checks.length,looks,"no second-guessing right after you confirmed");
+  assert.equal(s.d.view().offers.length,1);assert.equal(s.d.view().held.length,0);assert.equal(s.started.length,0,"auto-print is off");
+  // Half an hour on, the camera judges again, now with your example; it still decides for itself.
+  s.later(31*60000);
+  await s.d.tick();
+  assert.equal(s.references.at(-1).note,"White circle is a fixture");
+  assert.equal(s.d.view().offers.length,0,"a reference never forces clear by itself");
+  assert.equal(s.d.view().held[0].reason,"Fixture mistaken for part");
   const expired=await s.d.captureReference("P1");s.later(300001);
   assert.throws(()=>s.d.teachReference("P1",expired.id,true,""),/expired/);
   const changed=await s.d.captureReference("P1");s.view.rawState="RUNNING";
@@ -211,7 +221,7 @@ test("empty-bed teaching uses an exact fresh confirmed photo without bypassing v
  const dark=setup();try{dark.d.shrink=async jpeg=>({jpeg,brightness:5});await assert.rejects(()=>dark.d.captureReference("P1"),/dark/);}finally{dark.done();}
 });
 test("automatic final check also receives the printer reference",async()=>{
- const s=setup();try{const c=await s.d.captureReference("P1");s.d.teachReference("P1",c.id,true,"fixture");s.d.setAuto(true);await s.d.tick();assert.deepEqual(s.checks,["routine","confirm"]);assert.ok(s.references.every(r=>r.note==="fixture"));}finally{s.done();}
+ const s=setup();try{const c=await s.d.captureReference("P1");s.d.teachReference("P1",c.id,true,"fixture");s.d.setAuto(true);s.later(31*60000);await s.d.tick();assert.deepEqual(s.checks,["routine","confirm"]);assert.ok(s.references.every(r=>r.note==="fixture"));}finally{s.done();}
 });
 
 test('vision compares separately labeled reference and current photos',async()=>{
@@ -230,11 +240,11 @@ test("printer references survive restart",async()=>{
  finally{rmSync(dir,{recursive:true,force:true});}
 });
 
-test('a reference saved during a camera check invalidates the old in-flight verdict',async()=>{
+test('a reference saved during a camera check replaces the old in-flight verdict',async()=>{
  const s=setup();let release;const waiting=new Promise(r=>release=r);let calls=0;
  try{s.d.bedCheck=async(_jpeg,_kind,ref)=>{calls++;if(calls===1)await waiting;return {empty:!!ref,reason:'checked'};};
  const checking=s.d.lookAtBed('P1',null);await new Promise(r=>setImmediate(r));const c=await s.d.captureReference('P1');s.d.teachReference('P1',c.id,true,'fixture');release();
- assert.equal((await checking).empty,true);assert.equal(calls,2);
+ const verdict=await checking;assert.equal(verdict.empty,true);assert.equal(verdict.reason,"You confirmed the bed is clear.");assert.equal(calls,1,"your confirmation answers instead of a second look");
  }finally{s.done();}
 });
 
@@ -355,6 +365,25 @@ test("a printer is only offered an order whose colorway one of its spools actual
     await s.d.tick();
     assert.equal(s.d.view().offers[0]?.orderNumber, "#10416");
     assert.equal(s.d.view().offers[0].slot, 0);
+  } finally {
+    s.done();
+  }
+});
+
+test("Bed cleared looks again right away instead of waiting a few minutes", async () => {
+  const s = setup({ bed: { empty: false, reason: "A green part is on the plate." } });
+  try {
+    await s.d.tick();
+    assert.equal(s.d.view().held.length, 1);
+    const looks = s.checks.length;
+    await s.d.tick();
+    assert.equal(s.checks.length, looks, "a held bed normally waits a few minutes before the next look");
+    s.d.bedCheck = async (jpeg, kind) => (s.checks.push(kind), { empty: true, reason: "Clear." });
+    const view = await s.d.recheck("P1");
+    assert.equal(s.checks.length, looks + 1);
+    assert.equal(view.held.length, 0);
+    assert.equal(view.offers.length, 1);
+    await assert.rejects(() => s.d.recheck("nope"), /Unknown printer/);
   } finally {
     s.done();
   }

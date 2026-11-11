@@ -13,7 +13,7 @@ test('held printer can be taught using the displayed photo and explicit confirma
   if(url.pathname.startsWith('/api/'))return route.fulfill({json:[]});
   return route.fulfill({response:await route.fetch({url:'http://127.0.0.1:4173'+url.pathname+url.search})});
  });
- await page.goto('https://spoolside.shelbyklein.com/printers');await page.getByRole('button',{name:'Teach bed check'}).click();
+ await page.goto('https://spoolside.shelbyklein.com/printers');await page.getByRole('button',{name:'Teach empty bed'}).click();
  const dialog=page.getByRole('dialog',{name:'Teach AMS 3 bed check'});await expect(dialog).toBeVisible();
  const save=dialog.getByRole('button',{name:'Save empty-bed reference'});await expect(save).toBeDisabled();
  await expect(dialog.getByRole('img',{name:'AMS 3 bed to confirm'})).toBeVisible();await dialog.getByLabel('This photo shows an empty bed').check();
