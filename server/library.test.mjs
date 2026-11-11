@@ -37,8 +37,14 @@ test("print API validates library file, plate clearance and AMS mapping", async 
   const salt = "b".repeat(32);
   // The camera answers from this list, one look per manual start.
   const beds = [{ empty: false, reason: "Four white parts are on the plate." }, { empty: true, reason: "Clear." }];
-  const dispatcher = { bedCheck: () => {}, checkBedNow: async () => beds.shift() || { empty: true, reason: "Clear." }, tick: async () => {} };
-  const { app, close } = createApp({ pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library, dispatcher });
+  const warned = [];
+  const dispatcher = {
+    bedCheck: () => {}, checkBedNow: async () => beds.shift() || { empty: true, reason: "Clear." }, tick: async () => {},
+    frameBeforeStart: async (serial) => ({ jpeg: Buffer.from("frame-" + serial), brightness: 90 }),
+    warnAfterStart: async (serial, frame, job) => warned.push([serial, String(frame.jpeg), job]),
+  };
+  const database = path.join(dir, "app.sqlite");
+  const { app, close } = createApp({ database, pinHash: salt + ":" + scryptSync("12345678", salt, 64).toString("hex"), origin: "http://localhost", secure: false, printers, library, dispatcher });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -53,13 +59,29 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     assert.equal(bad.status, 400);
     const print = (body) => fetch(base + "/api/printers/P1/print", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const base_ = { fileId: file.id, plate: 1, useAms: true, amsMapping: [2, -1, 3] };
-    // The camera checks the bed before a manual start; "Start anyway" (bedClear) skips it.
-    const held = await print(base_);
+    // A start from an API key (Claude, Codex) waits for the camera; "Start anyway" (bedClear) skips it.
+    const { DatabaseSync } = await import("node:sqlite");
+    const { createHash } = await import("node:crypto");
+    const keyDb = new DatabaseSync(database);
+    keyDb.prepare("INSERT INTO api_keys VALUES (?,?,?,NULL)").run(createHash("sha256").update("sps_test").digest("hex"), "test", Date.now());
+    keyDb.close();
+    const agent = (route, body) => fetch(base + route, { method: "POST", headers: { Authorization: "Bearer sps_test", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const held = await agent("/api/printers/P1/print", base_);
     assert.equal(held.status, 409);
     assert.deepEqual(await held.json(), { error: "The camera sees something on the bed: Four white parts are on the plate.", bed: true });
     assert.match((await (await print({ ...base_, bedClear: true, amsMapping: [2] })).json()).error, /AMS slot/);
     assert.equal(calls.length, 0);
-    assert.equal((await print(base_)).status, 200, "a clear bed starts without asking");
+    assert.equal((await agent("/api/printers/P1/print", base_)).status, 200, "a clear bed starts without asking");
+    assert.equal(warned.length, 0, "an agent's start was checked first, so there's nothing to warn about");
+    // Your own start in the app goes straight through; the photo from just before is judged afterwards.
+    beds.push({ empty: false, reason: "Never asked." });
+    calls.length = 0;
+    assert.equal((await print(base_)).status, 200);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(warned, [["P1", "frame-P1", "Handheld – Green"]]);
+    assert.equal(beds.length, 1, "the app start didn't wait for the camera");
+    beds.length = 0;
+    warned.length = 0;
     calls.length = 0;
     assert.equal((await print({ ...base_, bedClear: true })).status, 200);
     assert.equal(calls[0][1], "P1");
@@ -71,7 +93,7 @@ test("print API validates library file, plate clearance and AMS mapping", async 
     assert.equal(await (await fetch(base + "/api/printers/P2/last-print", { headers })).json(), null);
     const reprint = (id, body) => fetch(base + `/api/printers/${id}/reprint`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
     beds.push({ empty: false, reason: "A strand is on the plate." });
-    assert.match((await (await reprint("P1", { plate: 1, useAms: true, amsMapping: [2, -1, 3] })).json()).error, /A strand is on the plate/);
+    assert.match((await (await agent("/api/printers/P1/reprint", { plate: 1, useAms: true, amsMapping: [2, -1, 3] })).json()).error, /A strand is on the plate/);
     assert.match((await (await reprint("P1", { plate: 2, bedClear: true, useAms: false })).json()).error, /sliced plate/);
     assert.equal((await reprint("P2", { plate: 1, bedClear: true })).status, 404);
     assert.equal((await reprint("P1", { plate: 1, bedClear: true, useAms: true, amsMapping: [2, -1, 3] })).status, 200);
@@ -173,7 +195,6 @@ test("an order's Print button sends its next plate and remembers the order", asy
     assert.equal(group.label, "case");
     const body = { group: group.key, printer: "P1", plate: `${file.id}:1`, useAms: true, amsMapping: [2, -1, 3], bedClear: true };
     const send = (b) => fetch(base + "/api/orders/o1/print", { method: "POST", headers, body: JSON.stringify(b) });
-    assert.match((await (await send({ ...body, bedClear: false })).json()).error, /confirm it's clear yourself/);
     assert.equal((await send({ ...body, plate: "other:1" })).status, 409);
     assert.equal(calls.length, 0);
     assert.equal((await send(body)).status, 200);

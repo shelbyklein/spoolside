@@ -27,6 +27,8 @@ export class Dispatcher {
     this.db.exec("CREATE TABLE IF NOT EXISTS bed_references (printer TEXT PRIMARY KEY, jpeg BLOB NOT NULL, note TEXT NOT NULL, confirmed INTEGER NOT NULL)");
     // The part of the photo where the plate sits, as fractions of the frame: bed checks look only there.
     if (!this.db.prepare("PRAGMA table_info(bed_references)").all().some((c) => c.name === "area")) this.db.exec("ALTER TABLE bed_references ADD COLUMN area TEXT");
+    // How each printer's bed check judges: by the visible plate or the whole plate, and what's fine on it.
+    this.db.exec("CREATE TABLE IF NOT EXISTS bed_settings (printer TEXT PRIMARY KEY, visible_only INTEGER NOT NULL DEFAULT 1, allow TEXT NOT NULL DEFAULT '[]')");
     this.referenceCaptures = new Map();
     this.referenceRevisions = new Map();
     this.prompted = new Map();
@@ -35,6 +37,7 @@ export class Dispatcher {
     this.tried = new Map(); // offerId -> { at, reason }
     this.beds = new Map(); // printer -> { key, at, empty, reason }: the last camera check of the bed
     this.held = new Map(); // printer -> { printerName, reason }: free, but the bed check says no
+    this.warnings = new Map(); // printer -> { id, printer, printerName, job, reason, at, jpeg }: you started a print the camera doubted
     this.busy = false;
   }
   close() {
@@ -123,6 +126,75 @@ export class Dispatcher {
     const r = this.db.prepare("SELECT jpeg,note,area FROM bed_references WHERE printer=?").get(serial);
     return r ? {jpeg:Buffer.from(r.jpeg),note:r.note,area:r.area ? JSON.parse(r.area) : null} : null;
   }
+  bedSettings(serial) {
+    const r = this.db.prepare("SELECT visible_only, allow FROM bed_settings WHERE printer=?").get(String(serial));
+    const ref = this.db.prepare("SELECT note, confirmed, area FROM bed_references WHERE printer=?").get(String(serial));
+    return { visibleOnly: r ? !!r.visible_only : true, allow: r ? JSON.parse(r.allow) : [], reference: ref ? { note: ref.note, taught: ref.confirmed, area: !!ref.area } : null };
+  }
+  // Everything a bed check needs about this printer: its empty-bed photo (if taught) and its settings.
+  context(serial) {
+    const { visibleOnly, allow } = this.bedSettings(serial);
+    return { ...(this.reference(serial) || {}), visibleOnly, allow: allow.map((a) => a.text) };
+  }
+  saveBedSettings(serial, { visibleOnly, allow }) {
+    const cur = this.bedSettings(serial);
+    const next = { visibleOnly: visibleOnly ?? cur.visibleOnly, allow: allow ?? cur.allow };
+    this.db.prepare("INSERT INTO bed_settings VALUES (?,?,?) ON CONFLICT(printer) DO UPDATE SET visible_only=excluded.visible_only, allow=excluded.allow").run(String(serial), next.visibleOnly ? 1 : 0, JSON.stringify(next.allow));
+    // Judged differently now: look again soon, and let a held auto-print try again.
+    this.beds.delete(String(serial));
+    this.referenceRevisions.set(String(serial), (this.referenceRevisions.get(String(serial)) || 0) + 1);
+    const offer = this.offers.get(String(serial));
+    if (offer) this.tried.delete(offer.id);
+    return this.bedSettings(serial);
+  }
+  setVisibleOnly(serial, on) {
+    if (typeof on !== "boolean") throw Error("Choose on or off");
+    return this.saveBedSettings(serial, { visibleOnly: on });
+  }
+  // "This is fine on this printer": a note every later check of its bed is told to accept.
+  allowOnBed(serial, text) {
+    const clean = typeof text === "string" ? text.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 300) : "";
+    if (!clean) throw Error("Say what's fine on this printer's bed");
+    const { allow } = this.bedSettings(serial);
+    if (allow.length >= 20) throw Error("This printer has 20 notes already. Remove one first.");
+    this.held.delete(String(serial));
+    return this.saveBedSettings(serial, { allow: [...allow, { id: randomUUID(), text: clean, at: this.now() }] });
+  }
+  removeAllowance(serial, id) {
+    const { allow } = this.bedSettings(serial);
+    if (!allow.some((a) => a.id === id)) throw Object.assign(Error("That note is already gone"), { status: 404 });
+    return this.saveBedSettings(serial, { allow: allow.filter((a) => a.id !== id) });
+  }
+  // Your own start goes straight through: the photo from just before it is judged afterwards, and if the camera
+  // thought something was on the bed you're told, with the photo, while there's still time to stop it.
+  async frameBeforeStart(serial) {
+    if (!this.bedCheck) return null;
+    try { return await this.shrink(await this.printers.cameraFrame(serial)); } catch { return null; }
+  }
+  async warnAfterStart(serial, frame, job) {
+    if (!this.bedCheck || !frame) return;
+    serial = String(serial);
+    let bed;
+    try {
+      bed = frame.brightness < 18 ? { empty: false, reason: "It was too dark to see the bed." } : await this.bedCheck(frame.jpeg, "confirm", this.context(serial));
+    } catch {
+      return;
+    }
+    if (bed.empty) return this.warnings.delete(serial);
+    const name = this.printers.statuses().find((p) => p.serial === serial)?.view.name || "The printer";
+    const warning = { id: randomUUID(), printer: serial, printerName: name, job: job || "", reason: bed.reason, at: this.now(), jpeg: frame.jpeg };
+    this.warnings.set(serial, warning);
+    this.notifications?.broadcast({ id: `bedwarn:${warning.id}`, title: `Check ${name}'s bed`, body: `You started ${job || "a print"}, but the camera thought: ${bed.reason}`, url: "/printers" });
+  }
+  warning(serial) {
+    const w = this.warnings.get(String(serial));
+    if (!w) throw Object.assign(Error("No bed warning for that printer"), { status: 404 });
+    return w;
+  }
+  dismissWarning(serial) {
+    this.warnings.delete(String(serial));
+    return this.view();
+  }
   idleForReference(serial) {
     const status = this.printers.statuses().find(p=>p.serial===serial);
     if (!status?.view.connected || status.view.stale || !IDLE.includes(status.view.rawState) || this.printers.busy.has(serial) || this.orderPrints.pending.has(serial)) throw Error("The printer must be idle and connected to teach its empty bed");
@@ -166,7 +238,7 @@ export class Dispatcher {
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
       if (brightness < 18) return { empty: false, reason: "It's too dark to see the bed." };
-      return await this.bedCheck(jpeg, "confirm", this.reference(serial));
+      return await this.bedCheck(jpeg, "confirm", this.context(serial));
     } catch {
       return { empty: false, reason: "The camera couldn't get a photo of the bed." };
     }
@@ -180,7 +252,7 @@ export class Dispatcher {
     let result;
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
-      result = brightness < 18 ? { empty: false, reason: "Too dark to see the bed" } : await this.bedCheck(jpeg, "routine", this.reference(serial));
+      result = brightness < 18 ? { empty: false, reason: "Too dark to see the bed" } : await this.bedCheck(jpeg, "routine", this.context(serial));
     } catch {
       result = { empty: false, reason: "Couldn't see the bed" };
     }
@@ -199,7 +271,7 @@ export class Dispatcher {
     try {
       const { jpeg, brightness } = await this.shrink(await this.printers.cameraFrame(serial));
       if (brightness < 18) return block("Too dark to check the bed");
-      bed = await this.bedCheck(jpeg, "confirm", this.reference(serial));
+      bed = await this.bedCheck(jpeg, "confirm", this.context(serial));
     } catch {
       return block("Couldn't check the bed");
     }
@@ -257,9 +329,20 @@ export class Dispatcher {
       vision: !!this.bedCheck,
       offers: [...this.offers.entries()].filter(([p]) => !this.snoozed.has(p)).map(([, o]) => ({ ...o, autoBlocked: this.auto ? o.autoBlocked || null : null })),
       held: [...this.held.values()],
+      // A warning lasts until you answer it, or for an hour.
+      warnings: [...this.warnings.values()].filter((w) => this.now() - w.at < 60 * 60000).map(({ jpeg, ...w }) => w),
       available: this.availableOrders(),
     };
   }
+}
+
+const BED_BASE = "You check a Bambu Lab A1 mini's build plate through its fixed wide-angle camera before a print starts. The bed slides front to back, so it can appear at different positions. Anything left on the plate (a finished part, a strand, a tool) will be hit by the nozzle. Count anything sitting on the plate, including thin flat prints like small discs or membranes, strands, blobs and tools. Do not count the plate's own surface: scratches, scuffs, wear marks, faint outlines or residue lines left by earlier prints, glints and small dust specks are normal on a used plate and don't block a print. When given a user-confirmed empty-bed reference from this exact printer, compare fixed printer fixtures and surroundings to it. Those unchanged fixtures are not leftover print parts. The reference does not prove the current bed is clear: judge the current photo independently, accounting for the bed position. Do not ignore new objects or parts.";
+// Strict: the whole plate must be seen. Visible (the default): judge what can be seen, since the bed often rests
+// partly out of frame or under the lamp's glare.
+export function bedSystem(visibleOnly = true) {
+  return BED_BASE + (visibleOnly
+    ? " Judge the part of the plate you can see. Part of the plate being out of frame, cut off at the edge of the photo, or washed out by glare is normal for this camera and is not by itself a reason to say it isn't empty: say empty when nothing is on the visible plate and nothing runs in from the edge of the frame. Say not empty if something is on the plate, if the photo is too dark to see the plate at all, or if you're unsure about something you can see."
+    : " Say the bed is empty only if you can see the whole plate and nothing is on it. If part of the plate is out of view, too dark, or you're unsure, say it is not empty.");
 }
 
 // Asks Claude whether the build plate in a camera photo is completely empty.
@@ -267,6 +350,9 @@ export class Dispatcher {
 export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
   return async (jpeg, kind = "confirm", reference = null) => {
     const model = models[kind] || models.confirm;
+    // Settings travel with the reference; a printer with no empty-bed photo still has them.
+    const visibleOnly = reference?.visibleOnly !== false, allow = reference?.allow || [];
+    if (!reference?.jpeg) reference = null;
     // With a plate area set, both photos show just the plate.
     const area = reference?.area;
     if (area) {
@@ -279,11 +365,11 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        system: "You check a Bambu Lab A1 mini's build plate through its fixed wide-angle camera before a print starts unattended. The bed slides front to back, so it can appear at different positions. Anything left on the plate (a finished part, a strand, a tool) will be hit by the nozzle. Say the bed is empty only if you can see the whole plate and nothing is on it. Count anything sitting on the plate, including thin flat prints like small discs or membranes, strands, blobs and tools. Do not count the plate's own surface: scratches, scuffs, wear marks, faint outlines or residue lines left by earlier prints, glints and small dust specks are normal on a used plate and don't block a print. If part of the plate is out of view, too dark, or you're unsure, say it is not empty. When given a user-confirmed empty-bed reference from this exact printer, compare fixed printer fixtures and surroundings to it. Those unchanged fixtures are not leftover print parts. The reference does not prove the current bed is clear: judge the current photo independently, accounting for the bed position. Do not ignore new objects or parts.",
+        system: bedSystem(visibleOnly),
         tools: [{ name: "report", description: "Report whether the build plate is empty.", input_schema: { type: "object", properties: { empty: { type: "boolean" }, reason: { type: "string", description: "One short sentence, e.g. 'A red case is still on the plate.'" } }, required: ["empty", "reason"] } }],
         // Newer models refuse a forced tool, so the tool is offered and the prompt asks for it.
         tool_choice: { type: "auto" },
-        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:" + (area ? " Both photos are cropped to where the plate sits when the printer is idle. If the plate isn't fully inside this crop, say it is not empty." : "")}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
+        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), ...(allow.length ? [{ type: "text", text: "The owner's notes for this printer: these are fine and are not a reason to say the bed isn't empty, unless something new is on the plate as well.\n" + allow.map((a) => "- " + a).join("\n") }] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:" + (area ? " Both photos are cropped to where the plate sits when the printer is idle." + (visibleOnly ? "" : " If the plate isn't fully inside this crop, say it is not empty.") : "")}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
       }),
       signal: AbortSignal.timeout(60000),
     });

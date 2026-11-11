@@ -3,6 +3,7 @@ import { Check, Play, Printer, X } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import type { Order, PrintGroup } from "./order-model";
 import { BedHeld, useLibrary } from "./PrintControls";
+import type { BedWarning } from "./BedCheck";
 
 // Store colorway names to the color Spoolside looks for among the loaded spools.
 const COLORWAYS: Record<string, string> = {
@@ -160,7 +161,7 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
 
 export type Offer = { id: string; printer: string; printerName: string; orderId: string; orderNumber: string; group: string; groupLabel: string; pieceName: string; colorway: string; slot: number; autoBlocked: string | null };
 export type Held = { printer: string; printerName: string; reason: string };
-type Dispatch = { auto: boolean; vision: boolean; offers: Offer[]; held?: Held[]; available?: {orderId: string; printer: string; printerName: string}[] };
+type Dispatch = { auto: boolean; vision: boolean; offers: Offer[]; held?: Held[]; warnings?: BedWarning[]; available?: {orderId: string; printer: string; printerName: string}[] };
 
 // Free printers offered the next order piece, and the automatic printing setting.
 export function useDispatch(enabled: boolean) {
@@ -190,13 +191,13 @@ export function useDispatch(enabled: boolean) {
 }
 
 // "AMS 3 is free: print the iPhone 12 Case for #10177?"
-export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; water?: boolean }) {
+export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onRemember, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; onRemember?: (printer: string, name: string, reason: string) => void; water?: boolean }) {
   if (!offers.length && !held.length) return null;
   return (
     <div className={`watch-attention${water ? " on-water" : ""}`}>
       {held.map((h) => (
         <p key={h.printer} className="held-note">
-          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes. {onTeach && <button className="text-button" onClick={() => onTeach(h.printer,h.printerName)}>Teach bed check</button>}
+          <strong>{h.printerName}</strong> could print the next order, but the camera says: {h.reason.replace(/\.$/, "")}. Clear the bed and it'll be offered within a few minutes. {onRemember && <button className="text-button" onClick={() => onRemember(h.printer, h.printerName, h.reason)}>Wrong, remember this</button>}{" "}{onTeach && <button className="text-button" onClick={() => onTeach(h.printer,h.printerName)}>Teach bed check</button>}
         </p>
       ))}
       {offers.map((o) => (
@@ -206,6 +207,7 @@ export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, wat
           {o.autoBlocked && <p className="watch-job">Didn't start automatically: {o.autoBlocked}</p>}
           <div className="watch-actions">
             <button className="primary" onClick={() => onPrint(o)}><Play size={15} /> Print…</button>
+            {onRemember && o.autoBlocked?.startsWith("Bed check:") && <button className="secondary" onClick={() => onRemember(o.printer, o.printerName, o.autoBlocked!)}>Wrong, remember this</button>}
             <button className="text-button" onClick={() => onDismiss(o)}>Not now</button>
           </div>
         </article>

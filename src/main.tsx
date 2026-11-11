@@ -19,6 +19,7 @@ import { useWatches, WatchAttention, WatchStatus, RecentPrints, ImportDialogHost
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import { ClaudeButton } from "./ClaudeChat";
+import { BedCheckSettings, BedWarnings, rememberBed } from "./BedCheck";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -241,7 +242,11 @@ function App() {
   const [training, setTraining] = useState<{id:string;name:string}|null>(null);
   const teachBed = (id:string,name:string) => {setSelected(null);setTraining({id,name});};
   const setAutoPrint = (on: boolean) => dispatch.setAuto(on).then(() => setNotice(on ? "Auto-print is on: free printers start the next queued piece when the bed looks clear." : "Auto-print is off.")).catch((e) => setNotice(e.message));
-  const offers = remote ? <OfferCards offers={dispatch.offers} held={dispatch.held} onTeach={teachBed} onPrint={printOffer} onDismiss={dismissOffer} /> : null;
+  // A hold the camera got wrong: the printer's later checks are told it's fine, and the dispatcher looks again now.
+  const rememberHold = (printer: string, name: string, reason: string) =>
+    rememberBed(printer, reason).then(() => { setNotice(`Got it. ${name}'s bed check won't hold for that again; checking the bed now.`); dispatch.refresh(); window.setTimeout(dispatch.refresh, 8000); }).catch((e) => setNotice(e.message));
+  const bedWarnings = remote ? <BedWarnings warnings={dispatch.warnings || []} refresh={() => { dispatch.refresh(); live.retry(); }} notify={(m) => setNotice(m)} /> : null;
+  const offers = remote ? <>{bedWarnings}<OfferCards offers={dispatch.offers} held={dispatch.held} onTeach={teachBed} onRemember={rememberHold} onPrint={printOffer} onDismiss={dismissOffer} /></> : null;
   const printOrder = remote ? (order: Order, group: PrintGroup) => setPrinting({ orderId: order.id, group }) : undefined;
   const tickPiece = remote
     ? async (order: Order, assetId: string, done: number) => {
@@ -627,7 +632,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome tools={remote ? <>{overviewUploads}<ClaudeButton compact /></> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}<OfferCards water offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome tools={remote ? <>{overviewUploads}<ClaudeButton compact /></> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}{remote && <BedWarnings water warnings={dispatch.warnings || []} refresh={() => { dispatch.refresh(); live.retry(); }} notify={setNotice} />}<OfferCards water offers={dispatch.offers} onRemember={rememberHold} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -985,7 +990,7 @@ function App() {
               )}
             {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
             {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
-            {remote && current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "") && <button className="text-button" onClick={() => teachBed(current.id,current.name)}>Teach bed check</button>}
+            {remote && <BedCheckSettings printer={current.id} name={current.name} notify={setNotice} onTeach={() => teachBed(current.id, current.name)} canTeach={!!current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "")} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
             {remote && current.state === "Paused" && current.pauseReason && <p className="detail-note">{current.pauseReason}</p>}
             {(!remote || current.error) && <p className="detail-note">{remote ? current.error : "These readings are examples. Live printer controls will be available after a bridge is connected."}</p>}

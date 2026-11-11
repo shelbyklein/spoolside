@@ -258,3 +258,85 @@ test("bed checks with a plate area send only that part of both photos", async ()
   const { width } = await sharp(Buffer.from(sent.messages[0].content.find((c) => c.type === "image").source.data, "base64")).metadata();
   assert.equal(width, 960, "no area: the whole photo");
 });
+
+test("each printer's bed check can be tuned: go by the visible plate, and notes on what's fine", async () => {
+  const s = setup({ bed: { empty: false, reason: "The front edge of the plate is cut off." } });
+  try {
+    assert.deepEqual(s.d.bedSettings("P1"), { visibleOnly: true, allow: [], reference: null }, "visible-only by default");
+    s.d.setAuto(true);
+    await s.d.tick();
+    assert.equal(s.d.view().held[0].reason, "The front edge of the plate is cut off.");
+    assert.equal(s.references.at(-1).visibleOnly, true);
+    assert.deepEqual(s.references.at(-1).allow, []);
+    // "Wrong, remember this": the reason becomes a note, the hold clears, and the next check is told.
+    const after = s.d.allowOnBed("P1", "Not a reason to hold: the front edge of the plate is cut off.");
+    assert.equal(after.allow.length, 1);
+    assert.equal(s.d.view().held.length, 0);
+    s.later(1000);
+    await s.d.tick();
+    assert.deepEqual(s.references.at(-1).allow, ["Not a reason to hold: the front edge of the plate is cut off."], "rechecked at once, with the note");
+    assert.equal(s.d.setVisibleOnly("P1", false).visibleOnly, false);
+    s.later(1000);
+    await s.d.tick();
+    assert.equal(s.references.at(-1).visibleOnly, false);
+    assert.equal(s.d.removeAllowance("P1", after.allow[0].id).allow.length, 0);
+    assert.throws(() => s.d.removeAllowance("P1", "gone"), /already gone/);
+    assert.throws(() => s.d.allowOnBed("P1", "   "), /what's fine/);
+    assert.throws(() => s.d.setVisibleOnly("P1", "yes"), /on or off/);
+  } finally {
+    s.done();
+  }
+});
+
+test("a print you start is judged from the photo before it, and a doubtful bed is a warning with the photo", async () => {
+  const s = setup({ bed: { empty: false, reason: "A disc is near the back." } });
+  try {
+    const frame = await s.d.frameBeforeStart("P1");
+    assert.deepEqual(frame.jpeg, Buffer.from("jpg"));
+    await s.d.warnAfterStart("P1", frame, "PlayPad cap");
+    const [w] = s.d.view().warnings;
+    assert.equal(w.printerName, "AMS 3");
+    assert.equal(w.job, "PlayPad cap");
+    assert.equal(w.reason, "A disc is near the back.");
+    assert.equal(w.jpeg, undefined, "the photo is served separately");
+    assert.deepEqual(s.d.warning("P1").jpeg, Buffer.from("jpg"));
+    assert.match(s.pushes.at(-1).title, /Check AMS 3's bed/);
+    assert.match(s.pushes.at(-1).body, /You started PlayPad cap, but the camera thought: A disc is near the back/);
+    s.d.dismissWarning("P1");
+    assert.equal(s.d.view().warnings.length, 0);
+    assert.throws(() => s.d.warning("P1"), /No bed warning/);
+    // An empty bed says nothing; a warning expires after an hour.
+    const clear = setup();
+    try {
+      await clear.d.warnAfterStart("P1", frame, "x");
+      assert.equal(clear.d.view().warnings.length, 0);
+      assert.equal(clear.pushes.length, 0);
+    } finally {
+      clear.done();
+    }
+    await s.d.warnAfterStart("P1", frame, "again");
+    s.later(61 * 60000);
+    assert.equal(s.d.view().warnings.length, 0);
+  } finally {
+    s.done();
+  }
+});
+
+test("the bed prompt follows the printer's settings, with or without an empty-bed photo", async () => {
+  const { claudeBedCheck, bedSystem } = await import("./dispatch.mjs");
+  let request;
+  const check = claudeBedCheck("k", { confirm: "m" }, async (_url, init) => {
+    request = JSON.parse(init.body);
+    return Response.json({ content: [{ type: "tool_use", input: { empty: true, reason: "Clear" } }] });
+  });
+  await check(Buffer.from("now"), "confirm", { visibleOnly: true, allow: ["The bed rests forward, so its front edge is out of frame."] });
+  assert.equal(request.system, bedSystem(true));
+  assert.match(request.system, /Judge the part of the plate you can see/);
+  assert.doesNotMatch(request.system, /only if you can see the whole plate/);
+  const texts = request.messages[0].content.filter((c) => c.type === "text").map((c) => c.text);
+  assert.ok(!texts.some((t) => /Reference photo/.test(t)), "no empty-bed photo taught");
+  assert.match(texts.find((t) => /owner's notes/.test(t)), /- The bed rests forward/);
+  await check(Buffer.from("now"), "confirm", { jpeg: Buffer.from("ref"), note: "", visibleOnly: false, allow: [] });
+  assert.match(request.system, /only if you can see the whole plate/);
+  assert.ok(!request.messages[0].content.some((c) => c.type === "text" && /owner's notes/.test(c.text)));
+});
