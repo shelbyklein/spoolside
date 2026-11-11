@@ -125,7 +125,7 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await expect(page.getByRole('article', { name: 'AMS 2 is waiting on its bed' })).toContainText('A grey case is still on the plate.');
   await page.setViewportSize({width:428,height:926});
   const home=page.getByRole('region',{name:'Spoolside home'});
-  await expect(home.getByText(/waiting on its bed/)).toHaveCount(0);
+  await expect(home.getByRole('article', { name: 'AMS 2 is waiting on its bed' })).toBeVisible();
   const blockedPill=home.getByRole('button',{name:/AMS 2, .*bed needs clearing/});
   await expect(blockedPill).toBeVisible();
   await expect(blockedPill.locator('.home-dot')).toHaveCSS('background-color','rgb(255, 90, 79)');
@@ -150,7 +150,7 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   const queue = page.getByRole('region', { name: 'Order print queue' });
   const toggle = queue.getByRole('switch', { name: 'Auto-print next in queue' });
   await expect(toggle).toBeChecked();
-  await expect(queue).toContainText('AMS 2 is waiting: A grey case is still on the plate.');
+  await expect(queue).not.toContainText('is waiting');
   await queue.locator('.section-top').screenshot({ path: 'handoff/spoolside-queue-auto-switch.png' });
   await queue.getByText('Auto-print next').click();
   await expect(toggle).not.toBeChecked();

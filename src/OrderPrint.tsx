@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Check, Play, Printer, X } from "lucide-react";
+import { Check, Play, Printer, X } from "lucide-react";
 import type { Machine } from "./live-workspace";
 import type { Order, PrintGroup } from "./order-model";
 import { BedHeld, useLibrary } from "./PrintControls";
 import type { BedWarning } from "./BedCheck";
+import { NeedIcon, NeedPhoto, NeedRow } from "./NeedsYou";
 
 // Shared with the server's print offers, so both agree on which spool is the order's color.
 import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "../server/colorway.mjs";
@@ -141,7 +142,18 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
                 </select>
               </label>
             ))}
-            {!useAms && <p className="plate-meta">Prints from the external spool. Make sure it's {colorway || "the right color"}.</p>}
+            {!useAms && (() => {
+              // The external spool, checked like an AMS slot: the plate's material, and the order's colour.
+              const ext = printer?.external;
+              const wrongMaterial = !!ext?.type && !!material && family(ext.type) !== family(material);
+              const wrongColor = !!ext?.color && !!colorway && !!COLORWAYS[colorwayName(colorway)] && !matchesColorway(ext.color, colorway);
+              if (!ext?.type) return <p className="plate-meta">Prints from the external spool. Make sure it's {family(material) || "the right material"} in {colorway || "the right color"}.</p>;
+              return <>
+                <p className="plate-meta">Prints from the external spool: <span className="color-dot" style={{ background: ext.color || "transparent" }} /> {ext.name || ext.type}.</p>
+                {wrongMaterial && <p className="order-print-warn">{printer?.name}'s external spool is {family(ext.type)}. This plate is sliced for {family(material)}.</p>}
+                {!wrongMaterial && wrongColor && <p className="order-print-warn">{printer?.name}'s external spool doesn't look {colorway.toLowerCase()}. Check it before printing.</p>}
+              </>;
+            })()}
             {useAms && match && match.off >= WRONG_MATERIAL && <p className="order-print-warn">{printer?.name} has no {family(material)} loaded. This plate is sliced for {family(material)}.</p>}
             {useAms && match && match.off >= WRONG_COLOR && match.off < WRONG_MATERIAL && <p className="order-print-warn">No {colorway.toLowerCase()} spool is loaded in {printer?.name}. Check the slot before printing.</p>}
             <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>
@@ -192,42 +204,35 @@ export function useDispatch(enabled: boolean) {
 // "AMS 3 is free: print the iPhone 12 Case for #10177?"
 // A free printer the camera won't hand the next order to: what it sees, with a photo, and the two answers.
 // "Bed cleared" looks again now; "Teach empty bed" is for when the camera is wrong about this printer.
-function HeldCard({ held, onRecheck, onTeach }: { held: Held; onRecheck?: (printer: string, name: string) => Promise<void>; onTeach?: (printer: string, name: string) => void }) {
+function HeldRow({ held, onRecheck, onTeach }: { held: Held; onRecheck?: (printer: string, name: string) => Promise<void>; onTeach?: (printer: string, name: string) => void }) {
   const [checking, setChecking] = useState(false);
   const [stamp, setStamp] = useState(Date.now());
   useEffect(() => setStamp(Date.now()), [held.reason]);
   return (
-    <article className="watch-card held-card" aria-label={`${held.printerName} is waiting on its bed`}>
-      <h3><Camera size={17} /> {held.printerName} is waiting on its bed</h3>
-      <div className="held-body">
-        <img src={`/api/printers/${held.printer}/feed.jpg?t=${stamp}`} alt={`${held.printerName}'s bed now`} onError={(e) => (e.currentTarget.style.display = "none")} />
-        <p><span>The camera sees:</span> {held.reason}</p>
-      </div>
-      <div className="watch-actions">
-        {onRecheck && <button className="primary" disabled={checking} onClick={async () => { setChecking(true); try { await onRecheck(held.printer, held.printerName); } finally { setChecking(false); setStamp(Date.now()); } }}><Check size={15} /> {checking ? "Checking the bed…" : "Bed cleared"}</button>}
+    <NeedRow tone="wait" label={`${held.printerName} is waiting on its bed`} title={`${held.printerName} is waiting on its bed`}
+      media={<NeedPhoto src={`/api/printers/${held.printer}/feed.jpg?t=${stamp}`} alt={`${held.printerName}'s bed now`} />}
+      actions={<>
         {onTeach && <button className="secondary" disabled={checking} onClick={() => onTeach(held.printer, held.printerName)}>Teach empty bed</button>}
-      </div>
-    </article>
+        {onRecheck && <button className="primary" disabled={checking} onClick={async () => { setChecking(true); try { await onRecheck(held.printer, held.printerName); } finally { setChecking(false); setStamp(Date.now()); } }}><Check size={14} /> {checking ? "Checking…" : "Bed cleared"}</button>}
+      </>}>
+      The camera sees: {held.reason}
+    </NeedRow>
   );
 }
 
-export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onRecheck, water = false }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; onRecheck?: (printer: string, name: string) => Promise<void>; water?: boolean }) {
-  if (!offers.length && !held.length) return null;
+// Held beds and "AMS 3 is free: print the iPhone 12 Case for #10177?", as rows in the Needs you list.
+export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onRecheck }: { offers: Offer[]; held?: Held[]; onPrint: (offer: Offer) => void; onDismiss: (offer: Offer) => void; onTeach?: (printer:string,name:string)=>void; onRecheck?: (printer: string, name: string) => Promise<void> }) {
   return (
-    <div className={`watch-attention${water ? " on-water" : ""}`}>
-      {held.map((h) => <HeldCard key={h.printer} held={h} onRecheck={onRecheck} onTeach={onTeach} />)}
+    <>
+      {held.map((h) => <HeldRow key={h.printer} held={h} onRecheck={onRecheck} onTeach={onTeach} />)}
       {offers.map((o) => (
-        <article key={o.id} className="watch-card offer-card" aria-label={`${o.printerName} is free`}>
-          <h3><Printer size={17} /> {o.printerName} is free</h3>
-          <p>Print the <strong>{o.pieceName}</strong> for {o.orderNumber} · {o.colorway}, slot {o.slot + 1}</p>
-          {o.autoBlocked && <p className="watch-job">Didn't start automatically: {o.autoBlocked}</p>}
-          <div className="watch-actions">
-            <button className="primary" onClick={() => onPrint(o)}><Play size={15} /> Print…</button>
-            <button className="text-button" onClick={() => onDismiss(o)}>Not now</button>
-          </div>
-        </article>
+        <NeedRow key={o.id} tone="ok" label={`${o.printerName} is free`} title={`${o.printerName} is free`} media={<NeedIcon tone="ok"><Printer size={18} /></NeedIcon>}
+          actions={<><button className="secondary" onClick={() => onDismiss(o)}>Not now</button><button className="primary" onClick={() => onPrint(o)}><Play size={14} /> Print…</button></>}>
+          Print the <b>{o.pieceName}</b> for {o.orderNumber} · {o.colorway}, slot {o.slot + 1}
+          {o.autoBlocked && <span className="need-note">Didn't start automatically: {o.autoBlocked}</span>}
+        </NeedRow>
       ))}
-    </div>
+    </>
   );
 }
 

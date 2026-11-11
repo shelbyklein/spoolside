@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Printer, Repeat, Thermometer, VideoOff } from "lucide-react";
 import type { Machine } from "./live-workspace";
-import { SpoolChips } from "./LoadedSpools";
+import { SpoolChips, loadedSpools } from "./LoadedSpools";
 
 export const jobName = (job: string) => job.replace(/^spoolside_/, "").replace(/(\.gcode)?\.3mf$/i, "").replace(/_/g, " ");
 const temp = (t?: number | null) => (t == null ? "—" : Math.round(t) + "°");
@@ -69,7 +69,42 @@ export function CameraFeed({ machine, live }: { machine: Machine; live: boolean 
 
 // One card per printer: its camera, state, job, progress and temperatures. Tap for details and controls.
 export type RepeatStatus = { printer: string; name: string; done: number; times: number | null; status: string };
-export function PrinterCards({ machines, live, onOpen, repeats = [] }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[] }) {
+// "Paused at layer 76 of 78: a pause in the file, or…" as a short label for cards and rows.
+export const shortPause = (m: Machine) => {
+  const where = m.pauseReason?.match(/at layer \d+ of \d+/)?.[0];
+  const why = !m.pauseReason ? "" : /a pause in the file/.test(m.pauseReason) ? "file pause" : "printer pause";
+  return [where ? `Paused ${where}` : "Paused", why].filter(Boolean).join(" · ");
+};
+// What a printer is doing in one word, counting a pause Spoolside made itself.
+export const stateLabel = (m: Machine, heldBySpoolside?: Set<string>) => (m.state === "Paused" && heldBySpoolside?.has(m.id) ? "Held by Spoolside" : m.state);
+
+// The Overview's printers: one compact row each (small live view, state, job, progress, the spool feeding).
+export function PrinterRows({ machines, live, onOpen, heldBySpoolside, onAll }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; heldBySpoolside?: Set<string>; onAll: () => void }) {
+  return (
+    <section className="printer-rows-section" aria-label="Printers">
+      <div className="section-title"><h2>Printers <span className="count">{machines.length}</span></h2><button className="text-button" onClick={onAll}>All printers →</button></div>
+      <div className="printer-rows">
+        {machines.map((m) => {
+          const label = stateLabel(m, heldBySpoolside), state = m.state.toLowerCase(), active = m.state === "Printing" || m.state === "Paused";
+          const feeding = loadedSpools(m).find((x) => x.feeding) || (!m.hasAms ? loadedSpools(m)[0] : undefined);
+          return (
+            <button key={m.id} className={`printer-row ${state}`} onClick={() => onOpen(m.id)} aria-label={`${m.name}, ${label}`}>
+              <CameraFeed machine={m} live={live} />
+              <span className="printer-row-body">
+                <span className="printer-row-top"><strong>{m.name}</strong><span className={`pill ${label === "Held by Spoolside" ? "red" : state === "paused" ? "blue" : state === "printing" ? "teal" : state === "error" || state === "offline" ? "red" : ""}`}>{label}</span></span>
+                <span className="printer-row-job">{m.job ? jobName(m.job) : "No print information"}{m.state === "Paused" && m.pauseReason ? ` · ${shortPause(m).replace(/^Paused /, "")}` : ""}</span>
+                {active && <span className={`mini-progress${m.state === "Paused" ? " paused" : ""}`}><i style={{ width: `${m.progress}%` }} /></span>}
+                <span className="printer-row-meta">{feeding && <><span className="sw" style={{ background: feeding.color || "transparent" }} />{feeding.type.replace(/-AMS$/i, "")} {feeding.key === "external" ? "external" : `slot ${feeding.label.replace(/\D/g, "")}`}</>}{active ? `${feeding ? " · " : ""}${m.remaining} left` : ""}{!m.connected || m.stale ? "Offline" : ""}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function PrinterCards({ machines, live, onOpen, repeats = [], heldBySpoolside }: { machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[]; heldBySpoolside?: Set<string> }) {
   return (
     <section className="printer-cards" aria-label="Printers">
       {machines.map((m) => {
@@ -82,12 +117,12 @@ export function PrinterCards({ machines, live, onOpen, repeats = [] }: { machine
                 <strong>{m.name}</strong>
                 <span className={`status ${state}`}>
                   <span />
-                  {m.state}
+                  {stateLabel(m, heldBySpoolside)}
                 </span>
               </span>
               <span className="printer-card-job">{m.job ? jobName(m.job) : "No print information"}</span>
               {live && (!m.connected || m.stale) && m.error && <span className="printer-card-issue" role="note">{m.error}</span>}
-              {live && m.connected && !m.stale && m.state === "Paused" && m.pauseReason && <span className="printer-card-issue" role="note">{m.pauseReason}</span>}
+              {live && m.connected && !m.stale && m.state === "Paused" && m.pauseReason && !heldBySpoolside?.has(m.id) && <span className="printer-card-issue paused" role="note" title={m.pauseReason}>{shortPause(m)}</span>}
               {repeats.filter((r) => r.printer === m.id).map((r) => (
                 <span key={r.printer} className="printer-card-repeat" title={r.status}>
                   <Repeat size={13} /> <strong>Repeating</strong>{r.times ? ` ${r.done}/${r.times}` : r.done ? ` · ${r.done} so far` : ""} · {r.status}

@@ -46,7 +46,8 @@ test('hosted mobile uses active source orders and server saves without browser s
     const id=await first.locator('.order-id').boundingBox();
     if (wide) {
       expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
-      expect(ship!.x).toBeGreaterThanOrEqual((await first.locator(".order-product-summary").boundingBox())!.x+(await first.locator(".order-product-summary").boundingBox())!.width);
+      // In the Overview's column the checklist and Ship go under the product, so names fit on one line.
+      expect(ship!.y).toBeGreaterThan((await first.locator(".order-product-summary").boundingBox())!.y);
     }
     else expect(content!.y).toBeGreaterThan(id!.y);
     if (!wide) expect(ship!.y).toBeGreaterThan(content!.y);

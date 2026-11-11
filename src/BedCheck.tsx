@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Camera, Check, Plus, Square, X } from "lucide-react";
+import { Check, Plus, Square, X } from "lucide-react";
+import { NeedPhoto, NeedRow } from "./NeedsYou";
 
 export type BedWarning = { id: string; printer: string; printerName: string; job: string; reason: string; at: number };
 type Settings = { visibleOnly: boolean; allow: { id: string; text: string; at: number }[]; reference: { note: string; taught: number; area: boolean } | null };
@@ -11,40 +12,37 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
   return d;
 }
 
-// What a wrong hold becomes: a note this printer's later checks are told to accept.
-export const rememberText = (reason: string) => `Not a reason to hold: ${reason.replace(/^Bed check:\s*/i, "").trim()}`;
-export const rememberBed = (printer: string, reason: string, warning = false) => send<Settings>("POST", `/api/dispatch/${printer}/bed-allow`, { text: rememberText(reason), warning });
-
 // You started a print the camera had doubts about: the photo from just before, and what to do about it.
-export function BedWarnings({ warnings, refresh, notify, water = false }: { warnings: BedWarning[]; refresh: () => void; notify: (m: string) => void; water?: boolean }) {
+// "It was clear" only answers this warning; notes on what's fine on a bed are written by hand in its settings,
+// so the camera is never told to ignore something it described as a part.
+export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarning[]; refresh: () => void; notify: (m: string) => void }) {
   const [busy, setBusy] = useState("");
-  if (!warnings.length) return null;
   const act = async (w: BedWarning, what: () => Promise<unknown>, done: string) => {
     setBusy(w.id);
     try { await what(); notify(done); } catch (e) { notify((e as Error).message); } finally { setBusy(""); refresh(); }
   };
   return (
-    <div className={`watch-attention${water ? " on-water" : ""}`}>
+    <>
       {warnings.map((w) => (
-        <article key={w.id} className="watch-card bed-warning" aria-label={`Check ${w.printerName}'s bed`}>
-          <h3><Camera size={17} /> Check {w.printerName}'s bed</h3>
-          <div className="bed-warning-body">
-            <a href={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} target="_blank" rel="noreferrer"><img src={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} alt={`${w.printerName}'s bed just before the print started`} /></a>
-            <p>You started <strong>{w.job || "a print"}</strong>, but the camera thought: {w.reason}</p>
-          </div>
-          <div className="watch-actions">
-            <button className="secondary" disabled={busy === w.id} onClick={() => {
+        <NeedRow key={w.id} tone="warn" label={`Check ${w.printerName}'s bed`} title={`Check ${w.printerName}'s bed`}
+          media={<a href={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} target="_blank" rel="noreferrer"><NeedPhoto src={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} alt={`${w.printerName}'s bed just before the print started`} /></a>}
+          actions={<>
+            <button className="secondary danger" disabled={busy === w.id} onClick={() => {
               if (!window.confirm(`Stop the print on ${w.printerName}? This can't be undone.`)) return;
               act(w, async () => { await send("POST", `/api/printers/${w.printer}/stop`); await send("DELETE", `/api/dispatch/${w.printer}/bed-warning`); }, `Stopped the print on ${w.printerName}.`);
-            }}><Square size={14} /> Stop print</button>
-            <button className="primary" disabled={busy === w.id} onClick={() => act(w, () => rememberBed(w.printer, w.reason, true), `Got it. ${w.printerName}'s bed check won't count that again.`)}><Check size={15} /> It was clear, remember this</button>
-            <button className="text-button" disabled={busy === w.id} onClick={() => act(w, () => send("DELETE", `/api/dispatch/${w.printer}/bed-warning`), "Dismissed.")}>Dismiss</button>
-          </div>
-        </article>
+            }}><Square size={13} /> Stop print</button>
+            <button className="primary" disabled={busy === w.id} onClick={() => act(w, () => send("DELETE", `/api/dispatch/${w.printer}/bed-warning`), "Thanks. Teach its empty bed if the camera keeps getting it wrong.")}><Check size={14} /> It was clear</button>
+          </>}>
+          You started <b>{w.job || "a print"}</b>; the camera thought: {w.reason}
+        </NeedRow>
       ))}
-    </div>
+    </>
   );
 }
+
+// A note that describes a thing on the plate ("a green part is sitting on the build plate") tells the camera to
+// ignore exactly what it's there to catch; such notes are flagged.
+export const describesAPart = (text: string) => /\b(part|parts|object|piece|print|disc|strand|strands|blob|tool|case|membrane|material|filament)\b/i.test(text) && /\b(on|sitting|left|lying|resting)\b/i.test(text) && !/\b(fixture|tape|clip|sticker|outline|scratch|mark|edge|frame|glare)\b/i.test(text);
 
 // A printer's bed check, tuned: judge the visible plate or the whole plate, and notes on what's fine on it.
 export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: { printer: string; name: string; notify: (m: string) => void; onTeach: () => void; canTeach: boolean }) {
@@ -77,11 +75,13 @@ export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: {
         <span>Go by what's visible <small>Don't hold just because part of the plate is out of frame or under glare.</small></span>
       </label>
       <h4>Fine on {name}</h4>
-      {!s.allow.length && <p className="plate-meta">Nothing yet. Add things the camera keeps mistaking for a problem, or tap “Wrong, remember this” on a hold.</p>}
+      {s.allow.filter((a) => describesAPart(a.text)).length > 0 && <p className="bed-allow-warn" role="alert">{s.allow.filter((a) => describesAPart(a.text)).length === 1 ? "1 note describes" : `${s.allow.filter((a) => describesAPart(a.text)).length} notes describe`} something on the plate. The camera may ignore a real part left on the bed; remove {s.allow.filter((a) => describesAPart(a.text)).length === 1 ? "it" : "them"} unless it's a fixture.</p>}
+      {!s.allow.length && <p className="plate-meta">Nothing yet. Add fixed things the camera keeps mistaking for a part, like tape, a clip or the plate sitting forward. For anything else, teach the empty bed.</p>}
       <ul className="bed-allow">
         {s.allow.map((a) => (
-          <li key={a.id}>
+          <li key={a.id} className={describesAPart(a.text) ? "risk" : undefined}>
             <span>{a.text}</span>
+            {describesAPart(a.text) && <em>Describes a part</em>}
             <button className="icon-button" aria-label={`Remove “${a.text}”`} disabled={busy} onClick={() => save(send("DELETE", `${url}/bed-allow/${a.id}`))}><X size={14} /></button>
           </li>
         ))}

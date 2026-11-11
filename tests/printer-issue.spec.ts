@@ -23,7 +23,7 @@ test('a printer refusing connections, or paused, says why on its card and in its
   await expect(page.getByRole('button', { name: 'AMS 3, Ready' }).getByRole('note')).toHaveCount(0);
   await card.screenshot({ path: 'handoff/spoolside-printer-refused.png' });
   // A paused print says why on its card.
-  await expect(page.getByRole('button', { name: 'Desk, Paused' }).getByRole('note')).toContainText('a pause in the file');
+  await expect(page.getByRole('button', { name: 'Desk, Paused' }).getByRole('note')).toContainText('Paused at layer 76 of 77 · file pause');
   await page.getByRole('button', { name: 'Desk, Paused' }).screenshot({ path: 'handoff/spoolside-printer-paused.png' });
   await card.click();
   await expect(page.getByRole('dialog', { name: 'AMS 2 details' })).toContainText('too many apps connected');

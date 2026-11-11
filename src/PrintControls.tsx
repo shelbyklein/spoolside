@@ -273,7 +273,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
       )}
       {plate && (
         <>
-          <p className="plate-meta">{duration(plate.minutes)} · {plate.grams} g{plate.quantity ? ` · ${plate.quantity} pieces` : ""}</p>
+          <p className="plate-meta">{duration(plate.minutes)} · {plate.grams} g{plate.quantity ? ` · ${plate.quantity} ${plate.quantity === 1 ? "piece" : "pieces"}` : ""}</p>
           {trays.length > 0 && <label className="check-row"><input type="checkbox" checked={useAms} onChange={(e) => setUseAms(e.target.checked)} /> Use AMS</label>}
           {useAms && plate.filaments.map((f) => (
             <label key={f.id} className="slot-row">
@@ -358,6 +358,16 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
   const sorted=visible&&sorting.sort(visible);
   const filtered=!!(query||printerFilter||typeFilter||categoryFilter||materialFilter);
   const reset=()=>{setQuery("");setPrinterFilter("");setTypeFilter("");setCategoryFilter("");setMaterialFilter("");};
+  const [showFilters,setShowFilters]=useState(false);
+  // A project's plates usually share its name ("iPhone Duo TPU Case - case (TPU)"); show what tells them apart.
+  const shared=(()=>{
+    if(!fileIds||!files||files.length<2)return "";
+    const names=files.map(f=>f.name);let prefix=names[0];
+    for(const n of names)while(prefix&&!n.startsWith(prefix))prefix=prefix.slice(0,-1);
+    const cut=Math.max(prefix.lastIndexOf(" - "),prefix.lastIndexOf(" – "));
+    return cut>0?prefix.slice(0,cut+3):"";
+  })();
+  const shown=(name:string)=>shared&&name.startsWith(shared)?name.slice(shared.length):name;
   const remove = async (f: LibraryFile) => {
     if (!window.confirm(`Remove ${f.name} from the library?`)) return;
     await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message));
@@ -370,12 +380,13 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
         {!fileIds && <PrintUploadButton scope={scope} notify={notify} onUploaded={refresh} />}
       </div>
       {files && files.length === 0 && <div className="empty"><FileBox /><p>Upload sliced files from Orca or Bambu Studio (File → Export → Export all sliced file). Each plate becomes its own print.</p></div>}
-      {!!files?.length && <div className="sliced-filters" aria-label="Filter sliced prints">
+      {!!files?.length && (!fileIds || files.length > 6) && <div className={`sliced-filters${showFilters ? " open" : ""}`} aria-label="Filter sliced prints">
         <input type="search" aria-label="Search sliced prints" placeholder="Search prints or linked assets…" value={query} onChange={e=>setQuery(e.target.value)}/>
         <select aria-label="Filter by printer" value={printerFilter} onChange={e=>setPrinterFilter(e.target.value)}><option value="">All printers</option><option value="override">Print overrides only</option><option value="unassigned">No assigned printer</option>{printerOptions.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
         <select aria-label="Filter by part type" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">All part types</option>{types.map(t=><option key={t} value={t}>{t}</option>)}<option value="unlinked">No linked assets</option></select>
         <select aria-label="Filter by category" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}><option value="">All categories</option>{categories.filter(c=>(files||[]).some(f=>linked(f).some(a=>a.category===c.id))).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select aria-label="Filter by material" value={materialFilter} onChange={e=>setMaterialFilter(e.target.value)}><option value="">All materials</option>{materials.map(m=><option key={m} value={m}>{m}</option>)}</select>
+        <button type="button" className="secondary sliced-filter-toggle" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}>Filters{[printerFilter, typeFilter, categoryFilter, materialFilter].filter(Boolean).length ? ` · ${[printerFilter, typeFilter, categoryFilter, materialFilter].filter(Boolean).length}` : ""}</button>
         <div className="sliced-filter-summary"><small>{visible?.length} of {files.length} prints</small>{filtered&&<button className="text-button" onClick={reset}>Clear filters</button>}{sorting.menu}</div>
       </div>}
       {!!files?.length && !visible?.length && <p className="sliced-no-matches" role="status">No prints match these filters. Try another filter or clear them.</p>}
@@ -388,9 +399,9 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
               {!fileIds && <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>}
             </div>
             <div className="sliced-body">
-              <strong title={f.name}>{f.name}</strong>
+              <strong title={f.name}>{shown(f.name)}</strong>
               <small>
-                {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} pieces` : ""}`).join("  ·  ")}
+                {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} ${p.quantity === 1 ? "piece" : "pieces"}` : ""}`).join("  ·  ")}
                 {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
               </small>
               {f.preferredPrinterName && <small>{f.printerSource}: {f.preferredPrinterName}</small>}
@@ -417,7 +428,7 @@ function LibraryPrintDialog({file, notify, onClose}: {file: LibraryFile; notify:
   }, []);
   const machine=machines.find(m=>m.id===selected);
   return <div className="modal-backdrop" onClick={onClose}><div className="order-print-dialog library-print-dialog" role="dialog" aria-modal="true" aria-label={`Print ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==="Escape" && onClose()}>
-    <div className="section-top"><h3>Print {file.name}</h3><button className="text-button" onClick={onClose}>Close</button></div>
+    <div className="section-top"><h3>Print {file.name}</h3><button className="icon-button" aria-label="Close" onClick={onClose}><X size={18} /></button></div>
     {error ? <p role="alert">{error}</p> : !loaded ? <p>Loading printers…</p> : !machines.length ? <p>No connected idle printer is available.</p> : <>{file.preferredPrinter && !machines.some(m=>m.id===file.preferredPrinter) && <p className="plate-meta">{file.preferredPrinterName || "The default printer"} is busy or offline. Choose another printer to continue.</p>}<label>Printer<select aria-label="Printer" value={selected} onChange={e=>setSelected(e.target.value)}><option value="" disabled>Choose a printer…</option>{machines.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{machine && <StartPrint key={machine.id} machine={machine} notify={notify} initialFile={file.id} onSent={onClose} />}</>}
   </div></div>;
 }
@@ -534,7 +545,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
 function PrintMetadata({file}:{file:LibraryFile}) {
  const [open,setOpen]=useState(false),[data,setData]=useState<Record<string,unknown>|null>(null),[error,setError]=useState("");
  const show=()=>{setOpen(true);setError("");setData(null);api<{settings:Record<string,unknown>}>(`/api/library/${file.id}/metadata`).then(d=>setData(d.settings)).catch(e=>setError(e.message));};
- return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><section className="plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Print settings for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Escape'&&setOpen(false)}><div className="section-top"><h3>{file.name}</h3><button className="text-button" onClick={()=>setOpen(false)}>Close</button></div><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></section></div>}</>;
+ return <><button className="text-button sliced-metadata" onClick={show}><Info size={14}/> Print settings</button>{open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><section className="plate-assets-editor" role="dialog" aria-modal="true" aria-label={`Print settings for ${file.name}`} onClick={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Escape'&&setOpen(false)}><div className="section-top"><h3>{file.name}</h3><button className="icon-button" aria-label="Close" onClick={()=>setOpen(false)}><X size={18}/></button></div><p className="plate-meta">Settings recorded by the slicer. Check the printer profile, nozzle and bed before using another printer.</p>{file.preferredPrinterName&&<p>Assigned printer: {file.preferredPrinterName}</p>}{error?<p role="alert">{error}</p>:data===null?<p>Loading settings…</p>:Object.keys(data).length?<dl className="print-metadata">{Object.entries(data).map(([key,value])=><div key={key}><dt>{({curr_bed_type:'Bed type',printer_model:'Printer model',printer_variant:'Printer variant',printer_settings_id:'Printer profile',nozzle_diameter:'Nozzle diameter (mm)',layer_height:'Layer height (mm)',filament_settings_id:'Filament profile'} as Record<string,string>)[key] || key.replaceAll('_',' ')}</dt><dd>{Array.isArray(value)?value.join(', '):String(value)}</dd></div>)}</dl>:<p>No printer or bed settings were recorded in this file.</p>}<p className="plate-meta">Material: {Array.from(new Set(file.plates.flatMap(p=>p.filaments.map(f=>f.type)))).join(', ')||'Not recorded'}</p></section></div>}</>;
 }
 
 // An asset's sliced prints: the plates linked to it, uploading a new sliced file for it (linked automatically),

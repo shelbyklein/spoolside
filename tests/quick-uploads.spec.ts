@@ -15,11 +15,12 @@ test('Overview uploads prints and assets directly on desktop and phone',async({b
   return route.fulfill({response:await route.fetch({url:'http://127.0.0.1:4173'+url.pathname+url.search})});
  });
  await page.goto('https://spoolside.shelbyklein.com/overview');
- await expect(page.getByRole('button',{name:'Upload print',exact:true})).toBeVisible();
- const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Upload print',exact:true}).click();
+ const menu=page.locator('summary',{hasText:'Upload'});await expect(menu).toBeVisible();await menu.click();
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Sliced print (.3mf)',exact:true}).click();
  await (await chooser).setFiles({name:'Test.gcode.3mf',mimeType:'application/octet-stream',buffer:Buffer.from('fixture')});
  await expect.poll(()=>uploads).toEqual(['print']);
  await expect(page).toHaveURL(/overview$/);
+ if(!await page.getByRole('button',{name:'Upload asset',exact:true}).isVisible())await menu.click();
  await page.getByRole('button',{name:'Upload asset',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Upload library item'});await expect(dialog).toBeVisible();
  await dialog.getByLabel('STL or SVG file',{exact:true}).setInputFiles({name:'Test part.stl',mimeType:'application/octet-stream',buffer:Buffer.from('solid part\nendsolid part')});
@@ -27,7 +28,8 @@ test('Overview uploads prints and assets directly on desktop and phone',async({b
  await expect.poll(()=>uploads).toEqual(['print','asset']);
  await page.screenshot({path:'handoff/spoolside-overview-upload-shortcuts.png'});
  await page.setViewportSize({width:428,height:926});
- await expect(page.getByRole('button',{name:'Upload print',exact:true})).toBeVisible();
+ const phoneMenu=page.locator('summary',{hasText:'Upload'}).first();await expect(phoneMenu).toBeVisible();
+ if(!await page.getByRole('button',{name:'Upload asset',exact:true}).isVisible())await phoneMenu.click();
  await page.getByRole('button',{name:'Upload asset',exact:true}).click();await expect(dialog).toBeVisible();
  const box=(await dialog.boundingBox())!;expect(box.width).toBeLessThanOrEqual(428);
  await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);

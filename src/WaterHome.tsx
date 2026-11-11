@@ -131,7 +131,7 @@ export function WaterHome({ attention, tools, machines, orders, loading, bedsToC
               >
                 <span className={`home-dot ${needsClear ? "bed-needs-clear" : m.state.toLowerCase()}`} />
                 <span className="home-pill-name">{m.name}</span>
-                <span className="home-pill-state">{active ? `${m.progress}%` : m.state}</span>
+                <span className="home-pill-state">{m.state === "Paused" ? `Paused · ${m.progress}%` : active ? `${m.progress}%` : m.state}</span>
               </button>
             );
           })}

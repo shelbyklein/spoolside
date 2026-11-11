@@ -25,7 +25,7 @@ function CountCell({ value, label, onSave }: { value: number; label: string; onS
     if (n !== value) onSave(n);
   };
   return (
-    <input className="inventory-count" aria-label={label} inputMode="numeric" pattern="[0-9]*" placeholder="0" value={text}
+    <input className={`inventory-count${value ? " has" : ""}`} aria-label={label} inputMode="numeric" pattern="[0-9]*" placeholder="–" value={text}
       onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ""))} onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value ? String(value) : ""); e.currentTarget.blur(); } }} />
   );

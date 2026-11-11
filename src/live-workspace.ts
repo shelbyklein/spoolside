@@ -20,6 +20,8 @@ export type Machine = {
   external?: { type: string; color: string; name?: string } | null;
   feeding?: number | null;
   hasAms?: boolean;
+  layer?: number | null;
+  totalLayers?: number | null;
 };
 export type Spool = {
   materialId?: string;

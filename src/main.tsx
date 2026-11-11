@@ -10,41 +10,21 @@ import { PrintControls, PrintLibrary, PrintUploadButton, useRepeats, RepeatCard 
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
-import { PrinterCards, CameraFeed, jobName } from "./PrinterCards";
+import { PrinterCards, PrinterRows, CameraFeed, jobName, shortPause, stateLabel } from "./PrinterCards";
 import { Inventory } from "./Inventory";
 import { OrderPrintDialog, OfferCards, AutoPrintSetting, AutoPrintSwitch, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
-import { SpoolList } from "./LoadedSpools";
+import { SpoolTiles } from "./LoadedSpools";
 import { useWatches, WatchAttention, WatchStatus, RecentPrints, ImportDialogHost } from "./PrintWatch";
 import { AppErrorBoundary } from "./recovery";
 import { NotificationSettings } from "./NotificationSettings";
 import { ClaudeButton } from "./ClaudeChat";
 import { BedCheckSettings, BedWarnings } from "./BedCheck";
+import { NeedsYou, PausedRow, pausedByPrinter } from "./NeedsYou";
+import { ClaudeSettings, PrinterSettings } from "./SettingsSections";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  LayoutDashboard,
-  Printer,
-  Layers3,
-  Disc3,
-  Settings,
-  ArrowUpRight,
-  Plus,
-  Pause,
-  Play,
-  X,
-  WifiOff,
-  RefreshCw,
-  Boxes,
-  Clock3,
-  Check,
-  Download,
-  CircleHelp,
-  RotateCcw,
-  ArrowUp,
-  Trash2,
-  ShoppingBag,
-} from "lucide-react";
+import { LayoutDashboard, Printer, Layers3, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, X, WifiOff, RefreshCw, Boxes, Clock3, Check, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
 import "@fontsource/dm-sans/latin-400.css";
 import "@fontsource/dm-sans/latin-500.css";
 import "@fontsource/dm-sans/latin-600.css";
@@ -253,8 +233,6 @@ function App() {
       setNotice((e as Error).message);
     }
   };
-  const bedWarnings = remote ? <BedWarnings warnings={dispatch.warnings || []} refresh={() => { dispatch.refresh(); live.retry(); }} notify={(m) => setNotice(m)} /> : null;
-  const offers = remote ? <>{bedWarnings}<OfferCards offers={dispatch.offers} held={dispatch.held} onTeach={teachBed} onRecheck={recheckBed} onPrint={printOffer} onDismiss={dismissOffer} /></> : null;
   const printOrder = remote ? (order: Order, group: PrintGroup) => setPrinting({ orderId: order.id, group }) : undefined;
   const tickPiece = remote
     ? async (order: Order, assetId: string, done: number) => {
@@ -590,10 +568,26 @@ function App() {
       </div>
     </section>
   );
-  const overviewUploads = remote ? <div className="overview-upload-shortcuts">
-    <PrintUploadButton label="Upload print" notify={setNotice} onUploaded={() => {live.retry();dispatch.refresh();}} />
-    <AssetUploadButton notify={setNotice} onUploaded={() => {live.retry();dispatch.refresh();}} />
-  </div> : null;
+  // One Upload menu: a sliced print or an asset.
+  const overviewUploads = remote ? <details className="upload-menu">
+    <summary className="secondary"><Upload size={16} /> Upload</summary>
+    <div className="upload-menu-list">
+      <PrintUploadButton label="Sliced print (.3mf)" notify={setNotice} onUploaded={() => {live.retry();dispatch.refresh();}} />
+      <AssetUploadButton notify={setNotice} onUploaded={() => {live.retry();dispatch.refresh();}} />
+    </div>
+  </details> : null;
+  // Everything that needs you, as one list: bed warnings, watcher alerts, held beds, paused printers, offers, reviews.
+  const refreshFarm = () => { watch.refresh(); live.retry(); dispatch.refresh(); };
+  const heldBySpoolside = new Set(watch.watches.filter((w) => !w.ended && w.alert?.paused).map((w) => w.printer));
+  const pausedPrinters = remote ? pausedByPrinter(machines, heldBySpoolside) : [];
+  const needsCount = (dispatch.warnings?.length || 0) + watch.watches.filter((w) => !w.ended && w.alert).length + (dispatch.held?.length || 0) + (pausedPrinters.length ? 1 : 0) + dispatch.offers.length + (watch.watches.some((w) => w.ended && !w.outcome) ? 1 : 0);
+  const needs = (water = false) => remote ? <NeedsYou water={water} count={needsCount}>
+    <BedWarnings warnings={dispatch.warnings || []} refresh={refreshFarm} notify={setNotice} />
+    <WatchAttention watches={watch.watches} refresh={refreshFarm} notify={setNotice} />
+    <OfferCards offers={[]} held={dispatch.held} onTeach={teachBed} onRecheck={recheckBed} onPrint={printOffer} onDismiss={dismissOffer} />
+    <PausedRow machines={pausedPrinters} notify={setNotice} refresh={refreshFarm} />
+    <OfferCards offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} />
+  </NeedsYou> : null;
   return (
     <div className="app">
       {appUpdates.available && <div className="app-update" role="status"><span>A new Spoolside version is ready.</span><RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} /></div>}
@@ -640,7 +634,7 @@ function App() {
       </aside>
       <main>
         {!wideScreen && tab === "Overview" ? (
-          <WaterHome tools={remote ? <>{overviewUploads}<ClaudeButton compact /></> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}{remote && <BedWarnings water warnings={dispatch.warnings || []} refresh={() => { dispatch.refresh(); live.retry(); }} notify={setNotice} />}<OfferCards water offers={dispatch.offers} onPrint={printOffer} onDismiss={dismissOffer} /><WatchAttention water watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} /></>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
+          <WaterHome tools={remote ? <><ClaudeButton compact />{overviewUploads}</> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{needs(true)}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}</>} machines={machines} orders={overviewOrders} loading={remote && live.loading} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
         ) : (
         <div className="main-content">
           <div className="page-heading">
@@ -666,7 +660,7 @@ function App() {
                   <RefreshCw size={17} />
                 </button>
               )}
-              {!["Settings", "Orders", "Library", "Inventory", "Personal"].includes(tab) && !(remote && tab === "Queue") && (
+              {!remote && !["Settings", "Orders", "Library", "Inventory", "Personal"].includes(tab) && (
                 <button
                   className="secondary"
                   onClick={() => {
@@ -704,9 +698,11 @@ function App() {
           <div className={tab === "Overview" ? "overview-split" : undefined}>
           {tab === "Overview" && (
             <div className="overview-main">
+            {remote && <NotificationSettings compact />}
+            {/* What needs you leads, then reminders, then the queue and the orders it comes from. */}
+            {needs()}
             {remote && <HomeNotes orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={setNotice} />}
-            {/* The queue leads the first column: what needs printing, above the orders it comes from. */}
-            {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
+            {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
             <section className="overview-orders" aria-label="PlayCase orders overview">
               <div className="section-top">
                 <div><h2>PlayCase orders <span className="order-count">{remote && live.loading ? "—" : overviewOrders.length}</span></h2></div>
@@ -721,11 +717,14 @@ function App() {
             </section>
             </div>
           )}
-          {(tab === "Overview" || tab === "Printers") && (
+          {tab === "Overview" && remote && (
             <div className="fleet-column">
-              {remote && <NotificationSettings compact />}
-              {offers}
-              {remote && <WatchAttention watches={watch.watches} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
+              <PrinterRows machines={printerSort.sort(machines)} live={remote} onOpen={openDetail} heldBySpoolside={heldBySpoolside} onAll={() => setTab("Printers")} />
+            </div>
+          )}
+          {(tab === "Printers" || (tab === "Overview" && !remote)) && (
+            <div className="fleet-column">
+              {tab === "Printers" && needs()}
               <div className="fleet-heading">
                 <h2>
                   Your printers <span>{machines.length}</span>
@@ -748,16 +747,17 @@ function App() {
                 live={remote}
                 onOpen={openDetail}
                 repeats={repeats || []}
+                heldBySpoolside={heldBySpoolside}
               />
+              {tab === "Printers" && remote && <button className="text-button library-link" onClick={() => goTo("/library/sliced")}>Sliced prints are in the Library →</button>}
             </div>
           )}
           </div>
-          {tab === "Printers" && remote && <PrintLibrary notify={setNotice} />}
           {(tab === "Queue" || tab === "Supplies" || (tab === "Overview" && !remote)) && (
             <div
               className={tab === "Overview" && !remote ? "bottom-grid" : "single-section"}
             >
-              {tab !== "Supplies" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} held={dispatch.held} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
+              {tab !== "Supplies" && (remote ? <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} control={<AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} /> : queue)}
               {tab === "Supplies" && remote ? <Supplies notify={setNotice} machines={machines}/> : tab !== "Queue" && !remote && filament}
             </div>
           )}
@@ -813,6 +813,8 @@ function App() {
               </button>
               {remote && <NotificationSettings />}
               {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />}
+              {remote && <PrinterSettings machines={machines} onOpen={(id) => { setTab("Printers"); openDetail(id); }} />}
+              {remote && <ClaudeSettings />}
               <h2>App updates</h2>
               <p>Checks for updates when you reopen the app. Refresh here to get the latest version now.</p>
               <RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} />
@@ -935,52 +937,38 @@ function App() {
             </button>
             <header className="detail-head">
               <h2>{current.name}</h2>
-              <span className={`status ${current.state.toLowerCase()}`}>
-                <span />
-                {current.state}
-              </span>
-              <p>Bambu Lab A1 mini</p>
+              <span className={`pill ${heldBySpoolside.has(current.id) ? "red" : current.state === "Paused" ? "blue" : current.state === "Printing" ? "teal" : ["Error", "Offline"].includes(current.state) ? "red" : ""}`}>{stateLabel(current, heldBySpoolside)}</span>
+              <p>
+                Bambu Lab A1 mini ·{" "}
+                <span className={remote && (current.stale || !current.connected) ? "detail-bad" : ""}>{remote ? (current.stale || !current.connected ? "Disconnected" : "Live LAN") : "Demo"}</span>
+                {remote && current.seen ? ` · ${new Date(current.seen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
+              </p>
             </header>
-            {/* Camera first; beside it, the job and four reading cards. */}
+            {remote && current.state === "Paused" && current.pauseReason && !heldBySpoolside.has(current.id) && (
+              <div className="detail-banner" role="status">
+                <Pause size={16} />
+                <span><b>{shortPause(current).split(" · ")[0]}</b>{current.pauseReason.replace(/^Paused( at layer \d+ of \d+)?:?/, "").replace(/^ by the printer/, " by the printer")}</span>
+                <button className="primary" onClick={async () => { const r = await fetch(`/api/printers/${current.id}/resume`, { method: "POST" }).catch(() => null); setNotice(r?.ok ? `Resumed ${current.name}.` : `Couldn't resume ${current.name}.`); live.retry(); }}><Play size={14} /> Resume</button>
+              </div>
+            )}
+            {/* Camera first; beside it, the job, its progress, the readings and the spools. */}
             <div className="detail-top">
               <div className="detail-camera"><CameraFeed machine={current} live={remote} /></div>
               <div className="detail-info">
                 {repeats?.filter((r) => r.printer === current.id).map((r) => <RepeatCard key={r.printer} repeat={r} printerName={current.name} notify={setNotice} />)}
                 <h3>{current.job ? jobName(current.job) : "No print information"}</h3>
-                <dl className="detail-cards">
-                  <div className="detail-card">
-                    <dt>Progress</dt>
-                    <dd>
-                      <strong>{current.progress}%</strong>
-                      <span className="mini-progress"><i style={{ width: `${current.progress}%` }} /></span>
-                      <small>{current.state === "Printing" || current.state === "Paused" ? `${current.remaining} left` : "Not printing"}</small>
-                    </dd>
+                {current.state === "Printing" || current.state === "Paused" ? (
+                  <div className="detail-progress">
+                    <div><strong>{current.progress}%</strong><span>{current.remaining} left</span></div>
+                    <span className={`mini-progress${current.state === "Paused" ? " paused" : ""}`}><i style={{ width: `${current.progress}%` }} /></span>
                   </div>
-                  <div className="detail-card">
-                    <dt>Filament</dt>
-                    <dd>{remote ? <SpoolList machine={current} /> : current.material}</dd>
-                  </div>
-                  <div className="detail-card">
-                    <dt>Nozzle / bed</dt>
-                    <dd>
-                      <strong>
-                        {remote
-                          ? `${current.nozzle == null ? "—" : Math.round(current.nozzle)}° / ${current.bed == null ? "—" : Math.round(current.bed)}°`
-                          : current.state === "Printing" || current.state === "Paused" ? "220° / 60°" : "—"}
-                      </strong>
-                      <small>Celsius</small>
-                    </dd>
-                  </div>
-                  <div className="detail-card">
-                    <dt>Connection</dt>
-                    <dd>
-                      <strong className={remote && (current.stale || !current.connected) ? "detail-bad" : ""}>
-                        {remote ? (current.stale || !current.connected ? "Disconnected" : "Live LAN") : "Demo"}
-                      </strong>
-                      <small>{remote ? (current.seen ? `Last report ${new Date(current.seen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "No report yet") : "Simulated"}</small>
-                    </dd>
-                  </div>
+                ) : <p className="plate-meta">Not printing</p>}
+                <dl className="detail-facts">
+                  <div><dt>Layer</dt><dd>{current.layer != null && current.totalLayers ? `${current.layer} / ${current.totalLayers}` : "—"}</dd></div>
+                  <div><dt>Nozzle</dt><dd>{remote ? (current.nozzle == null ? "—" : `${Math.round(current.nozzle)}°`) : "220°"}</dd></div>
+                  <div><dt>Bed</dt><dd>{remote ? (current.bed == null ? "—" : `${Math.round(current.bed)}°`) : "60°"}</dd></div>
                 </dl>
+                {remote ? <SpoolTiles machine={current} /> : <p className="plate-meta">{current.material}</p>}
               </div>
             </div>
             {!remote &&
@@ -1000,7 +988,6 @@ function App() {
             {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={setNotice} />}
             {remote && <BedCheckSettings printer={current.id} name={current.name} notify={setNotice} onTeach={() => teachBed(current.id, current.name)} canTeach={!!current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "")} />}
             {remote && <PrintControls machine={current} notify={setNotice} />}
-            {remote && current.state === "Paused" && current.pauseReason && <p className="detail-note">{current.pauseReason}</p>}
             {(!remote || current.error) && <p className="detail-note">{remote ? current.error : "These readings are examples. Live printer controls will be available after a bridge is connected."}</p>}
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace

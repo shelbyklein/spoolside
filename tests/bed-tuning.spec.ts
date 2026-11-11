@@ -21,6 +21,11 @@ test('bed checks can be tuned: warnings after your own start, a held bed checked
     if (url.pathname === '/api/workspace') return route.fulfill({ json: { revision: 1, orders: [], jobs: [], spools: [], machines: [machine('a', 'Desk', 'RUNNING'), machine('b', 'AMS 2'), machine('c', 'AMS 3')], lastSync: null, syncError: null } });
     if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: true, watches: [], recent: [] } });
     if (url.pathname === '/api/dispatch') return route.fulfill({ json: dispatch });
+    if (url.pathname.endsWith('/bed-warning') && method === 'DELETE') {
+      calls.push('dismiss ' + url.pathname.split('/')[3]);
+      dispatch.warnings = [];
+      return route.fulfill({ json: dispatch });
+    }
     if (url.pathname === '/api/dispatch/b/recheck') {
       calls.push('recheck b');
       dispatch.held = [];
@@ -54,18 +59,19 @@ test('bed checks can be tuned: warnings after your own start, a held bed checked
 
   // A print you started that the camera doubted: the photo, and what to do about it.
   const warning = page.getByRole('article', { name: "Check Desk's bed" });
-  await expect(warning).toContainText('You started PlayPad cap, but the camera thought: A small disc is near the back of the plate.');
+  await expect(warning).toContainText('You started PlayPad cap; the camera thought: A small disc is near the back of the plate.');
   await expect(warning.getByRole('img', { name: /Desk's bed just before the print started/ })).toBeVisible();
   await expect(warning.getByRole('button', { name: 'Stop print' })).toBeVisible();
   await page.locator('.fleet-column').screenshot({ path: 'handoff/spoolside-bed-warning.png' });
-  await warning.getByRole('button', { name: 'It was clear, remember this' }).click();
-  await expect.poll(() => calls[0]).toBe('allow a {"text":"Not a reason to hold: A small disc is near the back of the plate.","warning":true}');
+  // "It was clear" only answers the warning: nothing is added to the printer's notes.
+  await warning.getByRole('button', { name: 'It was clear' }).click();
+  await expect.poll(() => calls[0]).toBe('dismiss a');
   await expect(warning).toHaveCount(0);
 
   // A free printer held by its bed: two answers only. "Bed cleared" looks again now.
   const held = page.getByRole('article', { name: 'AMS 2 is waiting on its bed' });
   await expect(held).toContainText('The camera sees: A green printed part is sitting on the build plate.');
-  await expect(held.getByRole('button')).toHaveText(['Bed cleared', 'Teach empty bed']);
+  await expect(held.getByRole('button')).toHaveText(['Teach empty bed', 'Bed cleared']);
   await held.screenshot({ path: 'handoff/spoolside-held-card.png' });
   await held.getByRole('button', { name: 'Bed cleared' }).click();
   await expect.poll(() => calls[1]).toBe('recheck b');
@@ -79,14 +85,20 @@ test('bed checks can be tuned: warnings after your own start, a held bed checked
   await expect(bed).toContainText("Hasn't been shown AMS 3's empty bed yet.");
   await expect(bed.getByRole('button', { name: 'Teach bed check' })).toBeVisible();
   await expect(bed.getByRole('checkbox', { name: /Go by what's visible/ })).toBeChecked();
-  await expect(bed.getByRole('listitem')).toHaveCount(1);
+  await expect(bed.getByRole('listitem')).toHaveCount(0);
   await bed.getByRole('checkbox', { name: /Go by what's visible/ }).uncheck();
   await expect.poll(() => calls.at(-1)).toBe('visible false');
   await bed.getByLabel("Something that's fine on AMS 3's bed").fill('The white tape on the right edge');
   await bed.getByRole('button', { name: 'Add' }).click();
-  await expect(bed.getByRole('listitem')).toHaveCount(2);
+  await expect(bed.getByRole('listitem')).toHaveCount(1);
   await expect(bed.getByLabel("Something that's fine on AMS 3's bed")).toHaveValue('');
   await bed.screenshot({ path: 'handoff/spoolside-bed-settings.png' });
+  // A note that describes a part on the plate is flagged.
+  await bed.getByLabel("Something that's fine on AMS 3's bed").fill('A green part is sitting on the plate');
+  await bed.getByRole('button', { name: 'Add' }).click();
+  await expect(bed.getByRole('alert')).toContainText('1 note describes something on the plate');
+  await expect(bed.getByRole('listitem').filter({ hasText: 'A green part' })).toContainText('Describes a part');
+  await expect(bed.getByRole('listitem').filter({ hasText: 'white tape' })).not.toContainText('Describes a part');
   await bed.getByRole('button', { name: /Remove “The white tape/ }).click();
   await expect(bed.getByRole('listitem')).toHaveCount(1);
   await context.close();
