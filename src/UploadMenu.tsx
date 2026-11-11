@@ -9,13 +9,18 @@ import { Dialog } from "./Dialog";
 export function UploadMenu({ wide, children }: { wide: boolean; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false), root = useRef<HTMLDetailsElement>(null);
   const close = () => setOpen(false);
+  // Listening all the time (and checking whether the menu is open) means an Escape or a click pressed right after
+  // opening isn't missed while React catches up.
   useEffect(() => {
-    if (!open || !wide) return;
-    const away = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); root.current?.querySelector("summary")?.focus(); } };
+    if (!wide) return;
+    // The browser opens <details> itself and tells React a moment later, so closing also sets the element directly.
+    const isOpen = () => !!root.current?.open;
+    const shut = () => { if (root.current) root.current.open = false; setOpen(false); };
+    const away = (e: PointerEvent) => { if (isOpen() && !root.current?.contains(e.target as Node)) shut(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && isOpen()) { shut(); root.current?.querySelector("summary")?.focus(); } };
     document.addEventListener("pointerdown", away); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
-  }, [open, wide]);
+  }, [wide]);
   if (!wide) return <>
     <button className="secondary upload-menu-trigger" aria-haspopup="dialog" onClick={() => setOpen(true)}><Upload size={16} /> Upload</button>
     {open && <Dialog title="Upload" onClose={close} className="upload-sheet"><div className="upload-menu-list">{children(close)}</div></Dialog>}

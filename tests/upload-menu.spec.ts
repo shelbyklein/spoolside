@@ -3,7 +3,7 @@ import { mockFarm, LIVE } from './mock-farm';
 
 // B1: on the phone home the Upload menu is a sheet above the printer pills, with readable items.
 test('phone home Upload menu opens above the pills with readable items', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 428, height: 926 }, serviceWorkers: 'block' }), page = await context.newPage();
+  const context = await browser.newContext({ viewport: { width: 428, height: 926 }, serviceWorkers: 'block', reducedMotion: 'reduce' }), page = await context.newPage();
   await mockFarm(page);
   await page.goto(LIVE + '/');
   await expect(page.locator('.home-pill').first()).toBeVisible();
