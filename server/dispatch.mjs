@@ -215,15 +215,12 @@ export class Dispatcher {
   // `area` marks where the plate is ({left,top,right,bottom} as fractions); undefined keeps the current one, null clears it.
   teachReference(serial,id,clear,note,area) {
     if (clear !== true) throw Error("Confirm that the photographed bed is completely clear");
-    if (area != null) {
-      const {left,top,right,bottom}=area;
-      if (![left,top,right,bottom].every(n=>typeof n==="number"&&n>=0&&n<=1) || right-left<0.05 || bottom-top<0.05) throw Error("Mark the plate with a larger box");
-    }
+    if (area != null) area = plateArea(area);
     const capture=this.referencePhoto(serial,id);
     if (this.idleForReference(serial)!==capture.job) throw Error("The printer changed since this photo. Take another photo.");
     const text=typeof note === "string" ? note.trim().slice(0,300) : "";
     this.db.prepare("INSERT INTO bed_references (printer,jpeg,note,confirmed) VALUES (?,?,?,?) ON CONFLICT(printer) DO UPDATE SET jpeg=excluded.jpeg,note=excluded.note,confirmed=excluded.confirmed").run(serial,capture.jpeg,text,this.now());
-    if (area !== undefined) this.db.prepare("UPDATE bed_references SET area=? WHERE printer=?").run(area ? JSON.stringify({left:area.left,top:area.top,right:area.right,bottom:area.bottom}) : null, serial);
+    if (area !== undefined) this.db.prepare("UPDATE bed_references SET area=? WHERE printer=?").run(area ? JSON.stringify(area) : null, serial);
     this.referenceCaptures.delete(serial);
     this.beds.delete(serial);
     // Teaching is you confirming this bed is clear right now: the hold goes, and it counts as clear until the next print.
@@ -387,7 +384,7 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
         tools: [{ name: "report", description: "Report whether the build plate is empty.", input_schema: { type: "object", properties: { empty: { type: "boolean" }, reason: { type: "string", description: "One short sentence, e.g. 'A red case is still on the plate.'" } }, required: ["empty", "reason"] } }],
         // Newer models refuse a forced tool, so the tool is offered and the prompt asks for it.
         tool_choice: { type: "auto" },
-        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), ...(allow.length ? [{ type: "text", text: "The owner's notes for this printer: these are fine and are not a reason to say the bed isn't empty, unless something new is on the plate as well.\n" + allow.map((a) => "- " + a).join("\n") }] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:" + (area ? " Both photos are cropped to where the plate sits when the printer is idle." + (visibleOnly ? "" : " If the plate isn't fully inside this crop, say it is not empty.") : "")}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
+        messages: [{ role: "user", content: [...(reference ? [{type:"text",text:"Reference photo: the user confirmed this printer's bed was empty. Their note: " + reference.note}, {type:"image",source:{type:"base64",media_type:"image/jpeg",data:reference.jpeg.toString("base64")}}] : []), ...(allow.length ? [{ type: "text", text: "The owner's notes for this printer: these are fine and are not a reason to say the bed isn't empty, unless something new is on the plate as well.\n" + allow.map((a) => "- " + a).join("\n") }] : []), {type:"text",text:"Current camera photo — judge this photo, not the reference:" + (area ? " Both photos are cropped to where the plate sits when the printer is idle." + (area.quad ? " Everything outside the plate's outline is blanked out in flat grey: ignore the grey." : "") + (visibleOnly ? "" : " If the plate isn't fully inside this crop, say it is not empty.") : "")}, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } }, { type: "text", text: "Is the build plate completely empty? Answer by calling the report tool." }] }],
       }),
       signal: AbortSignal.timeout(60000),
     });
@@ -401,11 +398,40 @@ export function claudeBedCheck(apiKey, models, fetchImpl = fetch) {
 
 // Crops a camera photo to an area given as fractions of the frame ({ left, top, right, bottom }),
 // with a little room around it so a part right at the plate's edge isn't cut off.
+// Where the plate is in the photo, checked and tidied: either a box ({left, top, right, bottom}) or its four
+// corners as seen at the camera's angle ({quad: [[x, y] × 4]}), as fractions of the frame. Corners are put in
+// order around their middle, whatever order they were tapped in, and the box around them is kept too.
+export function plateArea(area) {
+  const ok = (n) => typeof n === "number" && n >= 0 && n <= 1;
+  if (Array.isArray(area?.quad)) {
+    if (area.quad.length !== 4 || !area.quad.every((p) => Array.isArray(p) && p.length === 2 && p.every(ok))) throw Error("Mark the plate's four corners");
+    const cx = area.quad.reduce((n, p) => n + p[0], 0) / 4, cy = area.quad.reduce((n, p) => n + p[1], 0) / 4;
+    const quad = [...area.quad].sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx)).map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4]);
+    // Shoelace area: a sliver or a tiny shape isn't a plate.
+    const size = Math.abs(quad.reduce((n, [x, y], i) => n + x * quad[(i + 1) % 4][1] - quad[(i + 1) % 4][0] * y, 0)) / 2;
+    const xs = quad.map((p) => p[0]), ys = quad.map((p) => p[1]);
+    const box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    if (size < 0.01 || box.right - box.left < 0.05 || box.bottom - box.top < 0.05) throw Error("Mark the plate with a larger shape");
+    return { ...box, quad };
+  }
+  const { left, top, right, bottom } = area || {};
+  if (![left, top, right, bottom].every(ok) || right - left < 0.05 || bottom - top < 0.05) throw Error("Mark the plate with a larger box");
+  return { left, top, right, bottom };
+}
+
 export async function cropArea(jpeg, area, pad = 0.03) {
   const left = Math.max(0, area.left - pad), top = Math.max(0, area.top - pad), right = Math.min(1, area.right + pad), bottom = Math.min(1, area.bottom + pad);
   const { default: sharp } = await import("sharp");
   const { width, height } = await sharp(jpeg).metadata();
   const x = Math.max(0, Math.floor(left * width)), y = Math.max(0, Math.floor(top * height));
   const w = Math.min(width - x, Math.ceil((right - left) * width)), h = Math.min(height - y, Math.ceil((bottom - top) * height));
-  return sharp(jpeg).extract({ left: x, top: y, width: w, height: h }).jpeg({ quality: 80 }).toBuffer();
+  const cropped = sharp(jpeg).extract({ left: x, top: y, width: w, height: h });
+  if (!area.quad) return cropped.jpeg({ quality: 80 }).toBuffer();
+  // Blank everything outside the plate's outline, grown a little from its middle so a part right at the edge
+  // still shows.
+  const cx = area.quad.reduce((n, p) => n + p[0], 0) / 4, cy = area.quad.reduce((n, p) => n + p[1], 0) / 4;
+  const points = area.quad.map(([px, py]) => [(cx + (px - cx) * (1 + pad * 2)) * width - x, (cy + (py - cy) * (1 + pad * 2)) * height - y]);
+  const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><polygon points="${points.map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" ")}" fill="#fff"/></svg>`);
+  const plate = await cropped.ensureAlpha().composite([{ input: mask, blend: "dest-in" }]).png().toBuffer();
+  return sharp(plate).flatten({ background: "#808080" }).jpeg({ quality: 80 }).toBuffer();
 }

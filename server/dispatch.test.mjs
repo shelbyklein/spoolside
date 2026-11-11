@@ -388,3 +388,26 @@ test("Bed cleared looks again right away instead of waiting a few minutes", asyn
     s.done();
   }
 });
+
+test("the plate can be marked by its four corners; checks then blank everything outside the outline", async () => {
+  const { plateArea, cropArea } = await import("./dispatch.mjs");
+  const { default: sharp } = await import("sharp");
+  // Corners in any order come back in order round the plate, with the box around them.
+  const a = plateArea({ quad: [[0.05, 0.98], [0.42, 0.46], [0.56, 0.9], [0.02, 0.5]] });
+  assert.deepEqual(a, { left: 0.02, top: 0.46, right: 0.56, bottom: 0.98, quad: [[0.02, 0.5], [0.42, 0.46], [0.56, 0.9], [0.05, 0.98]] });
+  assert.throws(() => plateArea({ quad: [[0, 0], [1, 1], [0.5, 0.5]] }), /four corners/);
+  assert.throws(() => plateArea({ quad: [[0, 0], [1, 0], [1, 1], [0, 2]] }), /four corners/);
+  assert.throws(() => plateArea({ quad: [[0.1, 0.1], [0.11, 0.1], [0.11, 0.11], [0.1, 0.11]] }), /larger shape/);
+  assert.deepEqual(plateArea({ left: 0, top: 0.44, right: 0.57, bottom: 1, extra: 1 }), { left: 0, top: 0.44, right: 0.57, bottom: 1 }, "a box still works");
+  // A white photo cropped to a diamond: inside stays white, the corners outside the outline go flat grey.
+  const white = await sharp({ create: { width: 200, height: 200, channels: 3, background: "#ffffff" } }).jpeg().toBuffer();
+  const diamond = plateArea({ quad: [[0.5, 0.1], [0.9, 0.5], [0.5, 0.9], [0.1, 0.5]] });
+  const out = await cropArea(white, diamond);
+  const { data, info } = await sharp(out).raw().toBuffer({ resolveWithObject: true });
+  const px = (x, y) => data[(Math.round(y * (info.height - 1)) * info.width + Math.round(x * (info.width - 1))) * info.channels];
+  assert.ok(px(0.5, 0.5) > 240, "the plate is kept");
+  assert.ok(Math.abs(px(0.02, 0.02) - 128) < 12, "outside the outline is grey");
+  // A box crops without blanking anything.
+  const boxed = await sharp(await cropArea(white, { left: 0.1, top: 0.1, right: 0.9, bottom: 0.9 })).raw().toBuffer({ resolveWithObject: true });
+  assert.ok(boxed.data[0] > 240);
+});

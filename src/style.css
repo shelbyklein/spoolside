@@ -2560,7 +2560,8 @@ footer .tiny-dot {
 .plate-box { position: relative; overflow: hidden; border-radius: 10px; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none; line-height: 0; }
 .plate-box .bed-reference-photo { pointer-events: none; }
 .plate-box-mark { position: absolute; border: 2px solid #ff5a4f; background: rgba(255, 90, 79, .18); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(16, 45, 68, .35); pointer-events: none; }
-.plate-box-help { margin: 0; }
+/* Room for the longest hint, so the photo doesn't shift as the hint changes between taps. */
+.plate-box-help { margin: 0; min-height: 4.5em; }
 .plate-box-help .text-button { display: inline; padding: 0; font-size: inherit; }
 .overview-main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .overview-main .order-queue { margin: 0; }
@@ -2765,3 +2766,10 @@ button.home-note-order:hover { background: #f7dba6; }
 .held-body p span { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 2px; }
 .held-card .watch-actions button { display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 760px) { .held-body img { width: 96px; } }
+
+/* Marking the plate's four corners in the teach dialog. */
+.plate-corners { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.plate-corners-shade { fill: rgba(16, 45, 68, 0.45); }
+.plate-corners-line { fill: rgba(255, 90, 79, 0.12); stroke: #ff5a4f; stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
+.plate-corner { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #fff; border: 3px solid #ff5a4f; box-shadow: 0 1px 4px #0006; pointer-events: none; }
