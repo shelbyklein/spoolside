@@ -519,7 +519,7 @@ function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile;
   };
   const open = () => { setIds(coverage.map(c => c.assetId)); setQuery(""); setType("All"); setEditing(true); };
   return <div className="plate-assets">
-    <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
+    <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId} title={assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
     <button className="asset-add-pill" aria-label="Edit assets" title="Edit assets" onClick={open}><Plus size={15} /></button>
     {editing && <Dialog className="plate-assets-editor" title={`${file.name}${file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}`} label={`Assets for ${file.name}`} busy={busy} onClose={() => setEditing(false)}
       footer={<><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button><button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button></>}>

@@ -27,7 +27,7 @@ export function BedWarnings({ warnings, refresh, notify }: { warnings: BedWarnin
     <>
       {warnings.map((w) => (
         <NeedRow key={w.id} tone="warn" label={`Check ${w.printerName}'s bed`} title={`Check ${w.printerName}'s bed`}
-          media={<a href={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} target="_blank" rel="noreferrer"><NeedPhoto src={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} alt={`${w.printerName}'s bed just before the print started`} /></a>}
+          media={<a href={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} aria-label={`Open ${w.printerName}'s bed photo`} target="_blank" rel="noreferrer"><NeedPhoto src={`/api/dispatch/${w.printer}/bed-warning.jpg?id=${w.id}`} alt={`${w.printerName}'s bed just before the print started`} /></a>}
           actions={<>
             <button className="secondary danger" disabled={busy === w.id} onClick={async () => {
               if (!(await confirmAction({ title: `Stop the print on ${w.printerName}?`, body: "This can't be undone.", confirmLabel: "Stop print", danger: true }))) return;

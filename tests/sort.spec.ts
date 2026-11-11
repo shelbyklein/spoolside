@@ -21,7 +21,8 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
     if (url.pathname === '/api/watches') return route.fulfill({ json: { vision: false, watches: [], recent: [] } });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ json: ['/api/assets', '/api/categories'].includes(url.pathname) ? [] : {} });
     if (/\.(jpg|png)$/.test(url.pathname) && !url.pathname.startsWith('/assets')) return route.fulfill({ status: 404, body: '' });
-    return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) });
+    // The test moves between pages quickly; a request from the page it just left may be cancelled mid-flight.
+    return route.fulfill({ response: await route.fetch({ url: 'http://127.0.0.1:4173' + url.pathname + url.search }) }).catch(() => {});
   });
   await page.route('https://playcase.gg/**', (route) => route.fulfill({ status: 404, body: '' }));
 

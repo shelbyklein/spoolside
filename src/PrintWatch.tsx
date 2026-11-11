@@ -200,7 +200,7 @@ export function WatchAttention({ watches, refresh, notify }: { watches: Watch[];
     <>
       {alerts.map((w) => (
         <NeedRow key={w.id} tone="alert" label={`${w.printerName} alert`} title={w.alert!.paused ? `Spoolside paused ${w.printerName}` : `Check ${w.printerName}`}
-          media={<a href={photo(w, w.alert!.file)!} target="_blank" rel="noreferrer"><NeedPhoto src={photo(w, w.alert!.file)!} alt={`Camera photo of ${w.printerName} when the problem was spotted`} /></a>}
+          media={<a href={photo(w, w.alert!.file)!} aria-label={`Open ${w.printerName}'s camera photo`} target="_blank" rel="noreferrer"><NeedPhoto src={photo(w, w.alert!.file)!} alt={`Camera photo of ${w.printerName} when the problem was spotted`} /></a>}
           actions={<>
             <button className="secondary danger" disabled={!!busy} onClick={async () => { if (await confirmAction({ title: `Stop the print on ${w.printerName}?`, body: "This can't be undone.", confirmLabel: "Stop print", danger: true })) act(w.id + "stop", () => post(`/api/printers/${w.printer}/stop`), `Stopped ${w.printerName}.`); }}>
               <Square size={13} /> Stop print

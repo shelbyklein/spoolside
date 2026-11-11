@@ -209,7 +209,7 @@ export function AssetLibrary({ notify }: { notify: Notify }) {
                 <li key={a.id}>
                   <button className="asset-row" onClick={() => setOpenId(a.id)}>
                     <span className="asset-name">
-                      <strong>{a.name}</strong>
+                      <strong title={a.name}>{a.name}</strong>
                       <small>{[a.fit.size && a.type === "Faceplate" ? a.fit.size : "", a.type === "Cut template" ? `SVG · ${a.dims.join(" × ")} mm` : a.hasStl !== false ? a.dims.join(" × ") + " mm" : "Design only", a.note].filter(Boolean).join(" · ")}</small>
                     </span>
                     <StatusIcons status={a.status} missingDesign={needsDesign(a)} />
@@ -254,7 +254,7 @@ export function AssetLibrary({ notify }: { notify: Notify }) {
             {open.type === "Cut template" ? <a className="primary download-vector" href={`/api/assets/${open.id}/svg?download=1`}><Download size={16} /> Download SVG</a> : open.type !== "Phone" && open.designFile && <a className="secondary download-design" href={`/api/designfiles/${open.designFile.id}/download`}><Download size={16} /> Download design</a>}
             <div className="status-picker" role="radiogroup" aria-label="Status">
               {STATUSES.map((s) => (
-                <button key={s} role="radio" aria-checked={open.status === s} aria-label={s} title={s} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <CircleCheck size={20} /> : <Clock size={20} />}</button>
+                <button key={s} role="radio" aria-checked={open.status === s} aria-label={s === "Up to date" ? "Up to date" : "Needs an update"} className={`status-choice ${slug(s)}${open.status === s ? " selected" : ""}`} onClick={() => save(open, { status: s })}>{s === "Up to date" ? <><CircleCheck size={20} /> Up to date</> : <><Clock size={20} /> Needs an update</>}</button>
               ))}
             </div>
             </div>
@@ -314,7 +314,7 @@ function GroupCard({ title, assets, onOpen }: { title: string; assets: Asset[]; 
         {assets.map((a) => (
           <button key={a.id} className={`asset-pill with-thumb ${slug(a.status)}`} aria-label={`${a.name}, ${a.status}${needsDesign(a) ? ", missing design" : ""}`} onClick={() => onOpen(a.id)}>
             <PartThumb asset={a} />
-            <span>{cardLabel(a)}</span>
+            <span title={cardLabel(a)}>{cardLabel(a)}</span>
             <StatusIcons status={a.status} missingDesign={needsDesign(a)} />
           </button>
         ))}
@@ -498,7 +498,7 @@ function PartCard({ asset, onOpen }: { asset: Asset; onOpen: () => void }) {
     <button className={`part-card${asset.type === "Cut template" ? " vector-card" : ""}`} onClick={onOpen} aria-label={`${asset.name}, ${asset.status}${needsDesign(asset) ? ", missing design" : ""}`}>
       <PartThumb asset={asset} />
       <span className="part-card-foot">
-        <strong>{asset.name}</strong>
+        <strong title={asset.name}>{asset.name}</strong>
         <StatusIcons status={asset.status} missingDesign={needsDesign(asset)} />
       </span>
       {asset.type === "Cut template" && <small className="vector-card-meta">SVG · {asset.dims.join(" × ")} mm</small>}

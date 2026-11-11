@@ -93,7 +93,7 @@ export function PrinterRows({ placeholder, machines, live, onOpen, heldBySpoolsi
               <CameraFeed machine={m} live={live} />
               <span className="printer-row-body">
                 <span className="printer-row-top"><strong>{m.name}</strong><span className={`pill ${label === "Held by Spoolside" ? "red" : state === "paused" ? "blue" : state === "printing" ? "teal" : state === "error" || state === "offline" ? "red" : ""}`}>{label}</span></span>
-                <span className="printer-row-job">{m.job ? jobName(m.job) : "No print information"}{m.state === "Paused" && m.pauseReason ? ` · ${shortPause(m).replace(/^Paused /, "")}` : ""}</span>
+                <span className="printer-row-job" title={m.job ? jobName(m.job) : undefined}>{m.job ? jobName(m.job) : "No print information"}{m.state === "Paused" && m.pauseReason ? ` · ${shortPause(m).replace(/^Paused /, "")}` : ""}</span>
                 {active && <span className={`mini-progress${m.state === "Paused" ? " paused" : ""}`}><i style={{ width: `${m.progress}%` }} /></span>}
                 <span className="printer-row-meta">{feeding && <><span className="sw" style={{ background: feeding.color || "transparent" }} />{feeding.type.replace(/-AMS$/i, "")} {feeding.key === "external" ? "external" : `slot ${feeding.label.replace(/\D/g, "")}`}</>}{active ? `${feeding ? " · " : ""}${m.remaining} left` : ""}{!m.connected || m.stale ? "Offline" : ""}</span>
               </span>
@@ -122,7 +122,7 @@ export function PrinterCards({ machines, total, placeholder, live, onOpen, repea
                   {stateLabel(m, heldBySpoolside)}
                 </span>
               </span>
-              <span className="printer-card-job">{m.job ? jobName(m.job) : "No print information"}</span>
+              <span className="printer-card-job" title={m.job ? jobName(m.job) : undefined}>{m.job ? jobName(m.job) : "No print information"}</span>
               {live && (!m.connected || m.stale) && m.error && <span className="printer-card-issue" role="note">{m.error}</span>}
               {live && m.connected && !m.stale && m.state === "Paused" && m.pauseReason && !heldBySpoolside?.has(m.id) && <span className="printer-card-issue paused" role="note" title={m.pauseReason}>{shortPause(m)}</span>}
               {repeats.filter((r) => r.printer === m.id).map((r) => (

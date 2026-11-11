@@ -30,7 +30,6 @@ type DialogCheck = 'named' | 'escape' | 'trap' | 'return' | 'scroll';
 const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>>; dialogs: Record<string, string> }> = {
   1440: {
     pages: {
-      sliced: { offRight: 2 },
     },
     dialogs: {},
   },
@@ -41,8 +40,6 @@ const KNOWN: Record<Size, { pages: Record<string, Partial<Record<Check, number>>
   },
   428: {
     pages: {
-      library: { offRight: 3 },
-      sliced: { offRight: 2 },
     },
     dialogs: {},
   },
@@ -351,4 +348,16 @@ test('KNOWN only names pages and dialogs the audit opens', () => {
     for (const counts of Object.values(KNOWN[size].pages)) for (const [check, n] of Object.entries(counts)) expect(CHECKS.includes(check as Check) && n! > 0, `KNOWN[${size}] ${check}: ${n}`).toBe(true);
     for (const checks of Object.values(KNOWN[size].dialogs)) for (const c of checks.split(/\s+/).filter(Boolean)) expect(DIALOG_CHECKS, `KNOWN[${size}] dialog check ${c}`).toContain(c);
   }
+});
+
+test('a Needs you photo link keeps its name when the photo fails to load', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block', reducedMotion: 'reduce', locale: 'en-US', timezoneId: 'America/New_York' });
+  const page = await context.newPage();
+  await mockFarm(page, { 'GET /api/dispatch/:printer/bed-warning.jpg': { status: 404, body: '', contentType: 'text/plain' } }, { now: NOW });
+  await page.goto(LIVE + '/printers');
+  const link = page.getByRole('link', { name: /bed photo/ }).first();
+  await expect(link).toBeVisible();
+  await expect(link.locator('img')).toHaveCSS('visibility', 'hidden');
+  await expect(link).toHaveAccessibleName(/^Open .+'s bed photo$/);
+  await context.close();
 });
