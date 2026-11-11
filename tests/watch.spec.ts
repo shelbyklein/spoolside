@@ -53,7 +53,8 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await expect(alert).toContainText('Spaghetti around the part.');
   // Reviews wait behind a summary button, in a modal.
   await expect(home.getByRole('article', { name: 'Print review: Bridge' })).toHaveCount(0);
-  await home.getByRole('button', { name: /2 prints to review/ }).click();
+  await expect(home.getByRole('article', { name: 'Prints to review' })).toContainText('2 prints to review');
+  await home.getByRole('article', { name: 'Prints to review' }).getByRole('button', { name: 'Review' }).click();
   const reviews = page.getByRole('dialog', { name: 'Print reviews' });
   await reviews.screenshot({ path: 'handoff/spoolside-review-modal.png' });
   const ask = reviews.getByRole('article', { name: 'Print review: Bridge' });
@@ -97,7 +98,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   // A review can also be deleted in one tap, without a rating or notes.
   watches = [...watches, { ...watches[0], id: '55555555-5555-4555-8555-555555555555', printer: 'p5', printerName: 'Desk', job: 'Spare.gcode.3mf', ended: now - 100000, endedAs: 'finished', external: false, alert: null, check: null }];
   await page.reload();
-  await page.getByRole('button', { name: /print to review/ }).first().click();
+  await page.getByRole('article', { name: 'Prints to review' }).first().getByRole('button', { name: 'Review' }).click();
   const spare = page.getByRole('article', { name: 'Print review: Spare' });
   await spare.getByRole('button', { name: 'Delete review' }).click();
   await expect(spare).toHaveCount(0);

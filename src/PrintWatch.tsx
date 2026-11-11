@@ -249,11 +249,11 @@ export function WatchAttention({ watches, refresh, notify }: { watches: Watch[];
             <FailureNote initial={w.note || ""} label="Save as failed" busy={!!busy} onCancel={() => setFailing("")} onSave={(note) => act(w.id + "no", () => saveOutcome(w.id, false, note).then(() => saveToLibrary(w)), "Saved as failed.").then(() => setFailing(""))} />
           ) : (
             <div className="watch-actions">
-              <button className="primary icon-only" aria-label="Came out fine" title="Came out fine" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
-                <Check size={18} />
+              <button className="primary" aria-label="Came out fine" title="Came out fine" disabled={!!busy} onClick={() => setSucceeding(w.id)}>
+                <Check size={16} /> Good
               </button>
-              <button className="secondary icon-only" aria-label="Failed" title="Failed" disabled={!!busy} onClick={() => setFailing(w.id)}>
-                <X size={18} />
+              <button className="secondary" aria-label="Failed" title="Failed" disabled={!!busy} onClick={() => setFailing(w.id)}>
+                <X size={16} /> Failed
               </button>
               <button className="secondary" disabled={!!busy} onClick={() => setNoting(w.id)}><NotebookPen size={15} /> Notes</button>
               <button className="text-button watch-delete" aria-label="Delete review" title="Delete without rating" disabled={!!busy} onClick={() => act(w.id + "skip", () => post(`/api/watches/${w.id}/skip`), "Review deleted.")}>

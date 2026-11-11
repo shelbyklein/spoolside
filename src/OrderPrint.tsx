@@ -142,7 +142,18 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
                 </select>
               </label>
             ))}
-            {!useAms && <p className="plate-meta">Prints from the external spool. Make sure it's {colorway || "the right color"}.</p>}
+            {!useAms && (() => {
+              // The external spool, checked like an AMS slot: the plate's material, and the order's colour.
+              const ext = printer?.external;
+              const wrongMaterial = !!ext?.type && !!material && family(ext.type) !== family(material);
+              const wrongColor = !!ext?.color && !!colorway && !!COLORWAYS[colorwayName(colorway)] && !matchesColorway(ext.color, colorway);
+              if (!ext?.type) return <p className="plate-meta">Prints from the external spool. Make sure it's {family(material) || "the right material"} in {colorway || "the right color"}.</p>;
+              return <>
+                <p className="plate-meta">Prints from the external spool: <span className="color-dot" style={{ background: ext.color || "transparent" }} /> {ext.name || ext.type}.</p>
+                {wrongMaterial && <p className="order-print-warn">{printer?.name}'s external spool is {family(ext.type)}. This plate is sliced for {family(material)}.</p>}
+                {!wrongMaterial && wrongColor && <p className="order-print-warn">{printer?.name}'s external spool doesn't look {colorway.toLowerCase()}. Check it before printing.</p>}
+              </>;
+            })()}
             {useAms && match && match.off >= WRONG_MATERIAL && <p className="order-print-warn">{printer?.name} has no {family(material)} loaded. This plate is sliced for {family(material)}.</p>}
             {useAms && match && match.off >= WRONG_COLOR && match.off < WRONG_MATERIAL && <p className="order-print-warn">No {colorway.toLowerCase()} spool is loaded in {printer?.name}. Check the slot before printing.</p>}
             <label className="check-row"><input type="checkbox" checked={level} onChange={(e) => setLevel(e.target.checked)} /> Bed leveling</label>

@@ -21,6 +21,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import { ClaudeButton } from "./ClaudeChat";
 import { BedCheckSettings, BedWarnings } from "./BedCheck";
 import { NeedsYou, PausedRow, pausedByPrinter } from "./NeedsYou";
+import { ClaudeSettings, PrinterSettings } from "./SettingsSections";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { LayoutDashboard, Printer, Layers3, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, X, WifiOff, RefreshCw, Boxes, Clock3, Check, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
@@ -812,6 +813,8 @@ function App() {
               </button>
               {remote && <NotificationSettings />}
               {remote && <AutoPrintSetting auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />}
+              {remote && <PrinterSettings machines={machines} onOpen={(id) => { setTab("Printers"); openDetail(id); }} />}
+              {remote && <ClaudeSettings />}
               <h2>App updates</h2>
               <p>Checks for updates when you reopen the app. Refresh here to get the latest version now.</p>
               <RefreshAppButton checking={appUpdates.checking} refresh={appUpdates.refresh} />

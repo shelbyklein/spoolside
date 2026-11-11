@@ -26,15 +26,15 @@ test('reminder notes sit above the orders on the home page', async ({ browser })
   await page.route('https://playcase.gg/**', (r) => r.fulfill({ status: 404, body: '' }));
   await page.goto('https://spoolside.shelbyklein.com/overview');
   const reminders = page.getByRole('region', { name: 'Reminders' });
-  // At the top of the first column, above the queue and orders.
-  await expect(reminders.getByRole('button', { name: 'Add note' })).toBeVisible();
+  // With no reminders, just the way to add one; the section appears once you start writing.
+  await expect(reminders).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add a reminder' }).click();
   await expect(page.getByRole('region', { name: 'PlayCase orders overview' })).toBeVisible();
   const above = await page.evaluate(() => {
     const r = document.querySelector('[aria-label="Reminders"]')!, o = document.querySelector('[aria-label="PlayCase orders overview"]')!;
     return r.getBoundingClientRect().bottom <= o.getBoundingClientRect().top;
   });
   expect(above).toBe(true);
-  await reminders.getByRole('button', { name: 'Add note' }).click();
   await reminders.getByLabel('Note', { exact: true }).fill('Send a replacement d-pad membrane');
   await reminders.getByLabel('Order number (optional)').fill('#10199');
   await reminders.getByRole('button', { name: 'Add note' }).click();

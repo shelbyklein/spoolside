@@ -2807,7 +2807,7 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 .need-text { flex: 1; min-width: 0; }
 .need-text strong { display: block; font-size: 14.5px; color: var(--navy); }
 .need-sub { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
-.need-sub b { color: var(--ink); font-weight: 600; }
+.need-sub b { color: #193347; font-weight: 600; }
 .need-note { display: block; margin-top: 3px; color: #8a5a10; }
 .need-meta { color: #8a9aa0; white-space: nowrap; }
 .need-actions { display: flex; gap: 8px; flex: none; }
@@ -2902,7 +2902,7 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 .detail-info > .plate-meta { margin: 6px 0 12px; }
 .spool-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 760px) { .spool-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.needs-you.on-water .need-actions .secondary { color: var(--ink); background: #fff; border-color: #d5dfe0; }
+.needs-you.on-water .need-actions .secondary { color: #193347; background: #fff; border-color: #d5dfe0; }
 .needs-you.on-water .need-actions .secondary.danger { color: #b42318; }
 @media (max-width: 760px) {
   .need-meta { white-space: normal; }
@@ -2919,3 +2919,55 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
   .printer-card .printer-card-issue { font-size: 11.5px; padding: 6px 8px; }
   .printer-card .printer-card-meta { font-size: 12px; }
 }
+
+/* Order rows: in a narrow column the checklist goes under the product instead of squeezing it. */
+.overview-order-row { container-type: inline-size; }
+@container (max-width: 680px) {
+  .order-content-readiness { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
+}
+/* Not ready to ship: a quiet placeholder rather than a heavy disabled bar. */
+.ship-button.pending, .ship-button.pending:disabled { background: transparent !important; border: 1px dashed #c9d6d7 !important; color: #8a9aa0 !important; font-weight: 600; font-size: 12px; min-height: 0; padding: 7px 10px; box-shadow: none; }
+@container (max-width: 680px) { .order-id { align-self: start; padding-top: 4px; } }
+/* Library sections sit on their own row under Orders | Library | Inventory, on every screen size. */
+.playcase-sections { flex-wrap: wrap; }
+.playcase-sections button.expanded { border-radius: 7px 7px 0 0; padding-right: 14px; }
+.library-sections-slot { order: 9; flex-basis: 100%; border-radius: 0 0 7px 7px; padding: 0 3px 3px; }
+.library-sections-slot .library-sections { width: 100%; padding: 3px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+.library-sections-slot .library-sections button { flex: 1; }
+.asset-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -4px 0 14px; font-size: 12px; color: var(--muted); }
+.asset-legend .status-icon { display: inline-grid; place-items: center; margin-left: 8px; }
+.asset-legend .status-icon:first-child { margin-left: 0; }
+/* Sliced prints: names over two lines, delete on hover, and filters behind one button on a phone. */
+.sliced-body > strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+@media (hover: hover) { .sliced-delete { opacity: 0; transition: opacity 0.15s; } .sliced-card:hover .sliced-delete, .sliced-delete:focus-visible { opacity: 1; } }
+.sliced-filter-toggle { display: none; }
+@media (max-width: 760px) {
+  .sliced-filter-toggle { display: inline-flex; }
+  .sliced-filters > select { display: none; }
+  .sliced-filters.open > select { display: block; }
+}
+.personal-project-card { justify-content: flex-start; }
+.personal-project-card p { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+/* Inventory: an empty cell is a faint dash until you touch it; what you have stands out. */
+.inventory-count:not(.has) { border-color: transparent; background: transparent; }
+.inventory-count:not(.has)::placeholder { color: #c3ced0; }
+.inventory tr:hover .inventory-count:not(.has), .inventory-count:not(.has):focus { border-color: #d4dfe0; background: #fff; }
+.inventory-count.has { background: #e6f3f1; border-color: #b9ddd7; font-weight: 700; color: #075f5c; }
+.offer-manual { grid-column: 1 / -1; display: flex; gap: 16px; padding-left: 58px; }
+.offer-delivery > .text-button:only-child { color: var(--muted); }
+/* Settings: every section spaced the same, headed the same. */
+.settings h2, .settings section > h2 { margin: 30px 0 6px !important; padding: 0 !important; border: 0 !important; font-size: 19px; }
+.settings > h2:first-child { margin-top: 0 !important; }
+.settings section { margin: 0; padding: 0; border: 0; }
+.settings p { margin: 0 0 12px; }
+.settings-printers ul { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; }
+.settings-printers li { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+.settings-printers li + li { border-top: 1px solid var(--line); }
+.settings-printers li > svg { color: var(--muted); flex: none; }
+.settings-printers li span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.settings-printers li strong { font-size: 14px; color: var(--navy); }
+.settings-printers li small { font-size: 12.5px; color: var(--muted); }
+.settings-status { display: flex; align-items: center; gap: 8px; }
+.settings-status svg { color: #c2622d; flex: none; }
+.settings .auto-print .check-row { border-top: 0; padding-top: 4px; }
+.material-offer > .offer-manual { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; gap: 18px; padding-left: 80px; }

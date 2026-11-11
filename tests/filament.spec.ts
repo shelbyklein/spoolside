@@ -14,7 +14,7 @@ test('filament restock uses rows without inventory and keeps ZIP quotes separate
  const response=await route.fetch({url:'http://127.0.0.1:4173'+url.pathname+url.search});return route.fulfill({response});
  });
  await page.setViewportSize({width:428,height:926});await page.goto('https://spoolside.shelbyklein.com/filament');
- await expect(page.getByLabel('Delivery ZIP')).toHaveValue('30360');await expect(page.getByLabel('Sort restock offers')).toHaveValue('fastest');await expect(page.getByText('Arrival unknown',{exact:true}).first()).toBeVisible();
+ await expect(page.getByLabel('Delivery ZIP')).toHaveValue('30360');await expect(page.getByLabel('Sort restock offers')).toHaveValue('fastest');await expect(page.getByRole('button',{name:'Add a delivery quote'}).first()).toBeVisible();
  await expect(page.locator('.material-offer')).toHaveCount(3);
  await page.getByLabel('Variant for Proto-pasta Conductive PLA').selectOption('Black · 2000 g');
  await expect(page.locator('.material-offer')).toHaveCount(1);
@@ -22,8 +22,8 @@ test('filament restock uses rows without inventory and keeps ZIP quotes separate
  await page.getByLabel('Variant for Proto-pasta Conductive PLA').selectOption('all');
  await expect(page.getByRole('button',{name:'Spool',exact:true})).toHaveCount(0);
  await expect(page.getByText('No spools recorded')).toHaveCount(0);
- await page.getByRole('button',{name:'Set shipping quote'}).first().click();await page.getByLabel('Shipping cost (USD)').fill('10');await page.getByLabel('Latest estimated arrival').fill('2099-10-10');await page.getByRole('button',{name:'Save quote'}).click();await expect(page.getByText('Quote for 30360')).toBeVisible();
- await page.getByLabel('Delivery ZIP').fill('10001');await page.getByLabel('Delivery ZIP').blur();await expect(page.getByText('Arrival unknown',{exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Add a delivery quote'}).first().click();await page.getByLabel('Shipping cost (USD)').fill('10');await page.getByLabel('Latest estimated arrival').fill('2099-10-10');await page.getByRole('button',{name:'Save quote'}).click();await expect(page.getByText('Quote for 30360')).toBeVisible();
+ await page.getByLabel('Delivery ZIP').fill('10001');await page.getByLabel('Delivery ZIP').blur();await expect(page.getByRole('button',{name:'Add a delivery quote'}).first()).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.setViewportSize({width:1440,height:1000});
  expect(await page.locator('.material-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(1);

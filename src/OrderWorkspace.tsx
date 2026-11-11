@@ -15,8 +15,8 @@ export function ShipButton({ order }: { order: Order }) {
   if (order.commercial.toLowerCase() !== "processing") return null;
   if (!order.printPlan?.length || !order.printPlan.every(g => g.done) || order.sourceReview || order.refundReview || order.printReadiness?.status === "review")
     return (
-      <button className="ship-button" disabled title="Print all required items first" aria-label={`Ship ${order.number}: print all required items first`}>
-        <Truck size={16} /> Ship
+      <button className="ship-button pending" disabled title="Print all required items first" aria-label={`Ship ${order.number}: print all required items first`}>
+        <Truck size={14} /> Ship once printed
       </button>
     );
   return (

@@ -147,7 +147,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
         <div className="segmented" role="tablist" aria-label="Asset type">
           {TYPES.map((t) => (
             <button key={t} role="tab" aria-selected={type === t} className={type === t ? "selected" : ""} onClick={() => setType(t)}>
-              {t === "All" ? "All" : t === "Case" ? "Cases" : t + "s"}
+              {t === "All" ? "All" : t === "Case" ? "Cases" : t === "Purchased" ? "Bought parts" : t + "s"}
             </button>
           ))}
         </div>
@@ -174,6 +174,7 @@ export function AssetLibrary({ notify }: { notify: (m: string) => void }) {
       {managing && <CategoryManager categories={categories} assets={assets || []} onChange={() => { loadCategories(); load(); }} onClose={() => setManaging(false)} notify={notify} />}
       {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}
+      {assets && assets.length > 0 && <p className="asset-legend" aria-label="What the icons mean"><span className="status-icon up-to-date"><CircleCheck size={13} /></span> Up to date <span className="status-icon stale"><Clock size={13} /></span> Needs an update <span className="status-icon missing-design"><FileX size={13} /></span> Missing its design file</p>}
       {view === "cards" ? (
         SECTIONS.map(({ type: t, label, note }) => {
           const mine = groups.filter(([key]) => key.startsWith(`${t}|`));

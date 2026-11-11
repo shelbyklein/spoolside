@@ -26,9 +26,9 @@ test('loaded spools show on printer cards, in details, and on the Supplies page'
   await expect(page.getByRole('button', { name: 'Conductive, Ready' }).locator('.spool-chip')).toHaveText(['Not set']);
   await card.click();
   const details = page.getByRole('dialog', { name: 'AMS 3 details' });
-  await expect(details.locator('.spool-list li').first()).toContainText('TPU for AMS');
-  await expect(details.locator('.spool-list li').first()).toContainText('Slot 1');
-  await expect(details.locator('.spool-list li')).toHaveCount(4);
+  await expect(details.locator('.spool-tiles li').first()).toContainText('TPU');
+  await expect(details.locator('.spool-tiles li').first()).toContainText('Slot 1');
+  await expect(details.locator('.spool-tiles li')).toHaveCount(4);
   await page.keyboard.press('Escape');
   await page.getByRole('navigation').getByRole('button', { name: 'Supplies', exact: true }).click();
   const loaded = page.getByRole('region', { name: 'Spools in your printers' });
