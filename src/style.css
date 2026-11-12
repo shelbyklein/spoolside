@@ -2854,7 +2854,7 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 .order-line-open > svg, .order-collapse > svg { margin-left: auto; flex-shrink: 0; color: var(--muted); }
 .order-line-number { flex: 0 0 auto; min-width: 72px; font-weight: 700; color: var(--navy); }
 .order-line-item { display: inline-flex; align-items: center; gap: 8px; flex: 1; min-width: 0; color: var(--text); }
-.order-line-item > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.order-line-item > span:last-child { min-width: 0; overflow-wrap: anywhere; } /* wraps, so every item stays readable */
 .order-line-progress { flex: 0 0 auto; font-size: var(--text-sm); color: var(--text-soft); }
 .order-line-progress.attention { color: var(--wait-text); font-weight: 600; }
 .order-line { min-height: 52px; }
@@ -2930,3 +2930,5 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 }
 .chat-starters { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; }
 .chat-starters button { min-height: var(--tap); width: 100%; font-size: var(--text-sm); }
+/* Every line item on an order, one under another. */
+.order-contents-items { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
