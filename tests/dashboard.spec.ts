@@ -76,7 +76,8 @@ test("desktop and mobile rendered layouts", async ({ page }) => {
     await page.goto("/");
     await page
       .getByRole("navigation")
-      .getByRole("button", { name: "Overview", exact: true })
+      // Phones label the Overview tab "Home".
+      .getByRole("button", { name: name === "mobile" ? "Home" : "Overview", exact: true })
       .click();
     await page.evaluate(() => document.fonts.ready);
     await expect(
@@ -124,7 +125,7 @@ test('phones open on the water home; it shows the farm and links into it', async
   await home.getByRole('button', { name: /^Orders/ }).click();
   await expect(phone).toHaveURL(/\/orders$/);
   await expect(home).toHaveCount(0);
-  await phone.getByRole('button', { name: 'Overview' }).click();
+  await phone.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await expect(phone.getByRole('region', { name: 'Spoolside home' })).toBeVisible();
   const desk = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await desk.goto('/');

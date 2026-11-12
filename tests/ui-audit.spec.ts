@@ -57,7 +57,7 @@ const DIALOG_CHECKS: DialogCheck[] = ['named', 'escape', 'trap', 'return', 'scro
 
 // Each page, and what has to be on it before it counts as loaded.
 const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, size: Size) => Locator[] }[] = [
-  { name: 'overview', path: '/overview', ready: (p, s) => (s === 428 ? [p.locator('.water-home .home-pill').first(), p.locator('.home-notes')] : [p.locator('.queue-order-group').first(), p.locator('.printer-row').first(), p.locator('.overview-order-row').first(), p.locator('.home-notes')]) },
+  { name: 'overview', path: '/overview', ready: (p, s) => (s === 428 ? [p.locator('.water-home .home-pill').first(), p.locator('.home-notes')] : [p.locator('.queue-order-group').first(), p.locator(s === 820 ? '.printer-tile' : '.printer-row').first(), p.locator('.overview-order-row').first(), p.locator('.home-notes')]) },
   { name: 'printers', path: '/printers', ready: (p) => [p.locator('.printer-card').nth(4), p.locator('.needs-you')] },
   { name: 'orders', path: '/orders', ready: (p) => [p.locator('.overview-order-row').first(), p.locator('.order-cost').first()] },
   { name: 'queue', path: '/queue', ready: (p) => [p.locator('.queue-order-group').first()] },
@@ -73,6 +73,7 @@ const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, s
 // Each dialog in src/ (grep 'role="dialog"'), and the button that opens it. `before` gets to where that button is.
 const DIALOGS: { name: string; path: string; sizes?: Size[]; opener: (page: Page) => Locator; before?: (page: Page) => Promise<void> }[] = [
   { name: 'upload-menu', path: '/', sizes: [428], opener: (p) => p.getByRole('button', { name: 'Upload', exact: true }) }, // the phone's Upload sheet; wide screens get a dropdown
+  { name: 'more', path: '/printers', sizes: [428], opener: (p) => p.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'More', exact: true }) }, // the phone tab bar's More sheet
   { name: 'printer-details', path: '/printers', opener: (p) => p.getByRole('button', { name: 'Dogwood, Ready' }) },
   { name: 'reviews', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Prints to review' }).getByRole('button', { name: 'Review' }) },
   { name: 'teach-bed', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Dogwood is waiting on its bed' }).getByRole('button', { name: 'Teach empty bed' }) },

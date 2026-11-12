@@ -27,7 +27,7 @@ test('hosted mobile uses active source orders and server saves without browser s
   await home.getByRole('button',{name:'Order #3, iPhone 16 Pro, Red'}).dispatchEvent('click');
   await expect(page.getByRole('article',{name:'Order #3',exact:true})).toBeVisible();
   await expect(page.getByRole('article',{name:'Order #1',exact:true})).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
+  await page.getByRole('navigation').getByRole('button',{name:'Home',exact:true}).click();
   await home.getByRole('button',{name:/^Orders/}).click();
   await expect(page.getByLabel('Filter orders')).toHaveValue('Open orders');
   await expect(page.getByText('2 of 3 orders')).toBeAttached();

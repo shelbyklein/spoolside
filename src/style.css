@@ -2235,6 +2235,20 @@ main[tabindex="-1"]:focus {
    the phone tab bar's tabs fill the bar edge to edge. Same ring, same halo. */
 .sliced-card .sliced-thumb-open:focus-visible { outline-offset: -5px; box-shadow: inset var(--focus-halo); }
 @media (max-width: 760px) { .sidebar .nav-item:focus-visible { outline-offset: -5px; box-shadow: inset var(--focus-halo); } }
+/* Phone tab bar: five tabs (Home, Printers, PlayCase, Queue, More). Queue's count is a badge on its icon; More opens
+   a sheet with Personal, Supplies and Settings, and shows as selected on those pages. */
+@media (max-width: 760px) {
+  .sidebar .nav-item { position: relative; gap: 4px; min-height: var(--tap); font-size: var(--text-sm); }
+  .sidebar .nav-item svg { width: 20px; height: 20px; }
+  .sidebar .nav-item small { display: block; position: absolute; top: 7px; left: calc(50% + 5px); min-width: 20px; padding: 1px 5px; border-radius: var(--radius-pill); background: var(--orange); color: var(--navy); font-size: var(--text-xs); font-weight: 700; line-height: 16px; text-align: center; }
+}
+.more-list { display: flex; flex-direction: column; }
+.more-item { justify-content: flex-start; gap: 14px; width: 100%; min-height: var(--tap); padding: 14px 4px; text-align: left; color: var(--navy); font-size: var(--text-lg); font-weight: 600; border-radius: 0; }
+.more-item + .more-item { border-top: 1px solid var(--line); }
+.more-item svg { flex: none; color: var(--teal); }
+.more-item small { margin-left: auto; color: var(--muted); font-size: var(--text-sm); font-weight: 400; }
+.more-item.selected { color: var(--teal-ink); }
+.more-item:hover { background: var(--surface-hover); }
 .plate-viewer { --dialog-width: 760px; color: var(--navy); }
 .plate-viewer .dialog-body { gap: 10px; }
 .plate-viewer p { margin: 0; }
@@ -2799,3 +2813,23 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 /* Library overflow (B4): long part names wrap inside the card instead of pushing past it. */
 .sliced-body .part-chip { height: auto; padding-block: 4px; border-radius: var(--radius-md); white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .sliced-body .part-chips-list, .sliced-body .plate-assets { min-width: 0; max-width: 100%; align-items: stretch; }
+
+/* Tablet Overview (761 to 1150 px): the printers become a strip of tiles under Needs you (src/main.tsx renders it only
+   at these widths), replacing the printer list that would otherwise start below the whole queue and every order. */
+@media (min-width: 761px) and (max-width: 1150px) {
+  /* The column's gap spaces its sections, and Needs you is a little tighter, so the strip is on the first screen. */
+  .overview-main > .notification-prompt, .overview-main > .needs-you { margin-bottom: 0; }
+  .overview-main .need-row { padding-block: 10px; }
+  .overview-main .need-media, .overview-main .need-photo, .overview-main .need-icon { width: 52px; height: 44px; }
+}
+.printer-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+.printer-tile { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 3px; min-height: var(--tap); padding: 10px 11px 11px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.printer-tile:hover { background: var(--surface-hover); }
+.printer-tile strong { font-family: Manrope, sans-serif; font-size: var(--text-base); color: var(--navy); overflow-wrap: anywhere; }
+.printer-tile-state { font-size: var(--text-xs); color: var(--muted); line-height: 1.35; }
+.printer-tile-bar { display: block; height: 4px; margin-top: auto; border-radius: var(--radius-pill); background: var(--surface-strong); overflow: hidden; }
+.printer-tile-bar i { display: block; height: 100%; background: var(--teal); }
+.printer-tile.paused .printer-tile-bar i { background: var(--wait); }
+.printer-tile.held .printer-tile-bar i { background: var(--alert); }
+.printer-tile.held .printer-tile-state { color: var(--alert-text); }
+.printer-tile.offline .printer-tile-state { color: var(--alert-text); }

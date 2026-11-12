@@ -13,7 +13,7 @@ import { UploadMenu } from "./UploadMenu";
 import { AssetLibrary, AssetUploadButton, LIBRARY_SECTIONS, goTo, sectionFromPath } from "./AssetLibrary";
 import { WaterBackground } from "./WaterBackground";
 import { WaterHome } from "./WaterHome";
-import { PrinterCards, PrinterRows, CameraFeed, jobName, shortPause, stateLabel } from "./PrinterCards";
+import { PrinterCards, PrinterRows, PrinterStrip, CameraFeed, jobName, shortPause, stateLabel } from "./PrinterCards";
 import { OrderPrintDialog, OfferCards, AutoPrintSetting, AutoPrintSwitch, useDispatch, type Offer } from "./OrderPrint";
 import type { PrintGroup } from "./order-model";
 import { SpoolTiles } from "./LoadedSpools";
@@ -28,7 +28,7 @@ import { notify, failure, Toasts } from "./Toast";
 import { confirmAction, ConfirmHost } from "./Confirm";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutDashboard, Printer, Layers3, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, WifiOff, RefreshCw, Boxes, Clock3, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
+import { LayoutDashboard, Printer, Layers3, Ellipsis, Disc3, Settings, ArrowUpRight, Plus, Pause, Play, WifiOff, RefreshCw, Boxes, Clock3, Download, CircleHelp, RotateCcw, ArrowUp, Trash2, ShoppingBag, Upload } from "lucide-react";
 import "@fontsource/dm-sans/latin-400.css";
 import "@fontsource/dm-sans/latin-500.css";
 import "@fontsource/dm-sans/latin-600.css";
@@ -131,6 +131,8 @@ const tabs = [
   { name: "Supplies", icon: Disc3 },
   { name: "Settings", icon: Settings },
 ];
+// Phones show five tabs (Home, Printers, PlayCase, Queue, More); these three open from the More sheet instead.
+const MORE_TABS: Record<string, string> = { Personal: "Your own projects", Supplies: "Filament, parts, packaging", Settings: "Printers, notifications" };
 function tabFromPath() {
   const segment = window.location.pathname.split("/")[1] || "";
   if(segment.toLowerCase() === "orders") return "Orders";
@@ -169,6 +171,17 @@ function App() {
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);
+  // Tablets (761 to 1150 px) get the Overview's printers as a strip under Needs you instead of a list under the orders.
+  const [tablet, setTablet] = useState(() => matchMedia("(min-width: 761px) and (max-width: 1150px)").matches);
+  useEffect(() => {
+    const mq = matchMedia("(min-width: 761px) and (max-width: 1150px)");
+    const on = () => setTablet(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  // The phone's More sheet (Personal, Supplies, Settings). It closes if the screen widens into the full sidebar.
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { if (wideScreen) setMoreOpen(false); }, [wideScreen]);
   // Each tab has its own address (/orders, /library, …) so pages can be bookmarked and the back button works.
   const setTab = (name: string) => {
     setTabState(name);
@@ -611,23 +624,34 @@ function App() {
           </span>
         </a>
         <nav aria-label="Main navigation">
-          {tabs.map((t) => (
+          {tabs.filter((t) => wideScreen || !(t.name in MORE_TABS)).map((t) => {
+            const current = tab === t.name || (t.name === "PlayCase" && ["Orders","Library"].includes(tab));
+            const queued = remote ? (live.data.printQueue || []).length : queueJobs.length;
+            return (
             <React.Fragment key={t.name}>
             <button
               key={t.name}
-              className={(tab === t.name || (t.name === "PlayCase" && ["Orders","Library"].includes(tab))) ? "nav-item selected" : "nav-item"}
+              className={current ? "nav-item selected" : "nav-item"}
+              aria-current={current ? "page" : undefined}
               onClick={() => {
                 setTab(t.name === "PlayCase" ? "Orders" : t.name);
                 setSelected(null);
               }}
             >
               <t.icon size={20} />
-              <span>{t.name}</span>
-              {t.name === "Queue" && !placeholder && <small>{remote ? (live.data.printQueue || []).length : queueJobs.length}</small>}
+              <span>{t.name === "Overview" && !wideScreen ? "Home" : t.name}</span>
+              {t.name === "Queue" && !placeholder && (wideScreen || queued > 0) && <small>{queued}</small>}
             </button>
             {t.name === "PlayCase" && wideScreen && <div className="playcase-subnav"><button className={tab === "Orders" ? "selected" : ""} onClick={() => setTab("Orders")}>Orders</button><button className={tab === "Library" ? "selected" : ""} onClick={() => setTab("Library")}>Library</button>{tab === "Library" && <div className="library-subnav">{LIBRARY_SECTIONS.map(s => <button key={s.name} className={sectionFromPath(path) === s.name ? "selected" : ""} onClick={() => goTo(s.path)}>{s.name}</button>)}</div>}</div>}
             </React.Fragment>
-          ))}
+            );
+          })}
+          {!wideScreen && (
+            <button className={tab in MORE_TABS ? "nav-item selected" : "nav-item"} aria-current={tab in MORE_TABS ? "true" : undefined} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}>
+              <Ellipsis size={20} />
+              <span>More</span>
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <FloatingSpool />
@@ -643,6 +667,29 @@ function App() {
           <span className="version">Spoolside · early access</span>
         </div>
       </aside>
+      {moreOpen && !wideScreen && (
+        <Dialog title="More" onClose={() => setMoreOpen(false)} className="more-sheet">
+          <div className="more-list">
+            {tabs.filter((t) => t.name in MORE_TABS).map((t) => (
+              <button
+                key={t.name}
+                className={tab === t.name ? "more-item selected" : "more-item"}
+                aria-current={tab === t.name ? "page" : undefined}
+                aria-describedby={`more-hint-${t.name}`}
+                onClick={() => {
+                  setMoreOpen(false);
+                  setTab(t.name);
+                  setSelected(null);
+                }}
+              >
+                <t.icon size={20} />
+                <span>{t.name}</span>
+                <small id={`more-hint-${t.name}`} aria-hidden="true">{MORE_TABS[t.name]}</small>
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      )}
       <main>
         {!wideScreen && tab === "Overview" ? (
           <WaterHome tools={remote ? <><ClaudeButton compact />{overviewUploads}</> : overviewUploads} bedsToClear={(dispatch.held || []).map(h => h.printer)} attention={<>{remote && <NotificationSettings compact />}{needs(true)}{remote && <HomeNotes water orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={notify} />}</>} machines={machines} orders={overviewOrders} loading={!!placeholder} banner={loadBanner} stale={stale} openPrinter={setSelected} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} go={(t) => { setSelected(null); setFocusedOrder(null); setTab(t); }} />
@@ -711,6 +758,7 @@ function App() {
             {remote && <NotificationSettings compact />}
             {/* What needs you leads, then reminders, then the queue and the orders it comes from. */}
             {needs()}
+            {remote && tablet && <PrinterStrip placeholder={placeholder} machines={printerSort.sort(machines)} live={remote} onOpen={openDetail} heldBySpoolside={heldBySpoolside} onAll={() => setTab("Printers")} />}
             {remote && <HomeNotes orders={orders} openOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} notify={notify} />}
             {remote && <OrderQueue entries={live.data.printQueue || []} orders={orders} machines={machines} abbreviated={tab === "Overview"} onPrint={printOrder!} onOpen={() => setTab("Queue")} onOpenOrder={(id) => { setFocusedOrder(id); setTab("Orders"); }} placeholder={placeholder} control={placeholder ? undefined : <AutoPrintSwitch auto={dispatch.auto} vision={dispatch.vision} onChange={setAutoPrint} />} />}
             <section className="overview-orders" aria-label="PlayCase orders overview">
@@ -727,8 +775,8 @@ function App() {
             </section>
             </div>
           )}
-          {tab === "Overview" && remote && (
-            <div className="fleet-column">
+          {tab === "Overview" && remote && !tablet && (
+            <div className="fleet-column overview-fleet">
               <PrinterRows placeholder={placeholder} machines={printerSort.sort(machines)} live={remote} onOpen={openDetail} heldBySpoolside={heldBySpoolside} onAll={() => setTab("Printers")} />
             </div>
           )}

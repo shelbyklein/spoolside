@@ -18,7 +18,7 @@ test('PWA checks on resume and offers a refresh when code changes during use',as
  await page.screenshot({path:'handoff/spoolside-update-prompt-mobile.png'});
  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
  await expect(prompt).toHaveCount(0);
- await page.getByRole('navigation').getByRole('button',{name:'Settings',exact:true}).click();
+ await page.getByRole('navigation').getByRole('button',{name:'More',exact:true}).click();await page.getByRole('dialog',{name:'More'}).getByRole('button',{name:'Settings',exact:true}).click();
  const refresh=page.getByRole('button',{name:'Refresh app',exact:true});await expect(refresh).toBeVisible();
  await page.screenshot({path:'handoff/spoolside-refresh-app-settings.png'});
  await refresh.click();await expect(refresh).toBeVisible();

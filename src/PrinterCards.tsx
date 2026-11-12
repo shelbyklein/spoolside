@@ -105,6 +105,39 @@ export function PrinterRows({ placeholder, machines, live, onOpen, heldBySpoolsi
   );
 }
 
+// A printer in a few words, for the tablet strip: "Printing 46% · 1h 12m", "Paused · 97%", "Held by Spoolside", "Ready", "Offline".
+export const shortState = (m: Machine, live: boolean, heldBySpoolside?: Set<string>) => {
+  if (live && (!m.connected || m.stale)) return "Offline";
+  const label = stateLabel(m, heldBySpoolside);
+  if (m.state === "Printing") return `Printing ${m.progress}% · ${m.remaining}`;
+  if (m.state === "Paused") return `${label} · ${m.progress}%`;
+  return label;
+};
+
+// The tablet Overview's printers (761 to 1150 px): one small tile each under Needs you, so they aren't buried below
+// the queue and orders. Same state words as PrinterRows; a tap opens the printer's details.
+export function PrinterStrip({ placeholder, machines, live, onOpen, heldBySpoolside, onAll }: { placeholder?: "loading" | "unavailable"; machines: Machine[]; live: boolean; onOpen: (id: string) => void; heldBySpoolside?: Set<string>; onAll: () => void }) {
+  return (
+    <section className="printer-strip-section" aria-label="Printers">
+      <div className="section-title"><h2>Printers {!placeholder && <span className="count">{machines.length}</span>}</h2><button className="text-button" onClick={onAll}>All printers →</button></div>
+      {placeholder ? <Skeleton rows={1} still={placeholder === "unavailable"} /> : machines.length === 0 ? <p className="queue-empty">No printers are connected yet.</p> : <div className="printer-strip">
+        {machines.map((m) => {
+          const label = stateLabel(m, heldBySpoolside), offline = live && (!m.connected || m.stale), text = shortState(m, live, heldBySpoolside);
+          const tone = offline ? "offline" : label === "Held by Spoolside" ? "held" : m.state.toLowerCase();
+          const active = !offline && (m.state === "Printing" || m.state === "Paused");
+          return (
+            <button key={m.id} className={`printer-tile ${tone}`} onClick={() => onOpen(m.id)} aria-label={`${m.name}, ${text}`} title={m.state === "Paused" && m.pauseReason && !heldBySpoolside?.has(m.id) ? shortPause(m) : undefined}>
+              <strong>{m.name}</strong>
+              <span className="printer-tile-state">{text}</span>
+              <span className="printer-tile-bar" aria-hidden="true">{active && <i style={{ width: `${m.progress}%` }} />}</span>
+            </button>
+          );
+        })}
+      </div>}
+    </section>
+  );
+}
+
 export function PrinterCards({ machines, total, placeholder, live, onOpen, repeats = [], heldBySpoolside }: { total?: number; placeholder?: "loading" | "unavailable"; machines: Machine[]; live: boolean; onOpen: (id: string) => void; repeats?: RepeatStatus[]; heldBySpoolside?: Set<string> }) {
   return (
     <section className="printer-cards" aria-label="Printers">
