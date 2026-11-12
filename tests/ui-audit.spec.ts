@@ -85,7 +85,7 @@ const DIALOGS: { name: string; path: string; sizes?: Size[]; opener: (page: Page
   { name: 'sliced-print', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Print', exact: true }) },
   { name: 'print-settings', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Print settings' }) },
   { name: 'print-details', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: /^Edit print details for / }) },
-  { name: 'plate-assets', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Edit assets' }) },
+  { name: 'plate-assets', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Link asset' }) },
   { name: 'plate-viewer', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: /^View .* in 3D$/ }) },
   { name: 'asset-detail', path: '/library', opener: (p) => p.locator('.asset-pill').first() },
   { name: 'upload-asset', path: '/library', opener: (p) => p.locator('button.upload-asset') },

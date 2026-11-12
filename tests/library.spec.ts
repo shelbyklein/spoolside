@@ -49,7 +49,7 @@ test('sliced prints are a library section with editable per-plate asset coverage
  return route.fulfill({json:[]});
  });
  await page.goto('/library/sliced');await expect(page.getByRole('tab',{name:'Sliced prints'})).toHaveAttribute('aria-selected','true');
- await page.getByRole('button',{name:'Edit assets'}).click();
+ await page.getByRole('button',{name:'Link asset'}).click();
  const dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'DS – Top',exact:true})).toBeVisible();
  await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
  await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();

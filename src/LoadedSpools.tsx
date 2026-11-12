@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { Machine } from "./live-workspace";
+import { usePhone } from "./usePhone";
 
 type Spool = { key: string; label: string; type: string; name: string; color: string; remain?: number | null; feeding: boolean; empty: boolean };
 const short = (type: string) => type.replace(/-AMS$/i, "");
@@ -65,6 +68,9 @@ const LOW = 15; // percent left at which a spool counts as running low
 
 // Filament page: every spool loaded in a printer, kept current by the AMS (RFID spools report what's left).
 export function LoadedInPrinters({ machines }: { machines: Machine[] }) {
+  const phone = usePhone();
+  // Each printer's spools fold to one line; collapsed by default on a phone, open on a wider screen.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const printers = machines.map((m) => ({ m, spools: loadedSpools(m) })).filter((p) => p.spools.length || !p.m.connected);
   if (!printers.length) return null;
   return (
@@ -74,13 +80,24 @@ export function LoadedInPrinters({ machines }: { machines: Machine[] }) {
         <small>Updated live from each printer. Bambu RFID spools report what's left.</small>
       </div>
       <div className="loaded-grid">
-        {printers.map(({ m, spools }) => (
+        {printers.map(({ m, spools }) => {
+          const offline = !m.connected || m.stale;
+          const open = (toggled[m.id] ?? !phone) && !offline;
+          const loaded = spools.filter((s) => !s.empty), feeding = spools.filter((s) => s.feeding).length;
+          const materials = [...new Set(loaded.map((s) => short(s.type)))];
+          return (
           <div key={m.id} className="loaded-printer">
-            <h3>{m.name}</h3>
-            {!m.connected || m.stale ? (
-              <p className="plate-meta">Offline</p>
+            {offline ? (
+              <><h3>{m.name}</h3><p className="plate-meta">Offline</p></>
             ) : (
-              <ul className="spool-list">
+              <>
+              <h3><button type="button" className="loaded-summary" aria-expanded={open} aria-controls={`spools-${m.id}`} onClick={() => setToggled({ ...toggled, [m.id]: !open })}>
+                <ChevronDown size={16} aria-hidden="true" />
+                <span className="loaded-summary-name">{m.name}</span>
+                <span className="loaded-dots" aria-hidden="true">{spools.map((s) => <Dot key={s.key} color={s.color} />)}</span>
+                <small>{loaded.length} {loaded.length === 1 ? "spool" : "spools"}{materials.length ? ` · ${materials.join(", ")}` : ""}{feeding ? ` · ${feeding} feeding` : ""}</small>
+              </button></h3>
+              {open && <ul className="spool-list" id={`spools-${m.id}`}>
                 {spools.map((s) => {
                   const tray = m.trays?.find((t) => `slot-${t.slot}` === s.key);
                   const low = s.remain != null && s.remain < LOW;
@@ -99,10 +116,12 @@ export function LoadedInPrinters({ machines }: { machines: Machine[] }) {
                     </li>
                   );
                 })}
-              </ul>
+              </ul>}
+              </>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

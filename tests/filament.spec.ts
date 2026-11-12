@@ -15,7 +15,8 @@ test('filament restock uses rows without inventory and keeps ZIP quotes separate
  });
  await page.setViewportSize({width:428,height:926});await page.goto('https://spoolside.shelbyklein.com/filament');
  await expect(page.getByLabel('Delivery ZIP')).toHaveValue('30360');await expect(page.getByLabel('Sort restock offers')).toHaveValue('fastest');await expect(page.getByRole('button',{name:'Add a delivery quote'}).first()).toBeVisible();
- await expect(page.locator('.material-offer')).toHaveCount(3);
+ await expect(page.locator('.material-offer')).toHaveCount(2);
+ await page.getByRole('button',{name:'Show all 4 offers'}).click();await expect(page.locator('.material-offer')).toHaveCount(4);await page.getByRole('button',{name:'Show fewer'}).click();await expect(page.locator('.material-offer')).toHaveCount(2);
  await page.getByLabel('Variant for Proto-pasta Conductive PLA').selectOption('Black · 2000 g');
  await expect(page.locator('.material-offer')).toHaveCount(1);
  await expect(page.locator('.offer-info')).toContainText('Black 2000g');
