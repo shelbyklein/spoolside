@@ -24,3 +24,22 @@ for (const [w, h, phone] of [[1440, 900, false], [428, 926, true]] as const) {
     await context.close();
   });
 }
+
+// A baggie of replacement parts is put together by hand: it's ticked off on the order, never printed.
+test('a hand-assembled item is a checklist line to tick off, with no Print button', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const { calls } = await mockFarm(page);
+  await page.goto(LIVE + '/orders');
+  const row = page.getByRole('article', { name: 'Order #5107' });
+  const line = row.getByRole('listitem').filter({ hasText: 'Replacement Parts - Classic' });
+  await expect(line).toContainText('Put together');
+  await expect(line.getByRole('button')).toHaveCount(0);
+  // The box follows the server's answer; the mock only acknowledges, so check the request it sends.
+  await line.getByRole('checkbox', { name: 'Replacement Parts - Classic put together' }).click();
+  await expect.poll(() => calls.find((c) => c.path === '/api/orders/o-5107/pieces')?.body).toEqual({ assetId: 'item:i2', done: 1 });
+  // It never shows in the print queue.
+  await page.goto(LIVE + '/queue');
+  await expect(page.getByRole('region', { name: 'Order print queue' })).not.toContainText('Replacement Parts');
+  await context.close();
+});

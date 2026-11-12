@@ -17,7 +17,12 @@ export function orderRequirements(order, assets, assemblies) {
   if (!order.items?.length) review.push('No order items');
   (order.items || []).forEach((item, n) => {
     const qty = Math.max(1, Number(item.quantity) || 1);
-    if (!item.phone) { review.push(`${item.name}: phone model or requirements unknown`); return; }
+    if (!item.phone) {
+      // A product that isn't a phone kit (a baggie of replacement parts, a loose faceplate, a pouch) is put
+      // together by hand: one line to tick off, never printed. A PlayCase kit without a phone is a data problem.
+      if (!/^playcase/i.test(item.name || '')) { groups.push({ key: `${n}:item`, label: item.name, kind: 'item', item: item.id, pieces: [{ asset: { id: `item:${item.id}`, name: item.name }, needed: qty }] }); return; }
+      review.push(`${item.name}: phone model or requirements unknown`); return;
+    }
     const cases = caseAssets(item.phone, assets);
     if (cases.length !== 1) review.push(`${item.phone}: case missing or ambiguous`);
     else groups.push({ key: `${n}:case`, label: 'case', item: item.id, pieces: [{ asset: cases[0], needed: qty }] });
@@ -55,7 +60,8 @@ const platesFor = (files) => {
 export function orderReadiness(order, assets, assemblies, files) {
   const { review, groups } = orderRequirements(order, assets, assemblies);
   const linked = platesFor(files), missing = [], required = new Map();
-  for (const g of groups) for (const p of g.pieces) required.set(p.asset.id, p.asset);
+  // Hand-assembled items need no sliced file.
+  for (const g of groups) if (g.kind !== 'item') for (const p of g.pieces) required.set(p.asset.id, p.asset);
   // Ready once every case and faceplate piece has a sliced plate linked; STL versions don't matter.
   for (const a of required.values()) if (!linked.has(a.id)) missing.push(`${a.name}: no sliced file`);
   return {status: review.length ? 'review' : missing.length ? 'missing' : 'ready', reasons: [...new Set([...review, ...missing])], required: required.size};
@@ -71,6 +77,6 @@ export function orderPrintPlan(order, assets, assemblies, files, printed = {}) {
       return { assetId: asset.id, name: asset.name, needed, done, plates: linked.get(asset.id) || [] };
     });
     const next = pieces.find(p => p.done < p.needed && p.plates.length) || null;
-    return { key: g.key, label: g.label, pieces, done: pieces.every(p => p.done >= p.needed), next: next && { assetId: next.assetId, name: next.name, ...next.plates[0] } };
+    return { key: g.key, label: g.label, ...(g.kind ? { kind: g.kind } : {}), pieces, done: pieces.every(p => p.done >= p.needed), next: next && { assetId: next.assetId, name: next.name, ...next.plates[0] } };
   });
 }

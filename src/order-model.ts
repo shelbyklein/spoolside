@@ -33,6 +33,8 @@ export type PrintGroup = {
   activity?: string;
   key: string;
   label: string;
+  /** "item": put together by hand and ticked off, not printed. */
+  kind?: "item";
   done: boolean;
   pieces: { assetId: string; name: string; needed: number; done: number; plates: { fileId: string; fileName: string; plate: number }[] }[];
   next: { assetId: string; name: string; fileId: string; fileName: string; plate: number } | null;
