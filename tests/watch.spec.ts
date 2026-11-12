@@ -103,13 +103,14 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   await spare.getByRole('button', { name: 'Delete review' }).click();
   await expect(spare).toHaveCount(0);
   expect(posts).toContain('/api/watches/55555555-5555-4555-8555-555555555555/skip {}');
-  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
+  await page.getByRole('navigation').getByRole('button',{name:'Home',exact:true}).click();
   await alert.getByRole('button', { name: 'False alarm, resume' }).click();
   await expect(alert).toHaveCount(0);
   await home.getByRole('button', { name: 'Conductive, Paused' }).click();
   const details = page.getByRole('dialog', { name: 'Conductive details' });
   await expect(details).toContainText('Watching (warnings only)');
   const history = details.getByRole('region', { name: 'Recent prints' });
+  await history.getByRole('button', { name: /^Recent prints/ }).click(); // folded until opened
   await history.getByRole('button', { name: 'Add note' }).click();
   await history.getByLabel(/Print notes/).fill('Under-extruded, nozzle clog');
   await history.getByRole('button', { name: 'Save note' }).click();

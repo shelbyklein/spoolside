@@ -1,7 +1,7 @@
 import { Package } from "lucide-react";
 import type { Order, OrderItem } from "./order-model";
 
-const swatch = (c?: string) => (c && CSS.supports("color", c) ? c.toLowerCase() : undefined);
+export const swatch = (c?: string) => (c && CSS.supports("color", c) ? c.toLowerCase() : undefined);
 
 export function ItemThumb({ src, alt, size = 52 }: { src?: string; alt: string; size?: number }) {
   return (
@@ -15,7 +15,7 @@ export function ItemThumb({ src, alt, size = 52 }: { src?: string; alt: string; 
   );
 }
 
-function itemLine(item: OrderItem) {
+export function itemLine(item: OrderItem) {
   const bits = [item.phone, item.colorway].filter(Boolean);
   return bits.length ? bits.join(" · ") : item.variant.replace("Sample variant · ", "");
 }

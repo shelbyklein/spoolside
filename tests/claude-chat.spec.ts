@@ -88,3 +88,33 @@ test('on a phone Claude fills the screen from the home page, and explains when i
   await expect(panel).toHaveCount(0);
   await context.close();
 });
+
+test('the empty chat offers starter questions; tapping one sends it as typed, and they go away', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 428, height: 926 }, serviceWorkers: 'block', isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const chat = { available: true, running: false, partial: '', limit: null, reason: null, items: [] as unknown[] };
+  const posts: unknown[] = [];
+  await mock(page, chat, posts);
+  await page.goto('https://spoolside.shelbyklein.com/printers');
+  await page.getByRole('button', { name: 'Ask Claude' }).first().click();
+  const panel = page.getByRole('dialog', { name: 'Claude' });
+  const starters = panel.getByRole('group', { name: 'Suggested questions' }).getByRole('button');
+  await expect(starters).toHaveText(["What's printing right now?", 'Is anything waiting on me?', 'Which orders are ready to ship?']);
+  for (const b of await starters.all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await panel.screenshot({ path: '/tmp/d34-shots/claude-empty-428.png' });
+  await starters.nth(1).tap();
+  await expect.poll(() => posts).toEqual(['Is anything waiting on me?']);
+  await expect(panel.getByRole('group', { name: 'Suggested questions' })).toHaveCount(0);
+  await expect(panel.locator('.chat-msg.user')).toHaveText('Is anything waiting on me?');
+});
+
+test('no starter questions while Claude is not connected', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 428, height: 926 }, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  await mock(page, { available: false, running: false, partial: '', limit: null, reason: 'no token', items: [] }, []);
+  await page.goto('https://spoolside.shelbyklein.com/printers');
+  await page.getByRole('button', { name: 'Ask Claude' }).first().click();
+  const panel = page.getByRole('dialog', { name: 'Claude' });
+  await expect(panel).toContainText("isn't connected yet");
+  await expect(panel.getByRole('group', { name: 'Suggested questions' })).toHaveCount(0);
+});

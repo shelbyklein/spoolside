@@ -21,7 +21,7 @@ test('device opt-in, preferences, test and disable work without storing credenti
   if(path.startsWith('/api/'))return route.fulfill({json:{}});
   return route.fulfill({response:await route.fetch({url:'http://127.0.0.1:4173'+path})});
  });
- await page.goto('https://spoolside.shelbyklein.com/');await page.getByRole('navigation').getByRole('button',{name:'Settings',exact:true}).click();
+ await page.goto('https://spoolside.shelbyklein.com/');await page.getByRole('navigation').getByRole('button',{name:'More',exact:true}).click();await page.getByRole('dialog',{name:'More'}).getByRole('button',{name:'Settings',exact:true}).click();
  await page.getByRole('button',{name:'Enable notifications'}).click();
  await expect(page.getByText('Notifications enabled on this device. Send a test to check delivery.')).toBeVisible();
  await expect(page.getByLabel('Print finished · quick rating')).toBeChecked();

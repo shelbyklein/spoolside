@@ -6,7 +6,8 @@
 // numbers in the error message (each later task removes the entries it fixes). The goal of the UI pass is an empty KNOWN.
 //
 // Pages are measured whole (not just the part on screen). The checks:
-//   offRight     visible elements reaching past the viewport's right edge (camera feeds and canvases aside)
+//   offRight     visible elements reaching past the viewport's right edge (camera feeds, canvases and the phone Library's
+//                sideways-scrolling type chips aside)
 //   smallTap     controls whose smaller side is under 44 px (820 and 428 only; checkboxes and radios by their label)
 //   tinyText     text under 12 px (428 only)
 //   lowContrast  text under 4.5:1 on its solid background, 3:1 when large (24 px, or 18.66 px bold);
@@ -56,13 +57,15 @@ const CHECKS: Check[] = ['offRight', 'smallTap', 'tinyText', 'lowContrast', 'unn
 const DIALOG_CHECKS: DialogCheck[] = ['named', 'escape', 'trap', 'return', 'scroll'];
 
 // Each page, and what has to be on it before it counts as loaded.
-const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, size: Size) => Locator[] }[] = [
-  { name: 'overview', path: '/overview', ready: (p, s) => (s === 428 ? [p.locator('.water-home .home-pill').first(), p.locator('.home-notes')] : [p.locator('.queue-order-group').first(), p.locator('.printer-row').first(), p.locator('.overview-order-row').first(), p.locator('.home-notes')]) },
+const PAGES: { name: string; path: string; sizes?: Size[]; open?: (page: Page) => Promise<void>; ready: (page: Page, size: Size) => Locator[] }[] = [
+  { name: 'overview', path: '/overview', ready: (p, s) => (s === 428 ? [p.locator('.water-home .home-pill').first(), p.locator('.home-notes')] : [p.locator('.queue-order-group').first(), p.locator(s === 820 ? '.printer-tile' : '.printer-row').first(), p.locator('.order-line').first(), p.locator('.home-notes')]) },
   { name: 'printers', path: '/printers', ready: (p) => [p.locator('.printer-card').nth(4), p.locator('.needs-you')] },
-  { name: 'orders', path: '/orders', ready: (p) => [p.locator('.overview-order-row').first(), p.locator('.order-cost').first()] },
+  // Phone rows start closed; the audit opens them all so the full rows are measured too.
+  { name: 'orders', path: '/orders', open: async (p) => { const closed = p.locator('.order-line.collapsed .order-line-open'); await p.locator('.orders-list article').first().waitFor(); while (await closed.count()) await closed.first().click(); }, ready: (p) => [p.locator('.overview-order-row').first(), p.locator('.order-cost').first()] },
   { name: 'queue', path: '/queue', ready: (p) => [p.locator('.queue-order-group').first()] },
   { name: 'library', path: '/library', ready: (p) => [p.locator('.asset-pill').first(), p.locator('.part-card').first()] },
   { name: 'assemblies', path: '/library/assemblies', ready: (p) => [p.locator('.assembly-tile').first(), p.getByText('Preview unavailable'), p.locator('.tile-cost').first()] },
+  { name: 'assembly-detail', path: '/library/assemblies', open: async (p) => { await p.locator('.assembly-snapshot').first().click(); await p.locator('.assembly-parts .part-row').first().waitFor(); }, ready: (p) => [p.locator('.assembly-parts .part-row').first()] },
   { name: 'sliced', path: '/library/sliced', ready: (p) => [p.locator('.sliced-card').nth(9), p.locator('.part-chip').first()] },
   { name: 'personal', path: '/personal', ready: (p) => [p.locator('.personal-project-card').first()] },
   { name: 'supplies', path: '/supplies', ready: (p) => [p.locator('.material-offer').first(), p.locator('.loaded-printers'), p.locator('.costing-settings')] },
@@ -73,20 +76,22 @@ const PAGES: { name: string; path: string; sizes?: Size[]; ready: (page: Page, s
 // Each dialog in src/ (grep 'role="dialog"'), and the button that opens it. `before` gets to where that button is.
 const DIALOGS: { name: string; path: string; sizes?: Size[]; opener: (page: Page) => Locator; before?: (page: Page) => Promise<void> }[] = [
   { name: 'upload-menu', path: '/', sizes: [428], opener: (p) => p.getByRole('button', { name: 'Upload', exact: true }) }, // the phone's Upload sheet; wide screens get a dropdown
+  { name: 'more', path: '/printers', sizes: [428], opener: (p) => p.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'More', exact: true }) }, // the phone tab bar's More sheet
   { name: 'printer-details', path: '/printers', opener: (p) => p.getByRole('button', { name: 'Dogwood, Ready' }) },
   { name: 'reviews', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Prints to review' }).getByRole('button', { name: 'Review' }) },
   { name: 'teach-bed', path: '/printers', opener: (p) => p.getByRole('article', { name: 'Dogwood is waiting on its bed' }).getByRole('button', { name: 'Teach empty bed' }) },
-  { name: 'import', path: '/printers', before: async (p) => { await p.getByRole('button', { name: 'Elm, Ready' }).click(); }, opener: (p) => p.getByRole('dialog', { name: 'Elm details' }).getByRole('region', { name: 'Recent prints' }).getByRole('button', { name: 'Add to library' }) },
+  { name: 'import', path: '/printers', before: async (p) => { await p.getByRole('button', { name: 'Elm, Ready' }).click(); await p.getByRole('dialog', { name: 'Elm details' }).getByRole('button', { name: /^Recent prints/ }).click(); }, opener: (p) => p.getByRole('dialog', { name: 'Elm details' }).getByRole('region', { name: 'Recent prints' }).getByRole('button', { name: 'Add to library' }) },
   { name: 'claude', path: '/printers', opener: (p) => p.getByRole('button', { name: 'Ask Claude' }).first() },
   { name: 'order-print', path: '/queue', opener: (p) => p.getByRole('region', { name: 'Order print queue' }).getByRole('button', { name: 'Print case', exact: true }).first() },
   { name: 'sliced-print', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Print', exact: true }) },
   { name: 'print-settings', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Print settings' }) },
   { name: 'print-details', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: /^Edit print details for / }) },
-  { name: 'plate-assets', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Edit assets' }) },
+  { name: 'plate-assets', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: 'Link asset' }) },
   { name: 'plate-viewer', path: '/library/sliced', opener: (p) => p.locator('.sliced-card').first().getByRole('button', { name: /^View .* in 3D$/ }) },
   { name: 'asset-detail', path: '/library', opener: (p) => p.locator('.asset-pill').first() },
   { name: 'upload-asset', path: '/library', opener: (p) => p.locator('button.upload-asset') },
-  { name: 'categories', path: '/library', opener: (p) => p.locator('button.categories-button') },
+  { name: 'filter-assets', path: '/library', sizes: [428], opener: (p) => p.getByRole('button', { name: /^Filter/ }) }, // the phone Library's Filter sheet
+  { name: 'categories', path: '/library', before: async (p) => { const f = p.getByRole('button', { name: /^Filter/ }); if (await f.count()) await f.click(); }, opener: (p) => p.locator('button.categories-button') },
   { name: 'new-project', path: '/personal', opener: (p) => p.getByRole('button', { name: 'New project' }) },
   { name: 'shipping-quote', path: '/supplies', opener: (p) => p.getByRole('button', { name: 'Add a delivery quote' }).first() },
   // The in-app confirm (src/Confirm.tsx), opened over printer details: Alder's Stop.
@@ -133,7 +138,7 @@ function measure({ minTap, tiny }: { minTap: number | null; tiny: boolean }) {
   const controls = all.filter((el) => el.matches('button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=radio], [role=switch]'));
   const texts = all.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent || '').trim().length > 1));
 
-  const offRight = all.filter((el) => { const r = el.getBoundingClientRect(); return r.right > innerWidth + 2 && r.width < innerWidth * 2 && !el.closest('.printer-feed, canvas'); });
+  const offRight = all.filter((el) => { const r = el.getBoundingClientRect(); return r.right > innerWidth + 2 && r.width < innerWidth * 2 && !el.closest('.printer-feed, canvas, .type-chips'); });
 
   const smallTap = minTap === null ? [] : controls.filter((el) => {
     let r = el.getBoundingClientRect();
@@ -221,6 +226,7 @@ for (const size of [1440, 820, 428] as Size[]) {
     test(`${p.name} at ${size}`, async ({ browser }, info) => {
       const { context, page } = await open(browser, size);
       await page.goto(LIVE + p.path);
+      if (p.open) { await expect(page.locator('main').first()).toBeVisible(); await p.open(page); }
       await settle(page, p.ready(page, size));
       const found = await page.evaluate(measure, { minTap: size === 1440 ? null : 44, tiny: size === 428 });
       await info.attach('measurements', { body: JSON.stringify(found, null, 1), contentType: 'application/json' });

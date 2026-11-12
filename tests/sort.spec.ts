@@ -69,6 +69,8 @@ test('lists can be sorted, and each list remembers its sort', async ({ browser }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.locator('.sliced-filters').screenshot({ path: 'handoff/spoolside-sort-sliced-mobile.png' });
   await page.goto('https://spoolside.shelbyklein.com/library');
+  // The phone Library keeps its sort in the Filter sheet.
+  await page.getByRole('button', { name: /^Filter/ }).click();
   await expect(page.getByLabel('Sort assets')).toBeVisible();
   await context.close();
 });

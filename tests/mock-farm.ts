@@ -417,14 +417,20 @@ export async function mockFarm(page: Page, overrides: Overrides = {}, options: {
     if (method !== 'GET') { calls.push({ method, path, body }); return route.fulfill({ status: 200, json: { ok: true } }); }
     const key = path + url.search;
     let cached = assetCache.get(key);
-    if (!cached) {
-      const response = await route.fetch({ url: PREVIEW + key });
-      const headers = Object.fromEntries(Object.entries(response.headers()).filter(([k]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(k)));
-      cached = { status: response.status(), headers, body: await response.body() };
-      // The page shell is small and may change between builds; only hashed bundles are worth keeping.
-      if (path.startsWith('/assets/')) assetCache.set(key, cached);
+    // A test that moves on (navigation, closing the page) cancels files still on their way; that's not a failure.
+    try {
+      if (!cached) {
+        const response = await route.fetch({ url: PREVIEW + key });
+        const headers = Object.fromEntries(Object.entries(response.headers()).filter(([k]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(k)));
+        cached = { status: response.status(), headers, body: await response.body() };
+        // The page shell is small and may change between builds; only hashed bundles are worth keeping.
+        if (path.startsWith('/assets/')) assetCache.set(key, cached);
+      }
+      return await route.fulfill({ status: cached.status, headers: cached.headers, body: cached.body });
+    } catch (e) {
+      if (/disposed|closed|Target page|Route is already handled/i.test(String(e))) return;
+      throw e;
     }
-    return route.fulfill({ status: cached.status, headers: cached.headers, body: cached.body });
   });
   // Order photos come from the store's site.
   await page.route('https://playcase.gg/**', (route) => (/\.(png|jpe?g|webp)$/i.test(new URL(route.request().url()).pathname) ? route.fulfill({ status: 200, body: PNG, contentType: 'image/png' }) : route.fulfill({ status: 404, body: '' })));

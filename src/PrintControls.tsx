@@ -1,15 +1,21 @@
-import { lazy, Suspense, useEffect, useState, useRef } from "react";
-import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Plus, Info, Repeat } from "lucide-react";
+import { lazy, Suspense, useEffect, useState, useRef, type ReactNode } from "react";
+import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Info, Repeat, ChevronDown } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
 import { Dialog } from "./Dialog";
 import { useSort, byName } from "./sort";
 import { failure, type Notify } from "./Toast";
 import { confirmAction } from "./Confirm";
+import { Fold } from "./Fold";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string; grams?: number | null }[] };
 export type LibraryFile = { filamentSupplies?: Record<string, string>; scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
 
+const SECTIONS_KEY = "spoolside-sliced-sections";
+const SLICED_SECTIONS = [{ id: "Case", label: "Cases" }, { id: "Faceplate", label: "Faceplates" }, { id: "Sleeve", label: "Sleeves" }, { id: "Part", label: "Parts" }, { id: "none", label: "Not linked" }];
+// A print linked to several types is listed once, under the first of these it matches; other asset types count as Parts.
+const sectionOf = (parts: Asset[]) => parts.length ? SLICED_SECTIONS.slice(0, 4).find(sec => parts.some(a => (SLICED_SECTIONS.some(x => x.id === a.type) ? a.type : "Part") === sec.id))!.id : "none";
+const readClosedSections = (): string[] => { try { const v = JSON.parse(localStorage.getItem(SECTIONS_KEY) || "[]"); return Array.isArray(v) ? v.filter(x => typeof x === "string") : []; } catch { return []; } };
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0);
 const distance = (a: string, b: string) => rgb(a).reduce((sum, v, i) => sum + (v - rgb(b)[i]) ** 2, 0);
@@ -222,8 +228,10 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   useEffect(() => {
     if (plate) setMapping(defaultMapping(plate, machine.trays));
   }, [fileId, plateIndex, plate]);
-  if (!files) return null;
-  if (!files.length && !last) return <><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
+  // In printer details this folds, with a line on what's ready; in the order print dialog (initialFile) it's the whole form.
+  const fold = (summary: string, body: ReactNode) => initialFile ? <div className="start-print">{body}</div> : <Fold title={fileId === LAST ? "Print again" : "Start a print"} summary={summary}><div className="start-print">{body}</div></Fold>;
+  if (!files) return fold("Loading…", null);
+  if (!files.length && !last) return fold("No sliced files yet", <p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p>);
   // The server looks at the bed with the camera first; `anyway` skips that once you've checked yourself.
   const start = async (anyway = false) => {
     if (!file || !plate) return;
@@ -247,9 +255,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
       setSending(false);
     }
   };
-  return (
-    <div className="start-print">
-      {!initialFile && <h3>{fileId === LAST ? "Print again" : "Start a print"}</h3>}
+  return fold(file && fileId !== LAST ? `${file.name} chosen` : `Ready${last ? ` · last: ${last.name}` : ""}`, <>
       <label>
         File
         <select value={fileId} onChange={(e) => { setFileId(e.target.value); setPlateIndex(1); }}>
@@ -295,8 +301,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
           {held && <BedHeld reason={held} busy={sending} onAnyway={() => start(true)} />}
         </>
       )}
-    </div>
-  );
+    </>);
 }
 
 export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", scope = "playcase" }: { notify: Notify; onUploaded?: () => void; label?: string; scope?: "playcase" | "personal" }) {
@@ -333,7 +338,9 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
   const [printing, setPrinting] = useState<LibraryFile | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [viewing, setViewing] = useState<LibraryFile | null>(null);
-  const loadAssets = (): Promise<void> => api<Asset[]>("/api/assets").then(a => setAssets(Array.isArray(a) ? a : [])).catch(() => notify("Could not load assets", failure(loadAssets)));
+  const [linking, setLinking] = useState<{ file: LibraryFile; plate: Plate } | null>(null);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const loadAssets = (): Promise<void> => api<Asset[]>("/api/assets").then(a => { setAssets(Array.isArray(a) ? a : []); setAssetsLoaded(true); }).catch(() => { setAssetsLoaded(true); notify("Could not load assets", failure(loadAssets)); });
   useEffect(() => { loadAssets(); }, []);
   const { files: allFiles, refresh } = useLibrary(scope);
   const files=allFiles?.filter(f=>!fileIds || fileIds.includes(f.id));
@@ -363,6 +370,17 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
   const filtered=!!(query||printerFilter||typeFilter||categoryFilter||materialFilter);
   const reset=()=>{setQuery("");setPrinterFilter("");setTypeFilter("");setCategoryFilter("");setMaterialFilter("");};
   const [showFilters,setShowFilters]=useState(false);
+  // Sections (Library › Sliced prints): prints grouped by the part type they are linked to; which are folded is remembered.
+  const [closed,setClosed]=useState<string[]>(readClosedSections);
+  const [overrides,setOverrides]=useState<Record<string,boolean>>({});
+  useEffect(()=>{setOverrides({});},[filtered]);
+  const toggleSection=(id:string,open:boolean)=>{
+    if(filtered){setOverrides(o=>({...o,[id]:!open}));return;}
+    const next=open?[...closed,id]:closed.filter(x=>x!==id);
+    setClosed(next);
+    try{localStorage.setItem(SECTIONS_KEY,JSON.stringify(next));}catch{/* storage unavailable: folds last until reload */}
+  };
+  const sections=!fileIds&&sorted?SLICED_SECTIONS.map(sec=>({...sec,files:sorted.filter(f=>sectionOf(linked(f))===sec.id)})).filter(sec=>sec.files.length):[];
   // A project's plates usually share its name ("iPhone Duo TPU Case - case (TPU)"); show what tells them apart.
   const shared=(()=>{
     if(!fileIds||!files||files.length<2)return "";
@@ -377,6 +395,32 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
     await api(`/api/library/${f.id}`, { method: "DELETE" }).catch((e) => notify(e.message, failure()));
     refresh();
   };
+  const card=(f:LibraryFile)=>(
+    <li key={f.id} className="sliced-card">
+      <div className="sliced-thumb">
+        <button className="sliced-thumb-open" aria-label={`View ${f.name} in 3D`} onClick={() => setViewing(f)}><SlicedPreview file={f} /></button>
+        <PrintDetails file={f} onSaved={refresh} notify={notify} />
+        {!fileIds && <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>}
+      </div>
+      <div className="sliced-body">
+        <strong title={f.name}>{shown(f.name)}</strong>
+        <small>
+          {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} ${p.quantity === 1 ? "piece" : "pieces"}` : ""}`).join("  ·  ")}
+          {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
+        </small>
+        {f.preferredPrinterName && <small>{f.printerSource}: {f.preferredPrinterName}</small>}
+        <PrintMetadata file={f} />
+        {scope !== "personal" && <div className="plate-assets">
+          {f.plates.map(p => <PlateChips key={p.index} plate={p} assets={assets} />)}
+          {f.plates.slice(1).map(p => <button key={p.index} className="text-button sliced-link-extra" onClick={() => setLinking({ file: f, plate: p })}>Link asset · plate {p.index}</button>)}
+        </div>}
+        <div className="sliced-actions">
+          <button className="primary sliced-print" onClick={() => setPrinting(f)}><Play size={14} /> Print</button>
+          {scope !== "personal" && f.plates[0] && <button className="secondary sliced-link" title="Link asset" onClick={() => setLinking({ file: f, plate: f.plates[0] })}>Link asset</button>}
+        </div>
+      </div>
+    </li>
+  );
   return (
     <section className="panel print-library" aria-label="Print library">
       <div className="section-top">
@@ -394,29 +438,15 @@ export function PrintLibrary({ notify, title = "Print library", scope = "playcas
         <div className="sliced-filter-summary"><small>{visible?.length} of {files.length} prints</small>{filtered&&<button className="text-button" onClick={reset}>Clear filters</button>}{sorting.menu}</div>
       </div>}
       {!!files?.length && !visible?.length && <p className="sliced-no-matches" role="status">No prints match these filters. Try another filter or clear them.</p>}
-      <ul className="sliced-grid">
-        {sorted?.map((f) => (
-          <li key={f.id} className="sliced-card">
-            <div className="sliced-thumb">
-              <button className="sliced-thumb-open" aria-label={`View ${f.name} in 3D`} onClick={() => setViewing(f)}><SlicedPreview file={f} /></button>
-              <PrintDetails file={f} onSaved={refresh} notify={notify} />
-              {!fileIds && <button className="icon-button sliced-delete" aria-label={`Remove ${f.name}`} onClick={() => remove(f)}><Trash2 size={15} /></button>}
-            </div>
-            <div className="sliced-body">
-              <strong title={f.name}>{shown(f.name)}</strong>
-              <small>
-                {f.plates.map((p) => `${f.plates.length > 1 ? `Plate ${p.index} · ` : ""}${duration(p.minutes)} · ${p.grams} g${p.quantity ? ` · ${p.quantity} ${p.quantity === 1 ? "piece" : "pieces"}` : ""}`).join("  ·  ")}
-                {f.plates[0]?.filaments.map((x) => <span key={x.id} className="color-dot" title={x.type} style={{ background: x.color }} />)}
-              </small>
-              {f.preferredPrinterName && <small>{f.printerSource}: {f.preferredPrinterName}</small>}
-              <PrintMetadata file={f} />
-              <button className="primary sliced-print" onClick={() => setPrinting(f)}><Play size={14} /> Print</button>
-              {scope !== "personal" && f.plates.map(p => <PlateAssets key={p.index} file={f} plate={p} assets={assets} onSaved={refresh} notify={notify} />)}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {fileIds ? <ul className="sliced-grid">{sorted?.map(card)}</ul> : assetsLoaded && sections.map(sec => {
+        const open = sec.id in overrides ? overrides[sec.id] : filtered || !closed.includes(sec.id);
+        return <div key={sec.id} className="sliced-section">
+          <h3><button type="button" className="sliced-section-head" aria-expanded={open} onClick={() => toggleSection(sec.id, open)}><ChevronDown size={16} aria-hidden="true" /><span>{sec.label}</span><small>{sec.files.length}</small></button></h3>
+          {open && <ul className="sliced-grid">{sec.files.map(card)}</ul>}
+        </div>;
+      })}
       {printing && <LibraryPrintDialog file={printing} notify={notify} onClose={() => setPrinting(null)} />}
+      {linking && <PlateAssetsEditor file={linking.file} plate={linking.plate} assets={assets} onClose={() => setLinking(null)} onSaved={refresh} notify={notify} />}
       {viewing && <PlateViewer file={viewing} assets={assets} onClose={() => setViewing(null)} />}
     </section>
   );
@@ -507,29 +537,28 @@ function SlicedPreview({ file }: { file: LibraryFile }) {
 }
 
 const PLATE_TYPES = ["Case", "Faceplate", "Sleeve", "Part"];
-function PlateAssets({file, plate, assets, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onSaved: () => void; notify: Notify}) {
-  const [editing, setEditing] = useState(false), [ids, setIds] = useState<string[]>([]), [query, setQuery] = useState(""), [busy, setBusy] = useState(false);
+function PlateChips({plate, assets}: {plate: Plate; assets: Asset[]}) {
+  const coverage = plate.coverage || [];
+  return <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId} title={assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>;
+}
+
+function PlateAssetsEditor({file, plate, assets, onClose, onSaved, notify}: {file: LibraryFile; plate: Plate; assets: Asset[]; onClose: () => void; onSaved: () => void; notify: Notify}) {
+  const [ids, setIds] = useState<string[]>(() => (plate.coverage || []).map(c => c.assetId)), [query, setQuery] = useState(""), [busy, setBusy] = useState(false);
   const [type, setType] = useState("All");
   const choosable = assets.filter(a => a.hasStl && !ids.includes(a.id)).sort((x, y) => PLATE_TYPES.indexOf(x.type) - PLATE_TYPES.indexOf(y.type) || x.name.localeCompare(y.name));
-  const coverage = plate.coverage || [];
   const save = async () => {
     setBusy(true);
-    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plate: plate.index, assetIds: ids})}); onSaved(); setEditing(false); notify("Plate assets saved"); }
+    try { await api(`/api/library/${file.id}`, {method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({plate: plate.index, assetIds: ids})}); onSaved(); onClose(); notify("Plate assets saved"); }
     catch(e) { notify((e as Error).message, failure()); } finally { setBusy(false); }
   };
-  const open = () => { setIds(coverage.map(c => c.assetId)); setQuery(""); setType("All"); setEditing(true); };
-  return <div className="plate-assets">
-    <div className="part-chips-list">{coverage.length ? coverage.map(c => <span className="part-chip" key={c.assetId} title={assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}>{assets.find(a => a.id === c.assetId)?.name || "Deleted asset"}</span>) : <small>No assets linked</small>}</div>
-    <button className="asset-add-pill" aria-label="Edit assets" title="Edit assets" onClick={open}><Plus size={15} /></button>
-    {editing && <Dialog className="plate-assets-editor" title={`${file.name}${file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}`} label={`Assets for ${file.name}`} busy={busy} onClose={() => setEditing(false)}
-      footer={<><button className="text-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button><button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button></>}>
+  return <Dialog className="plate-assets-editor" title={`${file.name}${file.plates.length > 1 ? ` · Plate ${plate.index}` : ""}`} label={`Assets for ${file.name}`} busy={busy} onClose={onClose}
+      footer={<><button className="text-button" disabled={busy} onClick={() => onClose()}>Cancel</button><button className="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save plate assets"}</button></>}>
       <div className="part-chips-list">{ids.map(id => <button className="part-chip" key={id} disabled={busy} onClick={() => setIds(ids.filter(x => x !== id))}>{assets.find(a => a.id === id)?.name || "Deleted asset"} ×</button>)}</div>
       <input aria-label={`Search assets for plate ${plate.index}`} placeholder="Search assets" value={query} onChange={e => setQuery(e.target.value)} />
       <div className="plate-types" role="group" aria-label="Asset type">{["All", ...PLATE_TYPES].map(t => <button key={t} className={`filter-chip${type === t ? " selected" : ""}`} aria-pressed={type === t} onClick={() => setType(t)}>{t === "All" ? "All" : `${t}s`} <small>{choosable.filter(a => t === "All" || a.type === t).length}</small></button>)}</div>
       <div className="plate-options">{choosable.filter(a => (type === "All" || a.type === type) && a.name.toLowerCase().includes(query.toLowerCase())).map(a => <button disabled={busy} key={a.id} className="text-button" onClick={() => setIds([...ids,a.id])}>{a.name}</button>)}</div>
       <p className="plate-meta">Choose every part this plate prints.</p>
-    </Dialog>}
-  </div>;
+  </Dialog>;
 }
 
 function PrintMetadata({file}:{file:LibraryFile}) {

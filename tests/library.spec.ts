@@ -16,7 +16,7 @@ test('assemblies save quantities across reload; sleeve and missing-design filter
  await page.getByRole('button',{name:'Add assembly'}).click();const form=page.locator('.assembly-editor');await form.getByLabel('Name',{exact:true}).fill('DS package');await form.getByLabel('SKU (optional)',{exact:true}).fill('DS');
  await form.getByRole('button',{name:'DS Top Faceplate'}).click();await form.getByLabel('Quantity',{exact:true}).fill('2');await form.getByRole('button',{name:'Save assembly'}).click();
  await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();expect(assemblies[0].components[0].quantity).toBe(2);
- await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/DS Top.*×2/})).toBeHidden();await page.locator('.assembly-tile').filter({hasText:'DS package'}).getByText('Parts').click();await expect(page.getByRole('button',{name:/DS Top.*×2/})).toBeVisible();await expect(page.locator('.assembly-part-list')).toBeVisible();await expect(page.locator('.assembly-part-file')).toHaveAttribute('aria-label',/STL (available to slice|missing)/);await page.screenshot({path:'handoff/spoolside-assembly-part-files.png'});
+ await page.reload();await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/DS Top.*×2/})).toBeHidden();await page.locator('.assembly-tile').filter({hasText:'DS package'}).locator('summary',{hasText:'Parts'}).click();await expect(page.getByRole('button',{name:/DS Top.*×2/})).toBeVisible();await expect(page.locator('.assembly-part-list')).toBeVisible();await expect(page.locator('.assembly-part-file')).toHaveAttribute('aria-label',/STL (available to slice|missing)/);await page.screenshot({path:'handoff/spoolside-assembly-part-files.png'});
  await page.getByRole('link',{name:'DS package',exact:true}).click();await expect(page).toHaveURL(/\/library\/assemblies\/33333333-3333-4333-8333-333333333333$/);
  await expect(page.getByRole('heading',{name:'DS package',exact:true})).toBeVisible();await expect(page.locator('.assembly-parts').getByLabel('Quantity of DS Top')).toHaveValue('2');
  const parts=page.locator('.assembly-parts');
@@ -49,7 +49,7 @@ test('sliced prints are a library section with editable per-plate asset coverage
  return route.fulfill({json:[]});
  });
  await page.goto('/library/sliced');await expect(page.getByRole('tab',{name:'Sliced prints'})).toHaveAttribute('aria-selected','true');
- await page.getByRole('button',{name:'Edit assets'}).click();
+ await page.getByRole('button',{name:'Link asset'}).click();
  const dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'DS – Top',exact:true})).toBeVisible();
  await dialog.getByRole('button',{name:/^Faceplates/}).click();await expect(dialog.locator('.plate-options button')).toHaveText(['DS – Top']);
  await dialog.getByRole('button',{name:/^Cases/}).click();await page.getByRole('button',{name:'iPhone 13 Case',exact:true}).click();await page.getByRole('button',{name:'Save plate assets'}).click();

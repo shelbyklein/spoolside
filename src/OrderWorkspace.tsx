@@ -1,20 +1,24 @@
 import { OrderCostButton, OrderCostBreakdown, useOrderCosts } from "./Costs";
-import { useState } from "react";
-import { Search, ShoppingBag, ArrowUpRight, Truck, Check, CircleAlert, Printer } from "lucide-react";
-import { OrderContents } from "./OrderContents";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Search, ShoppingBag, ArrowUpRight, Truck, Check, CircleAlert, Printer, ChevronDown, ChevronRight } from "lucide-react";
+import { OrderContents, itemLine, swatch } from "./OrderContents";
 import { type Order, type PrintGroup, initialOrders, isOpenOrder, storeStatus } from "./order-model";
 import { OrderPrintButtons } from "./OrderPrint";
 import { Skeleton } from "./Skeleton";
 import { useSort } from "./sort";
+import { usePhone } from "./usePhone";
 export { initialOrders };
 
 // Pirate Ship imports Processing orders from WooCommerce; it has no per-order link or API.
 export const PIRATE_SHIP_URL = "https://ship.pirateship.com/ship";
 
 // Shipping follows the required pieces, with no separate packing confirmation.
+export const shipReady = (order: Order) =>
+  order.commercial.toLowerCase() === "processing" && !!order.printPlan?.length && order.printPlan.every(g => g.done) && !order.sourceReview && !order.refundReview && order.printReadiness?.status !== "review";
+
 export function ShipButton({ order }: { order: Order }) {
   if (order.commercial.toLowerCase() !== "processing") return null;
-  if (!order.printPlan?.length || !order.printPlan.every(g => g.done) || order.sourceReview || order.refundReview || order.printReadiness?.status === "review")
+  if (!shipReady(order))
     return (
       <button className="ship-button pending" disabled title="Print all required items first" aria-label={`Ship ${order.number}: print all required items first`}>
         <Truck size={14} /> Ship once printed
@@ -31,6 +35,66 @@ export function StatusTag({ order }: { order: Order }) {
   const status = order.commercial.toLowerCase();
   if (status === "processing") return null;
   return <span className={`production-stage ${["on-hold", "cancelled", "refunded", "failed"].includes(status) ? "attention" : ""}`}>{storeStatus(order)}</span>;
+}
+
+// The one line an order gets in a list: "2 of 3 printed", or why it can't be printed yet.
+export function orderProgress(order: Order) {
+  const status = order.commercial.toLowerCase();
+  if (status === "on-hold") return "On hold";
+  if (order.sourceReview || order.refundReview || order.printReadiness?.status === "review") return "Needs review";
+  const plan = order.printPlan || [];
+  if (plan.length) return plan.every(g => g.done) ? "All printed" : `${plan.filter(g => g.done).length} of ${plan.length} printed`;
+  return order.printReadiness?.status === "missing" ? "Files missing" : "Not started";
+}
+
+function OrderSummary({ order }: { order: Order }) {
+  const item = order.items[0];
+  const dot = swatch(item?.colorway);
+  return (
+    <>
+      <strong className="order-line-number">{order.number}</strong>
+      <span className="order-line-item">{dot && <span className="color-dot" style={{ background: dot }} />}<span>{item ? itemLine(item) : "No line items"}</span></span>
+      <span className={`order-line-progress${/hold|review/i.test(orderProgress(order)) ? " attention" : ""}`}>{orderProgress(order)}</span>
+    </>
+  );
+}
+
+// An Overview row: the summary, a link to the order on the Orders page, and Ship once it's ready.
+export function OrderLine({ order, onOpen }: { order: Order; onOpen: (id: string) => void }) {
+  return (
+    <article className="order-line" aria-label={`Order ${order.number}`}>
+      <a className="order-line-open" href="/orders" onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); onOpen(order.id); }}>
+        <OrderSummary order={order} />
+        <ChevronRight size={16} aria-hidden="true" />
+      </a>
+      {shipReady(order) && <ShipButton order={order} />}
+    </article>
+  );
+}
+
+// The header of a phone Orders row that's open: the same summary, and tapping it closes the row again.
+function OrderExpanded({ order, onClose, children }: { order: Order; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="order-open">
+      <button className="order-collapse" aria-expanded="true" aria-label={`Close order ${order.number}`} onClick={onClose}>
+        <OrderSummary order={order} />
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {children}
+    </div>
+  );
+}
+
+// A phone Orders row that's closed: the same summary with a button that opens the full row.
+function OrderCollapsed({ order, onOpen }: { order: Order; onOpen: () => void }) {
+  return (
+    <article className="order-line collapsed" aria-label={`Order ${order.number}`}>
+      <button className="order-line-open" aria-expanded="false" aria-label={`Open order ${order.number}`} onClick={onOpen}>
+        <OrderSummary order={order} />
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+    </article>
+  );
 }
 
 export function OrderRow({ order, onPrint, onTick, printerAvailable = false, cost }: { order: Order; printerAvailable?: boolean; onChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void; cost?: { total: number; complete: boolean } }) {
@@ -55,6 +119,12 @@ const FILTERS = ["Open orders", "Processing", "On hold", "Shipped", "All orders"
 
 export function Orders({ live = false, openOrderId, orders, availableOrders = [], onOrderChange, onPrint, onTick, placeholder }: { placeholder?: 'loading' | 'unavailable'; live?: boolean; availableOrders?: string[]; openOrderId: string | null; orders: Order[]; onOrderChange?: (order: Order) => void; onPrint?: (order: Order, group: PrintGroup) => void; onTick?: (order: Order, assetId: string, done: number) => void }) {
   const focus = orders.find((o) => o.id === openOrderId);
+  const phone = usePhone();
+  // On a phone, rows start closed; the order opened from the Overview starts open. Several can be open at once.
+  const [opened, setOpened] = useState<string[]>(() => (openOrderId ? [openOrderId] : []));
+  const toggle = (id: string) => setOpened((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
+  const focusRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { focusRef.current?.scrollIntoView({ block: "start" }); }, [focus?.id, phone]);
   const costs = useOrderCosts(live, orders.map((o) => o.id).join());
   const [search, setSearch] = useState(focus ? focus.number : ""),
     [filter, setFilter] = useState(focus ? "All orders" : "Open orders");
@@ -109,7 +179,12 @@ export function Orders({ live = false, openOrderId, orders, availableOrders = []
             <button className="text-button" onClick={() => { setSearch(""); setFilter("All orders"); }}>Clear filters</button>
           </div>
         )}
-        {visible.map((order) => <OrderRow key={order.id} order={order} cost={costs[order.id]} printerAvailable={availableOrders.includes(order.id)} onChange={onOrderChange} onPrint={onPrint} onTick={onTick} />)}
+        {visible.map((order) => {
+          if (phone && !opened.includes(order.id)) return <OrderCollapsed key={order.id} order={order} onOpen={() => toggle(order.id)} />;
+          const row = <OrderRow key={order.id} order={order} cost={costs[order.id]} printerAvailable={availableOrders.includes(order.id)} onChange={onOrderChange} onPrint={onPrint} onTick={onTick} />;
+          if (!phone) return row;
+          return <div key={order.id} ref={order.id === focus?.id ? focusRef : undefined}><OrderExpanded order={order} onClose={() => toggle(order.id)}>{row}</OrderExpanded></div>;
+        })}
       </div>
     </section>
   );

@@ -135,7 +135,14 @@ export function Dialog({ title, label, onClose, busy = false, size = "normal", c
     kept.current = null;
     if (keep?.isConnected && el.contains(keep)) keep.focus({ preventScroll: true });
     else if (!el.contains(document.activeElement)) start().focus({ preventScroll: true });
+    // When what has focus is taken out of the dialog (a section re-rendering as data arrives), focus falls to the
+    // page; it comes back to the dialog instead, so the next Tab carries on from here.
+    const watcher = new MutationObserver(() => {
+      if (stack.at(-1) === entry && (!document.activeElement || document.activeElement === document.body)) el.focus({ preventScroll: true });
+    });
+    watcher.observe(el, { childList: true, subtree: true });
     return () => {
+      watcher.disconnect();
       stack.splice(stack.indexOf(entry), 1);
       if (!stack.length) {
         document.removeEventListener("keydown", onKeyDown);

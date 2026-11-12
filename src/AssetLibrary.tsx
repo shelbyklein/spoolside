@@ -5,7 +5,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSort, byName } from "./sort";
 import { Dialog } from "./Dialog";
-import { Search, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone } from "lucide-react";
+import { Search, Download, Box, LayoutGrid, List, Upload, Trash2, Palette, Plus, CircleCheck, Clock, FileX, Smartphone, SlidersHorizontal } from "lucide-react";
+import { usePhone } from "./usePhone";
 import { failure, type Notify } from "./Toast";
 import { confirmAction } from "./Confirm";
 
@@ -66,6 +67,7 @@ export const goTo = (path: string) => {
 const assetFromPath = () => window.location.pathname.match(/^\/library\/([0-9a-f-]{36})$/)?.[1] || null;
 
 export function AssetLibrary({ notify }: { notify: Notify }) {
+  const phone = usePhone();
   const assemblyReturnPath=useRef(window.location.pathname);
   const [view, setView] = useState(() => (localStorage.getItem("spoolside-library-view") === "list" ? "list" : "cards")),
     [designs, setDesigns] = useState<{id:string;name:string;source:string}[]>([]),
@@ -75,6 +77,7 @@ export function AssetLibrary({ notify }: { notify: Notify }) {
     [status, setStatus] = useState("All"),
     [search, setSearch] = useState(""),
     [uploading, setUploading] = useState(false),
+    [filtering, setFiltering] = useState(false),
     [openId, setOpenState] = useState<string | null>(assetFromPath);
   const [headingSlot, setHeadingSlot] = useState<HTMLElement | null>(null);
   useEffect(() => setHeadingSlot(document.getElementById("library-sections-slot")), []);
@@ -137,6 +140,29 @@ export function AssetLibrary({ notify }: { notify: Notify }) {
     if (!r.ok) return notify(body.error || "Couldn't save", failure(() => save(a, patch)));
     setAssets((list) => list?.map((x) => (x.id === a.id ? body : x)) || null);
   };
+  const typeTabs = TYPES.map((t) => (
+    <button key={t} role="tab" aria-selected={type === t} className={type === t ? "selected" : ""} onClick={() => setType(t)}>
+      {t === "All" ? "All" : t === "Case" ? "Cases" : t === "Purchased" ? "Bought parts" : t + "s"}
+    </button>
+  ));
+  const statusSelect = (
+    <select aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value)}>
+      <option value="All">All statuses</option>
+      {STATUSES.map((s) => <option key={s}>{s}</option>)}
+      <option>Missing design</option>
+    </select>
+  );
+  const viewToggle = (
+    <div className="segmented view-toggle" role="radiogroup" aria-label="View">
+      {(["cards", "list"] as const).map((v) => (
+        <button key={v} role="radio" aria-checked={view === v} aria-label={v === "cards" ? "Card view" : "List view"} className={view === v ? "selected" : ""} onClick={() => { setView(v); localStorage.setItem("spoolside-library-view", v); }}>
+          {v === "cards" ? <LayoutGrid size={16} /> : <List size={16} />}
+        </button>
+      ))}
+    </div>
+  );
+  // Filters that differ from the defaults, counted on the phone's Filter button.
+  const activeFilters = Number(status !== "All") + Number(sorting.id !== "name") + Number(view !== "cards");
   const sectionTabs = <div className="segmented library-sections" role="tablist" aria-label="Library section">
     {LIBRARY_SECTIONS.map(({name:s})=><button key={s} role="tab" aria-selected={section===s} className={section===s?"selected":""} onClick={()=>setSection(s)}>{s}</button>)}
   </div>;
@@ -147,34 +173,35 @@ export function AssetLibrary({ notify }: { notify: Notify }) {
       {section === "Sliced prints" && <PrintLibrary title="Sliced prints" notify={notify}/>}
       {section === "Assemblies" && colored && <Assemblies assets={colored.filter(a => a.type !== "Cut template")} onOpen={setOpenId} notify={notify}/>}
       {section === "Assets" && <>
-      <div className="asset-toolbar">
-        <div className="segmented" role="tablist" aria-label="Asset type">
-          {TYPES.map((t) => (
-            <button key={t} role="tab" aria-selected={type === t} className={type === t ? "selected" : ""} onClick={() => setType(t)}>
-              {t === "All" ? "All" : t === "Case" ? "Cases" : t === "Purchased" ? "Bought parts" : t + "s"}
-            </button>
-          ))}
-        </div>
+      {phone ? <>
+      <div className="asset-toolbar phone-toolbar">
         <label className="search-field">
           <Search size={17} />
           <input aria-label="Search assets" placeholder="Search phone, style or part" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
-        <select aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="All">All statuses</option>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
-          <option>Missing design</option>
-        </select>
+        <button className="secondary filter-button" onClick={() => setFiltering(true)}><SlidersHorizontal size={16} aria-hidden="true" /> {activeFilters ? `Filter · ${activeFilters}` : "Filter"}</button>
+        <button className="primary upload-asset icon-only" aria-label="Upload" title="Upload" onClick={() => setUploading(true)}><Plus size={18} aria-hidden="true" /></button>
+      </div>
+      <div className="type-chips" role="tablist" aria-label="Asset type">{typeTabs}</div>
+      {filtering && <Dialog size="normal" className="filter-sheet" title="Filter" label="Filter assets" onClose={() => setFiltering(false)} footer={<button className="primary" onClick={() => setFiltering(false)}>Done</button>}>
+        <label className="sheet-field">Status{statusSelect}</label>
+        <label className="sheet-field">Sort{sorting.menu}</label>
+        <div className="sheet-field">View{viewToggle}</div>
+        <button className="secondary categories-button" onClick={() => setManaging(true)}><Palette size={16} /> Categories</button>
+      </Dialog>}
+      </> : (
+      <div className="asset-toolbar">
+        <div className="segmented" role="tablist" aria-label="Asset type">{typeTabs}</div>
+        <label className="search-field">
+          <Search size={17} />
+          <input aria-label="Search assets" placeholder="Search phone, style or part" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        {statusSelect}
         {sorting.menu}
-        <div className="segmented view-toggle" role="radiogroup" aria-label="View">
-          {(["cards", "list"] as const).map((v) => (
-            <button key={v} role="radio" aria-checked={view === v} aria-label={v === "cards" ? "Card view" : "List view"} className={view === v ? "selected" : ""} onClick={() => { setView(v); localStorage.setItem("spoolside-library-view", v); }}>
-              {v === "cards" ? <LayoutGrid size={16} /> : <List size={16} />}
-            </button>
-          ))}
-        </div>
+        {viewToggle}
         <button className="secondary categories-button" onClick={() => setManaging(true)}><Palette size={16} /> Categories</button>
         <button className="primary upload-asset" onClick={() => setUploading(true)}><Upload size={16} /> Upload</button>
-      </div>
+      </div>)}
       {managing && <CategoryManager categories={categories} assets={assets || []} onChange={() => { loadCategories(); load(); }} onClose={() => setManaging(false)} notify={notify} />}
       {uploading && <UploadDialog categories={categories} onClose={() => setUploading(false)} notify={notify} onAdded={(a) => { setAssets((all) => [...(all || []), a]); setUploading(false); setOpenId(a.id); }} />}
       {assets && assets.length === 0 && <div className="empty"><Box /><p>No assets yet.</p></div>}

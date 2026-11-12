@@ -26,8 +26,9 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(home.locator('.pool-case')).toHaveCount(2);
   await home.getByRole('button',{name:'Order #3, iPhone 16 Pro, Red'}).dispatchEvent('click');
   await expect(page.getByRole('article',{name:'Order #3',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Close order #3'})).toHaveAttribute('aria-expanded','true'); // opened from Home, so it starts open
   await expect(page.getByRole('article',{name:'Order #1',exact:true})).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
+  await page.getByRole('navigation').getByRole('button',{name:'Home',exact:true}).click();
   await home.getByRole('button',{name:/^Orders/}).click();
   await expect(page.getByLabel('Filter orders')).toHaveValue('Open orders');
   await expect(page.getByText('2 of 3 orders')).toBeAttached();
@@ -37,31 +38,34 @@ test('hosted mobile uses active source orders and server saves without browser s
   await expect(overview.getByRole('article',{name:'Order #1',exact:true})).not.toContainText('Processing');
   await expect(overview.getByRole('article',{name:'Order #3',exact:true})).toContainText('On hold');
   await expect(overview.getByRole('article',{name:'Order #2',exact:true})).toHaveCount(0);
-  await expect(overview.getByRole('button',{name:'Ship #1: print all required items first'})).toBeDisabled();
-  await expect(overview.getByRole('link',{name:'Ship #1 in Pirate Ship'})).toHaveCount(0);
-  // Wide screens: one line, order | contents | status | Ship. Phones: contents below.
-  const rowLayout=async (first: import('@playwright/test').Locator, wide: boolean)=>{
+  // The Overview lists each order on one line: no checklist, and no Ship until the order is ready.
+  await expect(overview.getByRole('link',{name:/^Ship #/})).toHaveCount(0);
+  await expect(overview.getByRole('button',{name:/^Ship #/})).toHaveCount(0);
+  const first=overview.getByRole('article',{name:'Order #1',exact:true});
+  await expect(first.getByRole('link')).toHaveAttribute('href','/orders');
+  expect((await first.boundingBox())!.height).toBeLessThan(80);
+  await expect(first.locator('.production-stage')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  // Phones: contents below the order number (shown once, in the header that closes the row), Ship below the contents.
+  const rowLayout=async (first: import('@playwright/test').Locator)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
-    const id=await first.locator('.order-id').boundingBox();
-    if (wide) {
-      expect(content!.x).toBeGreaterThanOrEqual(id!.x+id!.width);
-      // In the Overview's column the checklist and Ship go under the product, so names fit on one line.
-      expect(ship!.y).toBeGreaterThan((await first.locator(".order-product-summary").boundingBox())!.y);
-    }
-    else expect(content!.y).toBeGreaterThan(id!.y);
-    if (!wide) expect(ship!.y).toBeGreaterThan(content!.y);
+    const id=await page.getByRole('button',{name:'Close order #1'}).boundingBox();
+    await expect(first.locator('.order-id strong')).toBeHidden();
+    expect(content!.y).toBeGreaterThan(id!.y);
+    expect(ship!.y).toBeGreaterThan(content!.y);
     await expect(first.locator('.production-stage')).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   };
-  const first=overview.getByRole('article',{name:'Order #1',exact:true});
-  await rowLayout(first, true);
-  await first.getByLabel('Files missing',{exact:true}).click();
-  await expect(first.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
-  await expect(overview.getByRole('link',{name:'Ship #3 in Pirate Ship'})).toHaveCount(0);
   await overview.getByRole('button',{name:'View orders'}).click();
   await page.setViewportSize({width:428,height:926});
-  await rowLayout(page.getByRole('article',{name:'Order #1',exact:true}), false);
+  // Phone rows start closed and open on tap.
+  await expect(page.locator('.order-content-readiness')).toHaveCount(0);
+  await page.getByRole('button',{name:'Open order #1'}).click();
+  const open=page.locator('article.overview-order-row[aria-label="Order #1"]');
+  await rowLayout(open);
+  await open.getByLabel('Files missing',{exact:true}).click();
+  await expect(open.getByText('iPhone 16 Pro: no sliced file',{exact:true})).toBeVisible();
   await page.getByLabel('Filter orders').selectOption('Shipped');
   await expect(page.getByText('#2',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Refresh orders'}).click();

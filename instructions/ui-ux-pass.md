@@ -165,3 +165,32 @@ None blocking. For later, outside this plan: dark mode, and whether the Overview
 - Now or later: now (Shelby, 2026-11-11). This authorizes both PRs, their merges and deploys, with Shelby's phone check after each.
 - Coordinator: the planning session (Fable 5.2) owns the branch, hands each task to an Opus 5.5 or Sonnet 5.5 agent as assigned, reviews the diff, runs the gate and commits. T0 is setup done by the coordinator.
 - Readiness: pass · 2026-11-11 · R1 to R13 checked, none n/a.
+
+## Results
+
+Measured 2026-11-11 by E1 on `claude/ui-ux-pass-2`, with the mock farm (`tests/mock-farm.ts`, clock frozen at 2026-11-11 15:00).
+
+| # | Result |
+|---|---|
+| S1 | `tests/ui-audit.spec.ts`: 73 passed (34 page runs: 11 pages at 1440, 11 at 820, 12 at 428), with `KNOWN` empty at all three sizes. |
+| S2 | 20 dialogs (the 16 counted in A1 plus the phone Upload sheet, More sheet, phone Filter sheet and the in-app confirm) pass named, Escape, trap, return and scroll: 37 dialog runs (17 at 1440, 20 at 428). `grep -nE "window\.confirm\|[^A-Za-z]confirm\(" src/*.tsx src/*.ts` finds nothing. |
+| S3 | `tests/states.spec.ts` 6 passed; `tests/toasts.spec.ts` 3 passed. |
+| S4 | Tablet Overview Printers region starts at 848 px (target < 900; was 3,560). Phone `/orders`, all 8 orders: 857 px (< 1,400; was 2,983). Phone `/supplies`: 2,840 px (< 3,000; was 6,049). Tablet `/library/sliced`, every section open: 4,282 px with the mock farm's 12 prints (< 6,000). With 55 prints, as in the review, it is 11,056 px (was 14,885), so the original 55-print target is not met. |
+| S5 | `npm run build` and `npx tsc --noEmit -p .` clean; `node --test server/*.test.mjs` 120 passed; `npx playwright test` 151 passed on three runs in a row. Shelby's phone check is G2. |
+
+E1 also fixed two tests that failed only under parallel load: the floating cases on the phone home now reset when reduced motion turns on even if the browser swallows the media-query change event (`src/WaterHome.tsx`), and `tests/library.spec.ts` opens an assembly's Parts by its `<summary>` (D4's "…see its parts." text matched too).
+
+After, from the mock farm only:
+
+| | |
+|---|---|
+| Phone home | ![](assets/ui-ux-pass-2026-11/after-phone-home.png) |
+| Phone Orders, one open | ![](assets/ui-ux-pass-2026-11/after-phone-orders-open.png) |
+| Phone Library | ![](assets/ui-ux-pass-2026-11/after-phone-library.png) |
+| Phone More sheet | ![](assets/ui-ux-pass-2026-11/after-phone-more.png) |
+| Phone printer details | ![](assets/ui-ux-pass-2026-11/after-phone-printer-details.png) |
+| Error toast (phone, over printer details) | ![](assets/ui-ux-pass-2026-11/after-error-toast.png) |
+| Tablet Overview | ![](assets/ui-ux-pass-2026-11/after-tablet-overview.png) |
+| Desktop Overview | ![](assets/ui-ux-pass-2026-11/after-desktop-overview.png) |
+| Desktop Sliced prints | ![](assets/ui-ux-pass-2026-11/after-desktop-sliced.png) |
+| Failed load (desktop Orders) | ![](assets/ui-ux-pass-2026-11/after-failed-load.png) |

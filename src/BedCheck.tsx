@@ -3,6 +3,7 @@ import { Check, Plus, Square, X } from "lucide-react";
 import { NeedPhoto, NeedRow } from "./NeedsYou";
 import { failure, type Notify } from "./Toast";
 import { confirmAction } from "./Confirm";
+import { Fold } from "./Fold";
 
 export type BedWarning = { id: string; printer: string; printerName: string; job: string; reason: string; at: number };
 type Settings = { visibleOnly: boolean; allow: { id: string; text: string; at: number }[]; reference: { note: string; taught: number; area: boolean } | null };
@@ -59,10 +60,17 @@ export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: {
     try { setS(await p); if (done) notify(done); return true; } catch (e) { notify((e as Error).message, failure()); return false; } finally { setBusy(false); }
   };
   // Until its settings load (or if they can't), the section still offers teaching the empty bed.
-  if (!s) return canTeach ? <section className="bed-settings" aria-label={`${name} bed check`}><h3>Bed check</h3><p className="plate-meta"><button className="text-button" onClick={onTeach}>Teach bed check</button></p></section> : null;
+  if (!s) return canTeach ? <section className="bed-settings" aria-label={`${name} bed check`}><Fold title="Bed check" summary="Loading…"><p className="plate-meta"><button className="text-button" onClick={onTeach}>Teach bed check</button></p></Fold></section> : null;
+  const risky = s.allow.filter((a) => describesAPart(a.text)).length;
+  const summary = [
+    s.reference ? `Empty bed taught ${new Date(s.reference.taught).toLocaleDateString([], { month: "short", day: "numeric" })}` : "Not taught yet",
+    s.visibleOnly ? "goes by what's visible" : "checks the whole plate",
+    s.allow.length ? `${s.allow.length} ${s.allow.length === 1 ? "note" : "notes"}` : "",
+    risky ? "a note may hide a part" : "",
+  ].filter(Boolean).join(" · ");
   return (
     <section className="bed-settings" aria-label={`${name} bed check`}>
-      <h3>Bed check</h3>
+    <Fold title="Bed check" summary={summary} tone={risky ? "warn" : undefined}>
       <p className="plate-meta">
         {s.reference ? `Knows ${name}'s empty bed (taught ${new Date(s.reference.taught).toLocaleDateString([], { month: "short", day: "numeric" })}${s.reference.area ? ", plate marked" : ""}).` : `Hasn't been shown ${name}'s empty bed yet.`}{" "}
         {canTeach && <button className="text-button" onClick={onTeach}>{s.reference ? "Teach again" : "Teach bed check"}</button>}
@@ -92,6 +100,7 @@ export function BedCheckSettings({ printer, name, notify, onTeach, canTeach }: {
         <input aria-label={`Something that's fine on ${name}'s bed`} maxLength={300} placeholder="e.g. The bed sits forward, so the front edge is out of frame" value={text} onChange={(e) => setText(e.target.value)} />
         <button className="secondary" disabled={busy || !text.trim()}><Plus size={14} /> Add</button>
       </form>
+    </Fold>
     </section>
   );
 }
