@@ -1021,9 +1021,9 @@ function App() {
                 </button>
               )}
             {remote && <WatchStatus watch={watch.watches.find((w) => w.printer === current.id && !w.ended)} vision={watch.vision} />}
-            {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={notify} />}
-            {remote && <BedCheckSettings printer={current.id} name={current.name} notify={notify} onTeach={() => teachBed(current.id, current.name)} canTeach={!!current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "")} />}
             {remote && <PrintControls machine={current} notify={notify} />}
+            {remote && <BedCheckSettings printer={current.id} name={current.name} notify={notify} onTeach={() => teachBed(current.id, current.name)} canTeach={!!current.connected && !current.stale && ["IDLE","FINISH","FAILED"].includes(current.rawState || "")} />}
+            {remote && <RecentPrints printer={current.id} recent={watch.recent || []} refresh={() => { watch.refresh(); live.retry(); dispatch.refresh(); }} notify={notify} />}
             {(!remote || current.error) && <p className="detail-note">{remote ? current.error : "These readings are examples. Live printer controls will be available after a bridge is connected."}</p>}
             <button className="text-button" onClick={() => setSelected(null)}>
               Back to workspace

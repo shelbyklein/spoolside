@@ -93,6 +93,8 @@ function ToolStep({ item }: { item: Item }) {
   );
 }
 
+const STARTERS = ["What's printing right now?", "Is anything waiting on me?", "Which orders are ready to ship?"];
+
 function ChatPanel({ onClose }: { onClose: () => void }) {
   const [chat, setChat] = useState<Chat | null>(null), [text, setText] = useState(""), [error, setError] = useState(""), [sending, setSending] = useState(false);
   const list = useRef<HTMLDivElement>(null), input = useRef<HTMLTextAreaElement>(null);
@@ -110,11 +112,13 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
   const act = async (p: Promise<Chat>) => {
     try { setChat(await p); setError(""); return true; } catch (e) { setError((e as Error).message); return false; }
   };
-  const send = async (e?: React.FormEvent) => {
+  // `starter` sends a suggested question exactly as if it had been typed and sent.
+  const send = async (e?: React.FormEvent, starter?: string) => {
     e?.preventDefault();
-    if (!text.trim() || sending || chat?.running) return;
+    const message = starter ?? text;
+    if (!message.trim() || sending || chat?.running) return;
     setSending(true);
-    if (await act(call("POST", "/api/chat", { text }))) setText("");
+    if (await act(call("POST", "/api/chat", { text: message })) && starter === undefined) setText("");
     setSending(false);
     input.current?.focus();
   };
@@ -133,7 +137,10 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
           {chat?.available && !chat.items.length && !busy && (
             <div className="chat-empty">
               <Sparkles size={22} />
-              <p>Ask about the farm, or have Claude do something: “Is anything printing?”, “Start the PlayPad cap on Desk”, “What's in the queue?”</p>
+              <p>Ask about the farm, or have Claude do something, like starting a print.</p>
+              <div className="chat-starters" role="group" aria-label="Suggested questions">
+                {STARTERS.map((q) => <button key={q} type="button" className="secondary" disabled={sending} onClick={() => send(undefined, q)}>{q}</button>)}
+              </div>
               <small>Uses your Claude subscription. Claude works through Spoolside, with the same camera bed checks.</small>
             </div>
           )}

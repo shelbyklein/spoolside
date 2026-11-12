@@ -2895,3 +2895,35 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
 .loaded-summary .loaded-dots { flex-wrap: wrap; }
 .loaded-summary[aria-expanded="true"] + .spool-list, .loaded-printer .spool-list { margin-top: 6px; }
 .offers-toggle { align-self: flex-start; }
+
+/* A folding section (src/Fold.tsx): printer details' Bed check, Start a print and Recent prints. */
+.fold { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--line); text-align: left; }
+.detail-panel .fold h3 { margin: 0; font-size: var(--text-md); }
+.fold-head { display: flex; justify-content: flex-start; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 0; border: 0; background: none; color: var(--navy); font: inherit; font-size: var(--text-md); font-weight: 700; text-align: left; cursor: pointer; }
+.fold-head svg { flex: none; color: var(--muted); transition: transform 0.15s; }
+.fold-head[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.fold-title { flex: none; }
+.fold-summary { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-xs); font-weight: 600; }
+.fold-summary.warn { color: var(--warn-text); }
+.fold-body { padding: 4px 0 8px; }
+.fold-body[hidden] { display: none; }
+.detail-panel .bed-settings, .detail-panel .recent-prints, .fold .start-print { margin: 0; padding: 0; border: 0; }
+@media (max-width: 760px) {
+  .fold-head { flex-wrap: wrap; row-gap: 0; padding: 6px 0; }
+  .fold-summary { flex-basis: calc(100% - 24px); margin-left: 24px; white-space: normal; }
+}
+.detail-panel .detail-top { margin-bottom: 12px; }
+.detail-panel .print-controls { margin: 12px 0 4px; }
+.detail-panel .watch-status { margin-top: 8px; }
+
+/* Assembly parts on phones and tablets: the name takes a row, its controls the row under it, every one 44 px. */
+@media (max-width: 1150px) {
+  .assembly-parts .part-row:not(.removed) { grid-template-columns: var(--tap) var(--tap) var(--tap) minmax(0, 1fr) var(--tap); column-gap: 8px; row-gap: 2px; }
+  .assembly-parts .part-row:not(.removed) .part-name { grid-column: 1 / -1; min-height: var(--tap); }
+  .assembly-parts .part-row:not(.removed) .reset-color { width: var(--tap); min-height: var(--tap); }
+  .assembly-parts .part-row .part-color { width: var(--tap); height: var(--tap); }
+  .assembly-parts .part-row input[type=number] { width: 72px; min-height: var(--tap); }
+  .assembly-parts .part-row .icon-button { min-width: var(--tap); min-height: var(--tap); }
+}
+.chat-starters { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; }
+.chat-starters button { min-height: var(--tap); width: 100%; font-size: var(--text-sm); }

@@ -110,6 +110,7 @@ test('the print watcher shows alerts and asks how finished prints went', async (
   const details = page.getByRole('dialog', { name: 'Conductive details' });
   await expect(details).toContainText('Watching (warnings only)');
   const history = details.getByRole('region', { name: 'Recent prints' });
+  await history.getByRole('button', { name: /^Recent prints/ }).click(); // folded until opened
   await history.getByRole('button', { name: 'Add note' }).click();
   await history.getByLabel(/Print notes/).fill('Under-extruded, nozzle clog');
   await history.getByRole('button', { name: 'Save note' }).click();

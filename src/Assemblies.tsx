@@ -90,7 +90,7 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
   <p className="plate-meta">Click a part, here or in the preview, to position it.</p>
   <div className="asset-pills">
    {assembly.components.map(c=>{const asset=assets.find(a=>a.id===c.assetId);return <div key={c.assetId} className={`part-row${c.hidden?' hidden-part':''}`}>
-    <button className="part-name" disabled={!asset} onClick={()=>onPick({assetId:c.assetId,instance:0})}><span>{asset?.name||'Missing asset'}</span>{(c.positions?.length||0)>1&&<small className="copy-count">×{c.positions!.length}</small>}</button>
+    <button className="part-name" title={asset?.name||'Missing asset'} disabled={!asset} onClick={()=>onPick({assetId:c.assetId,instance:0})}><span>{asset?.name||'Missing asset'}</span>{(c.positions?.length||0)>1&&<small className="copy-count">×{c.positions!.length}</small>}</button>
     <input type="color" className="part-color" aria-label={`Color of ${name(c.assetId)}`} key={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||'default'} defaultValue={c.color||assets.find(a=>a.id===c.assetId)?.categoryColor||DEFAULT_PART_COLOR} title={c.color?'Custom color for this assembly':'Category color'} disabled={busy} onChange={e=>setColor(c,e.target.value)}/>
     {c.color&&<button className="text-button reset-color" title="Use the category color" aria-label={`Use category color for ${name(c.assetId)}`} disabled={busy} onClick={()=>{const {color:_,...rest}=c;save({...assembly,components:assembly.components.map(x=>x.assetId===c.assetId?rest:x)},'Using category color.');}}>↺</button>||<span className="reset-color" aria-hidden="true"/>}
     <button className="icon-button part-visibility" aria-label={`${c.hidden?'Show':'Hide'} ${name(c.assetId)} in the preview`} aria-pressed={!!c.hidden} title={c.hidden?'Hidden in the preview: click to show':'Hide in the preview'} disabled={busy} onClick={()=>toggleHidden(c)}>{c.hidden?<EyeOff size={16}/>:<Eye size={16}/>}</button>
@@ -197,7 +197,7 @@ function AssemblySnapshot({assembly,parts,onSaved,onOpen}:{assembly:Assembly;par
   io.observe(ref.current);return()=>io.disconnect();
  },[key,fresh,failed]);
  return <button ref={ref} className="assembly-snapshot" onClick={onOpen} aria-label={`Open ${assembly.name}`}>
-  {fresh?<img src={`/api/assemblies/${assembly.id}/thumb?k=${key}`} alt="" loading="lazy"/>:<span>{!parts.length?'No STL preview':failed?'Preview unavailable':'Rendering preview…'}</span>}
+  {fresh?<img src={`/api/assemblies/${assembly.id}/thumb?k=${key}`} alt="" loading="lazy"/>:<span>{!parts.length?'No STL preview':failed?'Preview unavailable. Open the assembly to see its parts.':'Rendering preview…'}</span>}
  </button>;
 }
 

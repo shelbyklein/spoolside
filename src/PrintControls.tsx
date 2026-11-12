@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useRef } from "react";
+import { lazy, Suspense, useEffect, useState, useRef, type ReactNode } from "react";
 import { Pause, Play, Square, Upload, Trash2, FileBox, RefreshCw, Pencil, Info, Repeat, ChevronDown } from "lucide-react";
 import type { Asset, Category } from "./AssetLibrary";
 import type { Machine } from "./live-workspace";
@@ -6,6 +6,7 @@ import { Dialog } from "./Dialog";
 import { useSort, byName } from "./sort";
 import { failure, type Notify } from "./Toast";
 import { confirmAction } from "./Confirm";
+import { Fold } from "./Fold";
 
 export type Plate = { quantity?: number | null; coverage?: {assetId: string; hash: string}[]; index: number; minutes: number; grams: number; filaments: { id: number; type: string; color: string; grams?: number | null }[] };
 export type LibraryFile = { filamentSupplies?: Record<string, string>; scope?: "playcase" | "personal"; printer?: string | null; preferredPrinter?: string | null; printerSource?: string | null; preferredPrinterName?: string | null; id: string; name: string; size: number; plates: Plate[]; created: string; updated?: string | null; replaced?: boolean };
@@ -227,8 +228,10 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
   useEffect(() => {
     if (plate) setMapping(defaultMapping(plate, machine.trays));
   }, [fileId, plateIndex, plate]);
-  if (!files) return null;
-  if (!files.length && !last) return <><p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p></>;
+  // In printer details this folds, with a line on what's ready; in the order print dialog (initialFile) it's the whole form.
+  const fold = (summary: string, body: ReactNode) => initialFile ? <div className="start-print">{body}</div> : <Fold title={fileId === LAST ? "Print again" : "Start a print"} summary={summary}><div className="start-print">{body}</div></Fold>;
+  if (!files) return fold("Loading…", null);
+  if (!files.length && !last) return fold("No sliced files yet", <p className="detail-note">Upload sliced files in Printers → Print library to start prints here.</p>);
   // The server looks at the bed with the camera first; `anyway` skips that once you've checked yourself.
   const start = async (anyway = false) => {
     if (!file || !plate) return;
@@ -252,9 +255,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
       setSending(false);
     }
   };
-  return (
-    <div className="start-print">
-      {!initialFile && <h3>{fileId === LAST ? "Print again" : "Start a print"}</h3>}
+  return fold(file && fileId !== LAST ? `${file.name} chosen` : `Ready${last ? ` · last: ${last.name}` : ""}`, <>
       <label>
         File
         <select value={fileId} onChange={(e) => { setFileId(e.target.value); setPlateIndex(1); }}>
@@ -300,8 +301,7 @@ function StartPrint({ machine, notify, initialFile = "", onSent }: { machine: Ma
           {held && <BedHeld reason={held} busy={sending} onAnyway={() => start(true)} />}
         </>
       )}
-    </div>
-  );
+    </>);
 }
 
 export function PrintUploadButton({ notify, onUploaded, label = "Upload .3mf", scope = "playcase" }: { notify: Notify; onUploaded?: () => void; label?: string; scope?: "playcase" | "personal" }) {

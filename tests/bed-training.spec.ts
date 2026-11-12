@@ -42,7 +42,7 @@ test('held printer can be taught using the displayed photo and explicit confirma
  await page.goto('https://spoolside.shelbyklein.com/overview');
  await page.getByRole('button',{name:/AMS 3/}).first().click();
  const details=page.getByRole('dialog',{name:'AMS 3 details'});await expect(details).toBeVisible();
- await details.getByRole('button',{name:'Teach bed check'}).click();await expect(dialog).toBeVisible();await expect(details).toHaveCount(0);
+ await details.getByRole('button',{name:/^Bed check/}).click();await details.getByRole('button',{name:'Teach bed check'}).click();await expect(dialog).toBeVisible();await expect(details).toHaveCount(0);
  // A printer marked with the older box opens with its four corners, ready to adjust.
  await expect(dialog.getByLabel('Marked plate area')).toBeVisible();await expect(dialog.getByLabel(/^Corner \d$/)).toHaveCount(4);
  await dialog.getByRole('button',{name:'Close',exact:true}).click();

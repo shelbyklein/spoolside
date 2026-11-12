@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, Check, ClipboardCheck, Eye, Play, Square, X, NotebookPen, Trash2, Plus } from "lucide-react";
 import { failure, type Notify } from "./Toast";
 import { confirmAction } from "./Confirm";
+import { Fold } from "./Fold";
 
 type Check = { at: number; verdict: "ok" | "problem" | "unsure" | "dark" | "error" | "saved"; reason?: string; file?: string; final?: string | null; reference?: boolean };
 export type Watch = {
@@ -308,7 +309,7 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
   };
   return (
     <section className="recent-prints" aria-label="Recent prints">
-      <h3>Recent prints</h3>
+      <Fold title="Recent prints" summary={`${mine[0].outcome === "success" ? "Last: " : "Last failed: "}${jobName(mine[0].job)}${mine[0].ended ? ` · ${ago(mine[0].ended)}` : ""}`}>
       <ul>
         {mine.map((w) => (
           <li key={w.id} className={w.outcome || ""}>
@@ -329,6 +330,7 @@ export function RecentPrints({ printer, recent, refresh, notify }: { printer: st
           </li>
         ))}
       </ul>
+      </Fold>
     </section>
   );
 }

@@ -81,6 +81,7 @@ test('bed checks can be tuned: warnings after your own start, a held bed checked
   // Each printer's details: go by what's visible, and the notes on what's fine, editable.
   await page.getByRole('button', { name: /AMS 3, Ready/ }).click();
   const bed = page.getByRole('region', { name: 'AMS 3 bed check' });
+  await bed.getByRole('button', { name: /^Bed check/ }).click(); // the section is folded until opened
   await expect(bed).toContainText("Hasn't been shown AMS 3's empty bed yet.");
   await expect(bed.getByRole('button', { name: 'Teach bed check' })).toBeVisible();
   await expect(bed.getByRole('checkbox', { name: /Go by what's visible/ })).toBeChecked();
