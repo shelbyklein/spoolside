@@ -147,7 +147,7 @@ export function makeFarm(now = Date.now()) {
   const L = (name: string) => library.find((x) => x.name === name)!;
 
   // Orders: ready to print, missing a file, under review, printed, printing, on hold, a two-item order, and a shipped one.
-  type Group = { key: string; label: string; done: boolean; activity?: string; pieces: { assetId: string; name: string; needed: number; done: number; plates: { fileId: string; fileName: string; plate: number }[] }[]; next: { assetId: string; name: string; fileId: string; fileName: string; plate: number } | null };
+  type Group = { key: string; label: string; kind?: 'item'; done: boolean; activity?: string; pieces: { assetId: string; name: string; needed: number; done: number; plates: { fileId: string; fileName: string; plate: number }[] }[]; next: { assetId: string; name: string; fileId: string; fileName: string; plate: number } | null };
   const piece = (assetName: string, file: string | null, needed = 1, done = 0) => ({ assetId: A(assetName).id, name: assetName, needed, done, plates: file ? [{ fileId: L(file).id, fileName: file, plate: 1 }] : [] });
   const group = (key: string, label: string, pieces: Group['pieces'], activity?: string): Group => {
     const todo = pieces.find((p) => p.done < p.needed && p.plates.length);
@@ -163,7 +163,7 @@ export function makeFarm(now = Date.now()) {
   const p5104 = [group('0:case', 'case', [piece('iPhone 15 Pro Case', 'iPhone 15 Pro Case', 1, 1)]), group('0:ds', 'DS faceplate', [piece('DS – Top', 'DS Faceplate Top and Bottom', 1, 1), piece('DS – Bottom', 'DS Faceplate Top and Bottom', 1, 1)])];
   const p5105 = [group('0:case', 'case', [piece('iPhone 15 Pro Case', 'iPhone 15 Pro Case')], 'Printing now'), group('0:ds', 'DS faceplate', [piece('DS – Top', 'DS Faceplate Top and Bottom'), piece('DS – Bottom', 'DS Faceplate Top and Bottom')])];
   const p5106 = [group('0:case', 'case', [piece('Pixel 9 Pro XL Case', null)])];
-  const p5107 = [group('0:case', 'case', [piece('iPhone 16 Pro Max Case (Rounded)', 'iPhone 16 Pro Max Case (Rounded) - case (TPU) - final fit revision', 2, 1)]), group('1:classic', 'Classic faceplate', [piece('Classic Plus – Top (Ridges)', 'Classic Plus Faceplate - two plates'), piece('Classic Plus – Bottom', 'Classic Plus Faceplate - two plates')])];
+  const p5107 = [{ key: '1:item', label: 'Replacement Parts - Classic', kind: 'item' as const, done: false, pieces: [{ assetId: 'item:i2', name: 'Replacement Parts - Classic', needed: 1, done: 0, plates: [] }], next: null }, group('0:case', 'case', [piece('iPhone 16 Pro Max Case (Rounded)', 'iPhone 16 Pro Max Case (Rounded) - case (TPU) - final fit revision', 2, 1)]), group('1:classic', 'Classic faceplate', [piece('Classic Plus – Top (Ridges)', 'Classic Plus Faceplate - two plates'), piece('Classic Plus – Bottom', 'Classic Plus Faceplate - two plates')])];
   const orders = [
     order(5101, 9, [item('iPhone 15', 'Red', 'Handheld')], p5101, { status: 'ready', reasons: [], required: 3 }),
     order(5102, 8, [item('iPhone 16 Pro Max', 'Black', 'DS')], p5102, { status: 'missing', reasons: ['No sliced plate for iPhone 16 Pro Max Case'], required: 1 }, { note: 'Gift wrap if possible' }),
@@ -180,7 +180,7 @@ export function makeFarm(now = Date.now()) {
     q('o-5102', p5102[0], 'No sliced plate linked', ['iPhone 16 Pro Max Case']),
     q('o-5103', null, 'Review order requirements'),
     q('o-5105', p5105[0], 'Printing now'), q('o-5105', p5105[1]),
-    q('o-5107', p5107[0]), q('o-5107', p5107[1]),
+    q('o-5107', p5107[1]), q('o-5107', p5107[2]),
   ];
   const workspace = { revision: 7, orders, jobs: [], spools: [], machines, printQueue, lastSync: iso(4 * MIN), syncError: null };
 

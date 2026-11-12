@@ -12,12 +12,13 @@ export function printQueue(orders, taken = new Set()) {
     if (String(order.commercial).toLowerCase() !== 'processing' || order.assembled) continue;
     const review = order.refundReview || order.sourceReview || order.printReadiness?.status === 'review';
     for (const group of order.printPlan || []) {
-      if (group.done) continue;
+      // Hand-assembled items are ticked off on the order, not printed.
+      if (group.done || group.kind === 'item') continue;
       const busy = group.pieces.some(p => p.done < p.needed && taken.has(`${order.id}:${p.assetId}`));
       const missing = group.pieces.filter(p => p.done < p.needed && !p.plates.length).map(p => p.name);
       rows.push({ orderId: order.id, group, blocked: review ? 'Review order requirements' : busy ? 'Printing now' : !group.next ? 'No sliced plate linked' : null, missing });
     }
-    if (review && !(order.printPlan || []).some(g => !g.done))
+    if (review && !(order.printPlan || []).some(g => !g.done && g.kind !== 'item'))
       rows.push({ orderId: order.id, group: null, blocked: 'Review order requirements', missing: [] });
   }
   return rows;

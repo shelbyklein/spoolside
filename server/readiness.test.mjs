@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {orderReadiness} from './readiness.mjs';
+import {orderReadiness, orderPrintPlan} from './readiness.mjs';
+import {printQueue} from './printqueue.mjs';
 import {Library} from './library.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -24,7 +25,8 @@ test('parts are printed ahead, so they never hold an order back',()=>{
  assert.equal(orderReadiness(order,assets,[assembly],noParts).required,2);
 });
 test('unknown, ambiguous, and additional order lines cannot report ready',()=>{
- assert.equal(orderReadiness({...order,items:[...order.items,{name:'Unknown'}]},assets,[assembly],files).status,'review');
+ // A PlayCase kit with no phone is a data problem; other products are put together by hand (see below).
+ assert.equal(orderReadiness({...order,items:[...order.items,{name:'PlayCase 3'}]},assets,[assembly],files).status,'review');
  assert.equal(orderReadiness(order,[...assets,{...assets[0],id:'duplicate'}],[assembly],files).status,'review');
  assert.equal(orderReadiness({items:[{name:'Kit',phone:'iPhone 13'}]},assets,[assembly],files).status,'review');
  assert.equal(orderReadiness({...order,items:[{...order.items[0],phone:'iPhone 13 Pro Max'}]},assets,[assembly],files).status,'review');
@@ -68,4 +70,16 @@ test('bought parts (magnets) in an assembly are never order pieces to print',()=
  const withMagnets={...assembly,components:[...assembly.components,{assetId:'magnet',quantity:12}]};
  const before=orderReadiness(order,assets,[assembly],files),after=orderReadiness(order,[...assets,magnet],[withMagnets],files);
  assert.deepEqual(after,before);assert.equal(after.required,2);
+});
+
+test('a product that is not a phone kit, like a baggie of replacement parts, is ticked off by hand and never printed',()=>{
+ const withBag={...order,items:[...order.items,{id:'bag',name:'Replacement Parts - Classic',quantity:1}]};
+ assert.equal(orderReadiness(withBag,assets,[assembly],files).status,'ready','it needs no sliced file and no review');
+ const plan=orderPrintPlan(withBag,assets,[assembly],files);
+ const bag=plan.find(g=>g.kind==='item');
+ assert.deepEqual({label:bag.label,assetId:bag.pieces[0].assetId,done:bag.done,next:bag.next},{label:'Replacement Parts - Classic',assetId:'item:bag',done:false,next:null});
+ assert.equal(orderPrintPlan(withBag,assets,[assembly],files,{'item:bag':1}).find(g=>g.kind==='item').done,true,'ticking it off marks it done');
+ const queued=printQueue([{id:'o',number:'#1',commercial:'processing',items:withBag.items,printPlan:plan,printReadiness:{status:'ready'}}]);
+ assert.ok(queued.every(r=>r.group?.kind!=='item'),'it never enters the print queue');
+ assert.ok(queued.length>0,'the case and faceplate still do');
 });

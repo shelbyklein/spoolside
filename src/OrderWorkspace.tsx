@@ -21,7 +21,7 @@ export function ShipButton({ order }: { order: Order }) {
   if (!shipReady(order))
     return (
       <button className="ship-button pending" disabled title="Print all required items first" aria-label={`Ship ${order.number}: print all required items first`}>
-        <Truck size={14} /> Ship once printed
+        <Truck size={14} /> {order.printPlan?.some((g) => g.kind === "item") ? "Ship once done" : "Ship once printed"}
       </button>
     );
   return (
@@ -43,7 +43,9 @@ export function orderProgress(order: Order) {
   if (status === "on-hold") return "On hold";
   if (order.sourceReview || order.refundReview || order.printReadiness?.status === "review") return "Needs review";
   const plan = order.printPlan || [];
-  if (plan.length) return plan.every(g => g.done) ? "All printed" : `${plan.filter(g => g.done).length} of ${plan.length} printed`;
+  // "printed" while everything is a print; "done" once something on the order is put together by hand.
+  const word = plan.some(g => g.kind === "item") ? "done" : "printed";
+  if (plan.length) return plan.every(g => g.done) ? `All ${word}` : `${plan.filter(g => g.done).length} of ${plan.length} ${word}`;
   return order.printReadiness?.status === "missing" ? "Files missing" : "Not started";
 }
 
