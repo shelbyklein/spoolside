@@ -71,10 +71,12 @@ test('order rows print their case and faceplates on the best-matching printer', 
   expect(posts[1]).toEqual(['/api/orders/o1/print', { group: '0:case', printer: 'red', plate: 'f-case:1', useAms: true, amsMapping: [1], bedLevelling: true, bedClear: true }]);
   posts.splice(0, 1);
   await page.getByRole('navigation').getByRole('button', { name: 'PlayCase', exact: true }).click();
+  await page.getByRole('button', { name: 'Open order #10181' }).click(); // phone rows start closed
   await row.getByRole('checkbox', { name: 'Classic faceplate printed' }).click();
   await expect.poll(() => posts[1]).toEqual(['/api/orders/o1/pieces', { assetId: 'ct', done: 0 }]);
   plan.forEach(g => { g.done = true; g.next = null; g.pieces.forEach(p => p.done = p.needed); });
   await page.reload();
+  await page.getByRole('button', { name: 'Open order #10181' }).click(); // phone rows start closed
   await expect(page.getByRole('link', { name: 'Ship #10181 in Pirate Ship' })).toBeVisible();
   await expect(row.getByRole('checkbox', { name: 'Case printed' })).toBeChecked();
   const column = await row.locator('.order-fulfillment').boundingBox();
@@ -118,10 +120,13 @@ test('a free printer offers the next order piece; Not now and the automatic prin
   await page.goto('https://spoolside.shelbyklein.com/overview');
   const card = page.getByRole('article', { name: 'AMS 3 is free' });
   await expect(card).toContainText('Print the iPhone 12 Case for #10181 · Red, slot 2');
+  // The Overview's order is one line that opens the order; the checklist and "Printer available" are on the Orders page.
+  await page.getByRole('region',{name:'PlayCase orders overview'}).getByRole('link',{name:/#10181/}).click();
   const orderRow=page.getByRole('article',{name:'Order #10181'});
   await expect(orderRow.getByText('Printer available',{exact:true})).toBeVisible();
   await expect(orderRow.getByLabel('Files ready',{exact:true})).toHaveText('Files');
   await orderRow.screenshot({path:'handoff/spoolside-order-availability-desktop.png'});
+  await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();
   await expect(page.getByRole('article', { name: 'AMS 2 is waiting on its bed' })).toContainText('A grey case is still on the plate.');
   await page.setViewportSize({width:428,height:926});
   const home=page.getByRole('region',{name:'Spoolside home'});

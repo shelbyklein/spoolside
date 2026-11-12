@@ -35,7 +35,7 @@ import "@fontsource/dm-sans/latin-600.css";
 import "@fontsource/manrope/latin-600.css";
 import "@fontsource/manrope/latin-700.css";
 import "./style.css";
-import { Orders, initialOrders, OrderRow } from "./OrderWorkspace";
+import { Orders, initialOrders, OrderLine } from "./OrderWorkspace";
 import { type Job, type Order, productionAllowed, isOpenOrder } from "./order-model";
 import { useLiveWorkspace, type Machine, type Spool } from "./live-workspace";
 import { useSort, byName } from "./sort";
@@ -768,7 +768,7 @@ function App() {
               </div>
               <div className="orders-list">
                 {placeholder ? <Skeleton rows={3} still={placeholder === "unavailable"} tall /> : overviewOrders.length === 0 ? <div className="empty"><p>{remote && !live.data.lastSync ? "Waiting for store sync." : "No open orders."}</p></div> : nextOrders.map(order => {
-                  return <OrderRow key={order.id} order={order} printerAvailable={availableOrders.includes(order.id)} onChange={updateOrder} onPrint={printOrder} onTick={tickPiece} />;
+                  return <OrderLine key={order.id} order={order} onOpen={(id) => { setFocusedOrder(id); setTab("Orders"); }} />;
                 })}
               </div>
               {overviewOrders.length > 10 && <p className="overview-order-more">Showing the 10 oldest of {overviewOrders.length} open orders.</p>}
