@@ -38,7 +38,10 @@ function FloatingCases({ orders, openOrder }: { orders: Order[]; openOrder: (id:
     let last = performance.now();
     const tick = () => {
       const now = performance.now(), dt = Math.min((now-last)/1000,.06); last=now;
-      if (document.hidden || reduce.matches) return;
+      // Reading reduce.matches here can swallow its change event (Chromium only reports a change it hasn't already
+      // returned), so the tick puts the cases back itself when reduced motion turns on.
+      if (reduce.matches) { if (waves.length || boats.some(b => b.x || b.y || b.vx || b.vy)) preference(); return; }
+      if (document.hidden) return;
       const pool = surface.getBoundingClientRect(), speed = Math.min(pool.width,pool.height)*.4675;
       while (waves.length && now-waves[0].at > 3000) waves.shift();
       for (const boat of boats) {

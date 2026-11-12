@@ -46,11 +46,12 @@ test('hosted mobile uses active source orders and server saves without browser s
   expect((await first.boundingBox())!.height).toBeLessThan(80);
   await expect(first.locator('.production-stage')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  // Phones: contents below the order number, Ship below the contents.
+  // Phones: contents below the order number (shown once, in the header that closes the row), Ship below the contents.
   const rowLayout=async (first: import('@playwright/test').Locator)=>{
     const content=await first.locator('.order-content-readiness').boundingBox();
     const ship=await first.locator('.ship-slot').boundingBox();
-    const id=await first.locator('.order-id').boundingBox();
+    const id=await page.getByRole('button',{name:'Close order #1'}).boundingBox();
+    await expect(first.locator('.order-id strong')).toBeHidden();
     expect(content!.y).toBeGreaterThan(id!.y);
     expect(ship!.y).toBeGreaterThan(content!.y);
     await expect(first.locator('.production-stage')).toHaveCount(0);

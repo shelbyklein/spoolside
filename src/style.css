@@ -2869,6 +2869,9 @@ polyline.plate-corners-line { fill: none; stroke-dasharray: 6 4; }
   .order-line .ship-button { margin: 0 14px 10px auto; }
 }
 @media (min-width: 761px) { .order-collapse { display: none; } }
+/* An open phone row already shows its number in the header above, so the row's own number and date go (the cost stays). */
+.order-open .order-id > strong, .order-open .order-id > small { display: none; }
+.order-open .order-id:not(:has(.order-cost)) { display: none; }
 
 /* Sliced prints in folding sections (D1): a header per part type; cards in a row stretch, with Print and Link asset
    pinned to the bottom so they share one top edge. */
