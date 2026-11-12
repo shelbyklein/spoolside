@@ -50,10 +50,12 @@ export function orderProgress(order: Order) {
 function OrderSummary({ order }: { order: Order }) {
   const item = order.items[0];
   const dot = swatch(item?.colorway);
+  // Every item, so nothing on the order is hidden behind "+1 more".
+  const items = order.items.map((i) => `${itemLine(i)}${i.quantity > 1 ? ` ×${i.quantity}` : ""}`).join(" + ");
   return (
     <>
       <strong className="order-line-number">{order.number}</strong>
-      <span className="order-line-item">{dot && <span className="color-dot" style={{ background: dot }} />}<span>{item ? itemLine(item) : "No line items"}</span></span>
+      <span className="order-line-item">{dot && <span className="color-dot" style={{ background: dot }} />}<span>{item ? items : "No line items"}</span></span>
       <span className={`order-line-progress${/hold|review/i.test(orderProgress(order)) ? " attention" : ""}`}>{orderProgress(order)}</span>
     </>
   );

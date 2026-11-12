@@ -171,7 +171,7 @@ export function makeFarm(now = Date.now()) {
     order(5104, 6, [item('iPhone 15 Pro', 'Green', 'DS')], p5104, { status: 'ready', reasons: [], required: 3 }),
     order(5105, 5, [item('iPhone 15 Pro', 'Purple', 'DS')], p5105, { status: 'ready', reasons: [], required: 3 }),
     order(5106, 4, [item('Pixel 9 Pro XL', 'Orange', 'Handheld')], p5106, { status: 'missing', reasons: ['No sliced plate for Pixel 9 Pro XL Case'], required: 1 }, { commercial: 'on-hold' }),
-    order(5107, 2, [item('iPhone 16 Pro Max', 'Teal', 'Classic Plus', 2), { ...item('iPhone 16 Pro Max', 'Teal', 'Classic Plus'), id: 'i2', name: 'Spare faceplate set, Classic Plus with ridges' }], p5107, { status: 'ready', reasons: [], required: 4 }),
+    order(5107, 2, [item('iPhone 16 Pro Max', 'Teal', 'Classic Plus', 2), { ...item('iPhone 16 Pro Max', 'Teal', 'Classic Plus'), id: 'i2', name: 'Replacement Parts - Classic', variant: 'No variant details', phone: '', colorway: '', image: undefined as unknown as string, parts: [] }], p5107, { status: 'ready', reasons: [], required: 4 }),
     order(5108, 12, [item('iPhone 12', 'Yellow', 'Handheld')], [], null, { commercial: 'completed', shipped: true, tracking: '9400 0000 0000 0000 0000 00' }),
   ];
   const q = (orderId: string, g: Group | null, blocked: string | null = null, missing: string[] = []) => ({ orderId, group: g, blocked, missing });

@@ -17,29 +17,37 @@ export function ItemThumb({ src, alt, size = 52 }: { src?: string; alt: string; 
 
 export function itemLine(item: OrderItem) {
   const bits = [item.phone, item.colorway].filter(Boolean);
-  return bits.length ? bits.join(" · ") : item.variant.replace("Sample variant · ", "");
+  if (bits.length) return bits.join(" · ");
+  // Items without a phone or colour (replacement parts, add-ons) are named by the product, plus any real variant.
+  const variant = item.variant.replace("Sample variant · ", "");
+  return /^No variant details$/i.test(variant) || !variant ? item.name : `${item.name} · ${variant}`;
 }
 
-// Compact "what's in this order" summary for list rows.
+// Every line item in the order, one line each: what it is, its parts, and its quantity when more than one.
 export function OrderContents({ order }: { order: Order }) {
-  const item = order.items[0];
-  if (!item) return <span className="order-contents">No line items</span>;
-  const units = order.items.reduce((n, i) => n + i.quantity, 0);
+  const first = order.items[0];
+  if (!first) return <span className="order-contents">No line items</span>;
+  const thumb = order.items.find((i) => i.image) || first;
   return (
     <span className="order-contents">
-      <ItemThumb src={item.image} alt={`${item.colorway || ""} ${item.name}`.trim()} />
-      <span className="order-contents-text">
-        <strong>
-          {swatch(item.colorway) && <span className="color-dot" style={{ background: swatch(item.colorway) }} />}
-          {itemLine(item)}
-        </strong>
-        <span className="part-chips">
-          {(item.parts || []).map((p) => (
-            <span key={p.name}>{p.name.replace(/ Faceplate$/, "")}</span>
-          ))}
-          {units > 1 && <span>{units} units</span>}
-          {order.items.length > 1 && <span>+{order.items.length - 1} more</span>}
-        </span>
+      <ItemThumb src={thumb.image} alt={`${thumb.colorway || ""} ${thumb.name}`.trim()} />
+      <span className="order-contents-items">
+        {order.items.map((item) => (
+          <span key={item.id} className="order-contents-text">
+            <strong>
+              {swatch(item.colorway) && <span className="color-dot" style={{ background: swatch(item.colorway) }} />}
+              {itemLine(item)}
+            </strong>
+            {((item.parts || []).length > 0 || item.quantity > 1) && (
+              <span className="part-chips">
+                {(item.parts || []).map((p) => (
+                  <span key={p.name}>{p.name.replace(/ Faceplate$/, "")}</span>
+                ))}
+                {item.quantity > 1 && <span>×{item.quantity}</span>}
+              </span>
+            )}
+          </span>
+        ))}
       </span>
     </span>
   );
