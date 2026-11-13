@@ -263,7 +263,7 @@ export class Assets {
   }
   saveAssembly(input, id = randomUUID()) {
     const name=text(input.name,100),sku=text(input.sku,100),type=input.type;
-    if(!name || !["Case","Faceplate","Sleeve"].includes(type)) throw Error("Assembly name and type are required");
+    if(!name || !["Case","Faceplate","Sleeve","Kit"].includes(type)) throw Error("Assembly name and type are required");
     if(!Array.isArray(input.components) || input.components.length>100) throw Error("Select assembly components");
     const seen=new Set();
     const components=input.components.map(c=>{

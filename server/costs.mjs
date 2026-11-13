@@ -86,16 +86,27 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
     return summarize(assembly.components.map(partLine).filter(Boolean), { id: assembly.id, name: assembly.name });
   }
 
+  // A kit product (a baggie of replacement parts) is costed from the Kit assembly with the same name.
+  const key = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const kitFor = (item) => assemblies.find((a) => a.type === "Kit" && ((a.sku && a.sku === item.sku) || key(a.name) === key(item.name)));
+
   // An order: each line's case (its case assembly when one exists, else the case print) and faceplate
-  // assemblies, times quantity, plus packaging chosen from what's in the order: one box, and a bubble
-  // pouch for every case and every faceplate.
+  // assemblies, times quantity, plus packaging chosen from what's in the order: one box, a bubble
+  // pouch for every case and every faceplate, and a dime bag for every kit.
   function orderCost(order) {
     const lines = [], missing = [];
-    let units = 0, pieces = 0; // pieces: cases and faceplates, each packed in its own bubble pouch
+    let units = 0, pieces = 0, bags = 0; // pieces: cases and faceplates, each packed in its own bubble pouch
     for (const item of order.items || []) {
       const qty = Math.max(1, Number(item.quantity) || 1);
       units += qty;
-      if (!item.phone) { missing.push(`${item.name}: phone model unknown`); continue; }
+      if (!item.phone) {
+        const kit = kitFor(item);
+        if (!kit) { missing.push(`${item.name}: no Kit assembly with this name`); continue; }
+        const k = assemblyCost(kit);
+        bags += qty;
+        lines.push({ label: kit.name, quantity: qty, unit: k.total, cost: round(k.total * qty), complete: k.complete, missing: k.missing });
+        continue;
+      }
       pieces += qty * (1 + (item.parts || []).length);
       const cases = caseAssets(item.phone, assets);
       if (cases.length !== 1) missing.push(`${item.phone}: case missing or ambiguous`);
@@ -111,14 +122,15 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
         lines.push({ label: matches[0].name + " faceplate", quantity: qty, unit: f.total, cost: round(f.total * qty), complete: f.complete, missing: f.missing });
       }
     }
-    // A single case on its own ships in the small box; anything more in the large one.
+    // A single case (or kit) on its own ships in the small box; anything more in the large one.
     const onlyCase = (order.items || []).length === 1 && units === 1 && !(order.items[0].parts || []).length;
-    const pack = [[onlyCase ? "small" : "large", onlyCase ? "Box (case only)" : "Box", 1], ["pouch", "Bubble pouch", pieces * (settings.pouchesPerPiece ?? 1)]];
-    for (const [key, label, q] of pack) {
+    const alone = order.items?.[0]?.phone ? "case only" : "kit only";
+    const pack = [[onlyCase ? "small" : "large", onlyCase ? `Box (${alone})` : "Box", 1], ["pouch", "Bubble pouch", pieces * (settings.pouchesPerPiece ?? 1)], ["bag", "Dime bag", bags]];
+    for (const [slot, label, q] of pack) {
       if (!q) continue;
-      const id = settings.packaging?.[key], price = id ? supplies.best(id) : null;
+      const id = settings.packaging?.[slot], price = id ? supplies.best(id) : null;
       if (!price) { missing.push(`${label}: no packaging supply priced`); lines.push({ label, quantity: q, cost: null, complete: false }); continue; }
-      lines.push({ label: key === "small" ? `${price.name} (case only)` : price.name, quantity: q, unit: round(price.price), cost: round(price.price * q), complete: true });
+      lines.push({ label: slot === "small" ? `${price.name} (${alone})` : price.name, quantity: q, unit: round(price.price), cost: round(price.price * q), complete: true });
     }
     const priced = lines.filter((l) => l.cost !== null);
     const all = [...missing, ...lines.flatMap((l) => l.missing || [])];
