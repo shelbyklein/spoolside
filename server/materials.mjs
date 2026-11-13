@@ -14,7 +14,7 @@ const UNIT={filament:'g',part:'piece',packaging:'piece'};
 const supply=m=>({...m,kind:m.kind||'filament',unit:m.unit||UNIT[m.kind||'filament'],custom:!!m.custom});
 // Which supply a sliced plate's filament type is printed with, unless a print says otherwise.
 export const DEFAULT_FILAMENT_MAP={'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive'};
-const DEFAULT_SETTINGS={zip:'30360',sort:'fastest',filamentMap:DEFAULT_FILAMENT_MAP,packaging:{small:null,large:null,pouch:null},pouchesPerOrder:1};
+const DEFAULT_SETTINGS={zip:'30360',sort:'fastest',filamentMap:DEFAULT_FILAMENT_MAP,packaging:{small:null,large:null,pouch:null},pouchesPerPiece:1};
 const SOURCES=[...MATERIALS,
  {...MATERIALS[1],url:'https://www.3djake.com/recreus/conductive-filaflex-black?sai=11093',seller:'3DJake'},
  {...MATERIALS[2],url:'https://www.3djake.com/protopasta/electrically-conductive-composite-pla?sai=17573',seller:'3DJake'},
@@ -84,7 +84,8 @@ export class Materials {
   for(const m of MATERIALS)db.prepare('INSERT OR IGNORE INTO material_catalog VALUES (?,?)').run(m.id,JSON.stringify(m));
   db.prepare('INSERT OR IGNORE INTO material_settings VALUES (1,?)').run(JSON.stringify({zip:DEFAULT_SETTINGS.zip,sort:DEFAULT_SETTINGS.sort}));
  }
- settings(){const s=JSON.parse(this.db.prepare('SELECT body FROM material_settings WHERE id=1').get().body);return {...DEFAULT_SETTINGS,...s,filamentMap:{...DEFAULT_FILAMENT_MAP,...s.filamentMap},packaging:{...DEFAULT_SETTINGS.packaging,...s.packaging}};}
+ // pouchesPerOrder was the old per-order count; pouches are now counted per case and per faceplate.
+ settings(){const {pouchesPerOrder,...s}=JSON.parse(this.db.prepare('SELECT body FROM material_settings WHERE id=1').get().body);return {...DEFAULT_SETTINGS,...s,filamentMap:{...DEFAULT_FILAMENT_MAP,...s.filamentMap},packaging:{...DEFAULT_SETTINGS.packaging,...s.packaging}};}
  // Every supply with its ranked offers. `materials` is the original name, kept for older clients.
  list(){const settings=this.settings();const offers=this.db.prepare('SELECT body FROM material_offers').all().map(r=>JSON.parse(r.body));const supplies=this.db.prepare('SELECT body FROM material_catalog').all().map(r=>{const m=supply(JSON.parse(r.body));return {...m,offers:rankedOffers(offers.filter(o=>o.materialId===m.id),settings)};});return {settings,materials:supplies,supplies};}
  // The original Filament view: filament supplies only, in the original shape.
@@ -101,8 +102,8 @@ export class Materials {
   if(!map||typeof map!=='object'||Object.keys(map).length>30||Object.entries(map).some(([k,v])=>!/^[A-Za-z0-9 +._-]{1,30}$/.test(k)||(v!==null&&!ids.has(v))))throw Error('Choose a supply for each filament type');
   const pack={...cur.packaging,...(input.packaging||{})};
   if(Object.keys(pack).some(k=>!['small','large','pouch'].includes(k))||Object.values(pack).some(v=>v!==null&&!ids.has(v)))throw Error('Choose packaging supplies');
-  const pouches=Number(next.pouchesPerOrder);if(!Number.isInteger(pouches)||pouches<0||pouches>20)throw Error('Enter bubble pouches per order (0-20)');
-  this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({zip:next.zip,sort:next.sort,filamentMap:Object.fromEntries(Object.entries(map).filter(([,v])=>v)),packaging:pack,pouchesPerOrder:pouches}));return this.list();}
+  const pouches=Number(next.pouchesPerPiece);if(!Number.isInteger(pouches)||pouches<0||pouches>20)throw Error('Enter bubble pouches per piece (0-20)');
+  this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({zip:next.zip,sort:next.sort,filamentMap:Object.fromEntries(Object.entries(map).filter(([,v])=>v)),packaging:pack,pouchesPerPiece:pouches}));return this.list();}
  // Supplies added by hand (parts, packaging, or another filament). Built-in filaments can't be removed.
  addSupply(input){const name=text(input.name,80),kind=input.kind,usage=text(input.usage);if(!name||!KINDS.includes(kind))throw Error('Enter a supply name and choose Filament, Parts or Packaging');
   if(this.list().supplies.some(m=>m.name.toLowerCase()===name.toLowerCase()))throw Error('A supply with that name already exists');

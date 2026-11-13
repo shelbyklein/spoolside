@@ -35,7 +35,7 @@ const files = [
 ];
 const prices = { "bambu-tpu-ams": 0.024, "proto-conductive": 0.09, flex: 0.1098, mag: 0.045, small: 0.5, large: 0.88, pouch: 0.11 };
 const supplies = (over = {}) => ({
-  settings: { filamentMap: { "TPU-AMS": "bambu-tpu-ams", PLA: "proto-conductive" }, packaging: { small: "small", large: "large", pouch: "pouch" }, pouchesPerOrder: 1, ...over },
+  settings: { filamentMap: { "TPU-AMS": "bambu-tpu-ams", PLA: "proto-conductive" }, packaging: { small: "small", large: "large", pouch: "pouch" }, pouchesPerPiece: 1, ...over },
   best: (id) => (prices[id] === undefined ? null : { price: prices[id], name: id, unit: "x", delivered: false }),
 });
 const handheld = { id: "hh", name: "Handheld", type: "Faceplate", components: [{ assetId: "top", quantity: 1 }, { assetId: "bottom", quantity: 1 }, { assetId: "bridge", quantity: 1 }, { assetId: "magnet", quantity: 12 }] };
@@ -82,11 +82,15 @@ test("order cost: case + faceplate assemblies + packaging chosen by what's in th
   near(caseOnly.total, 50 * 0.024 + 0.5 + 0.11);
   assert.deepEqual(caseOnly.lines.slice(1).map((l) => l.label), ["small (case only)", "pouch"]);
   const kit = make().orderCost({ items: [{ name: "Kit", phone: "iPhone 16 Pro", quantity: 1, parts: [{ name: "Handheld Faceplate" }] }] });
-  near(kit.total, 1.2 + 1.35 + 0.88 + 0.11); assert.equal(kit.complete, true);
+  near(kit.total, 1.2 + 1.35 + 0.88 + 2 * 0.11); // a pouch for the case and one for the faceplate assert.equal(kit.complete, true);
   const twoCases = make().orderCost({ items: [{ name: "Case only", phone: "iPhone 16 Pro", quantity: 2 }] });
-  near(twoCases.total, 2 * 1.2 + 0.88 + 0.11);
-  const pouches = make({ supplies: supplies({ pouchesPerOrder: 2 }) }).orderCost({ items: [{ name: "Case only", phone: "iPhone 16 Pro", quantity: 1 }] });
+  near(twoCases.total, 2 * 1.2 + 0.88 + 2 * 0.11);
+  const pouches = make({ supplies: supplies({ pouchesPerPiece: 2 }) }).orderCost({ items: [{ name: "Case only", phone: "iPhone 16 Pro", quantity: 1 }] });
   near(pouches.total, 1.2 + 0.5 + 0.22);
+  const twoKits = make().orderCost({ items: [{ name: "Kit", phone: "iPhone 16 Pro", quantity: 2, parts: [{ name: "Handheld Faceplate" }] }] });
+  assert.equal(twoKits.lines.find((l) => l.label === "pouch").quantity, 4);
+  const noPouch = make({ supplies: supplies({ pouchesPerPiece: 0 }) }).orderCost({ items: [{ name: "Case only", phone: "iPhone 16 Pro", quantity: 1 }] });
+  assert.equal(noPouch.lines.some((l) => l.label === "pouch"), false);
   const noBox = make({ supplies: supplies({ packaging: { small: null, large: "large", pouch: "pouch" } }) }).orderCost({ items: [{ name: "Case only", phone: "iPhone 16 Pro", quantity: 1 }] });
   assert.equal(noBox.complete, false); assert.match(noBox.missing.join(), /no packaging supply/);
 });

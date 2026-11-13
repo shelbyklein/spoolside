@@ -87,14 +87,16 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
   }
 
   // An order: each line's case (its case assembly when one exists, else the case print) and faceplate
-  // assemblies, times quantity, plus packaging chosen from what's in the order.
+  // assemblies, times quantity, plus packaging chosen from what's in the order: one box, and a bubble
+  // pouch for every case and every faceplate.
   function orderCost(order) {
     const lines = [], missing = [];
-    let units = 0;
+    let units = 0, pieces = 0; // pieces: cases and faceplates, each packed in its own bubble pouch
     for (const item of order.items || []) {
       const qty = Math.max(1, Number(item.quantity) || 1);
       units += qty;
       if (!item.phone) { missing.push(`${item.name}: phone model unknown`); continue; }
+      pieces += qty * (1 + (item.parts || []).length);
       const cases = caseAssets(item.phone, assets);
       if (cases.length !== 1) missing.push(`${item.phone}: case missing or ambiguous`);
       else {
@@ -111,7 +113,7 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
     }
     // A single case on its own ships in the small box; anything more in the large one.
     const onlyCase = (order.items || []).length === 1 && units === 1 && !(order.items[0].parts || []).length;
-    const pack = [[onlyCase ? "small" : "large", onlyCase ? "Box (case only)" : "Box", 1], ["pouch", "Bubble pouch", settings.pouchesPerOrder ?? 1]];
+    const pack = [[onlyCase ? "small" : "large", onlyCase ? "Box (case only)" : "Box", 1], ["pouch", "Bubble pouch", pieces * (settings.pouchesPerPiece ?? 1)]];
     for (const [key, label, q] of pack) {
       if (!q) continue;
       const id = settings.packaging?.[key], price = id ? supplies.best(id) : null;

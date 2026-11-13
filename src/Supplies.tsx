@@ -9,7 +9,7 @@ import { confirmAction } from "./Confirm";
 // rubber bands) and packaging (boxes, bubble pouches) are priced per piece from offers added by hand.
 export type SupplyOffer = { id: string; seller: string; label: string; url: string; price: number; quantity?: number; grams?: number; available: boolean | null; source: string; checked: string; stale: boolean; unitPrice: number; deliveredUnitPrice: number | null; shipping: number | null; deliverySource?: string | null };
 export type Supply = { id: string; name: string; kind: "filament" | "part" | "packaging"; unit: "g" | "piece"; usage: string; url?: string; custom: boolean; offers: SupplyOffer[] };
-export type SupplySettings = { zip: string; sort: string; filamentMap: Record<string, string>; packaging: { small: string | null; large: string | null; pouch: string | null }; pouchesPerOrder: number };
+export type SupplySettings = { zip: string; sort: string; filamentMap: Record<string, string>; packaging: { small: string | null; large: string | null; pouch: string | null }; pouchesPerPiece: number };
 export type SupplyCatalog = { supplies: Supply[]; settings: SupplySettings };
 
 export const money = (n: number, digits = 2) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, n < 1 ? 3 : 2) }).format(n);
@@ -145,12 +145,12 @@ function PackagingRule({ catalog, busy, save }: { catalog: SupplyCatalog; busy: 
   return (
     <section className="panel material-card costing-settings" aria-label="Packaging per order">
       <h3>Packaging per order</h3>
-      <p className="plate-meta">An order with a single case and nothing else ships in the small box; anything more ships in the large box.</p>
+      <p className="plate-meta">An order with a single case and nothing else ships in the small box; anything more ships in the large box. Every case and faceplate goes in its own bubble pouch.</p>
       <div className="costing-rows">
         {choose("small", "Box for a case on its own")}
         {choose("large", "Box for everything else")}
         {choose("pouch", "Bubble pouch")}
-        <label>Bubble pouches per order<input aria-label="Bubble pouches per order" type="number" min={0} max={20} defaultValue={catalog.settings.pouchesPerOrder} key={catalog.settings.pouchesPerOrder} onBlur={(e) => { const n = Number(e.target.value); if (n !== catalog.settings.pouchesPerOrder) save("/api/supplies/settings", "PATCH", { pouchesPerOrder: n }); }} /></label>
+        <label>Bubble pouches per case or faceplate<input aria-label="Bubble pouches per case or faceplate" type="number" min={0} max={20} defaultValue={catalog.settings.pouchesPerPiece} key={catalog.settings.pouchesPerPiece} onBlur={(e) => { const n = Number(e.target.value); if (n !== catalog.settings.pouchesPerPiece) save("/api/supplies/settings", "PATCH", { pouchesPerPiece: n }); }} /></label>
       </div>
     </section>
   );
