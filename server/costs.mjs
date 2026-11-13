@@ -1,6 +1,6 @@
 // What a product costs to make: printed parts priced by the filament they use, bought parts by the
 // piece, and an order's packaging. Missing prints, mappings or prices are listed, never counted as $0.
-import { caseAssets, lineSize, optionStyle, faceplateAssemblies } from "./readiness.mjs";
+import { caseAssets, lineSize, optionStyle, faceplateAssemblies, BASIC, isBasicCase } from "./readiness.mjs";
 
 const round = (n) => Math.round(n * 10000) / 10000;
 
@@ -99,6 +99,16 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
     for (const item of order.items || []) {
       const qty = Math.max(1, Number(item.quantity) || 1);
       units += qty;
+      const caseCost = (assetsFound, label) => {
+        const caseAssembly = assemblies.find((x) => x.type === "Case" && x.components.some((c) => c.assetId === assetsFound[0].id));
+        const c = caseAssembly ? assemblyCost(caseAssembly) : summarize([partLine({ assetId: assetsFound[0].id, quantity: 1 })]);
+        lines.push({ label, quantity: qty, unit: c.total, cost: round(c.total * qty), complete: c.complete, missing: c.missing });
+      };
+      if (item.basicCase) {   // PlayPad + basic case
+        const bc = caseAssets(item.basicCase, assets, BASIC);
+        if (bc.length !== 1) missing.push(`${item.basicCase}: basic case missing or ambiguous`);
+        else { caseCost(bc, `${item.basicCase} basic case`); pieces += qty; }
+      }
       if (!item.phone) {
         const kit = kitFor(item);
         if (!kit) { missing.push(`${item.name}: no Kit assembly with this name`); continue; }
@@ -108,13 +118,10 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
         continue;
       }
       pieces += qty * (1 + (item.parts || []).length);
-      const cases = caseAssets(item.phone, assets);
-      if (cases.length !== 1) missing.push(`${item.phone}: case missing or ambiguous`);
-      else {
-        const caseAssembly = assemblies.find((x) => x.type === "Case" && x.components.some((c) => c.assetId === cases[0].id));
-        const c = caseAssembly ? assemblyCost(caseAssembly) : summarize([partLine({ assetId: cases[0].id, quantity: 1 })]);
-        lines.push({ label: `${item.phone} case`, quantity: qty, unit: c.total, cost: round(c.total * qty), complete: c.complete, missing: c.missing });
-      }
+      const basic = isBasicCase(item);
+      const cases = caseAssets(item.phone, assets, basic ? BASIC : "");
+      if (cases.length !== 1) missing.push(`${item.phone}: ${basic ? "basic case" : "case"} missing or ambiguous`);
+      else caseCost(cases, `${item.phone} ${basic ? "basic case" : "case"}`);
       for (const option of item.parts || []) {
         const style = optionStyle(option.name), matches = style ? faceplateAssemblies(style, lineSize(item.phone), assets, assemblies) : [];
         if (matches.length !== 1) { missing.push(`${option.name}: assembly missing or ambiguous`); continue; }

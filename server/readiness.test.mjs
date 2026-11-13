@@ -83,3 +83,25 @@ test('a product that is not a phone kit, like a baggie of replacement parts, is 
  assert.ok(queued.every(r=>r.group?.kind!=='item'),'it never enters the print queue');
  assert.ok(queued.length>0,'the case and faceplate still do');
 });
+test('Basic Case lines and PlayPad add-ons print the Basic case, and PlayCase lines keep their own case',()=>{
+ const basic=asset('basic','Case',{phone:'iPhone 13',style:'Basic'});
+ const all=[...assets,basic];
+ const cover=[{plates:[{coverage:all.map(a=>({assetId:a.id,hash:a.hash}))}]}];
+ // a PlayCase kit for the same phone still finds exactly one (PlayCase) case
+ assert.equal(orderReadiness(order,all,[assembly],cover).status,'ready');
+ assert.deepEqual(orderPrintPlan(order,all,[assembly],cover).map(g=>g.pieces[0].assetId),['case','top']);
+ // standalone Basic Case: just the basic case, no faceplate requirement
+ const bc={items:[{id:'1',name:'Basic Case',phone:'iPhone 13',quantity:2}]};
+ assert.equal(orderReadiness(bc,all,[assembly],cover).status,'ready');
+ const plan=orderPrintPlan(bc,all,[assembly],cover);
+ assert.deepEqual(plan.map(g=>[g.label,g.pieces[0].assetId,g.pieces[0].needed]),[['basic case','basic',2]]);
+ // PlayPad + basic case: the pad is a hand item, the case is printed
+ const pp={items:[{id:'2',name:'PlayPad',phone:'',basicCase:'iPhone 13',quantity:1}]};
+ assert.equal(orderReadiness(pp,all,[assembly],cover).status,'ready');
+ assert.deepEqual(orderPrintPlan(pp,all,[assembly],cover).map(g=>g.label),['basic case','PlayPad']);
+ // no basic case built for that phone: needs review, never a PlayCase case instead
+ assert.equal(orderReadiness({items:[{name:'Basic Case',phone:'iPhone 12'}]},all,[assembly],cover).status,'review');
+ assert.equal(orderReadiness({items:[{name:'PlayPad',basicCase:'iPhone 12'}]},all,[assembly],cover).status,'review');
+ // without the Basic asset, a Basic Case line must not fall back to the PlayCase case
+ assert.equal(orderReadiness(bc,assets,[assembly],files).status,'review');
+});

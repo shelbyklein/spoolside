@@ -45,7 +45,10 @@ const productImage = (catalog, name, color) => {
 };
 export function itemDetails(item, catalog = {}) {
   const fields = variantFields(item.meta_data);
-  const colorway = fields.get("Colorway") || "";
+  // PlayCase and Basic Case forms say "Colorway"; the PlayPad form says "Color".
+  const colorway = fields.get("Colorway") || fields.get("Color") || "";
+  // PlayPad "Add a basic case": "iPhone 16 Pro (+$6.99)", or the "No case, thanks" placeholder.
+  const addCase = (fields.get("Add a basic case") || "").replace(/\s*\(\+?\$[\d.,]+\)\s*$/, "").trim();
   const options = (fields.get("Options") || "").split(",").map((o) => o.trim()).filter(Boolean);
   const parts = options.map((name) => ({ name, image: productImage(catalog, name, colorway) }));
   // Prefer a photo in the ordered colorway over the store's generic product photo.
@@ -57,6 +60,7 @@ export function itemDetails(item, catalog = {}) {
   return {
     phone: fields.get("Phone model") || fields.get("Phone") || "",
     colorway,
+    basicCase: addCase && !/^no case/i.test(addCase) ? addCase : "",
     image,
     parts,
   };

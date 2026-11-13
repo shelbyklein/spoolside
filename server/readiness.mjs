@@ -2,7 +2,10 @@ const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, ''
 // What an order needs printed, grouped the way it's printed: each item's case, then each faceplate
 // (its top and bottom pieces). Parts (buttons, membranes, bridges, inserts) are printed ahead in bulk.
 // The case asset and faceplate assemblies an order line is made of, matched the same way everywhere.
-export const caseAssets = (phone, assets) => assets.filter(a => a.type === 'Case' && norm(a.fit.phone) === norm(phone));
+// PlayCase cases have no style; the plain Basic Case (playcase.gg/shop/basic-case) is fit.style "Basic".
+export const BASIC = 'Basic';
+export const isBasicCase = item => /^basic case\b/i.test(item?.name || '');
+export const caseAssets = (phone, assets, style = '') => assets.filter(a => a.type === 'Case' && norm(a.fit.phone) === norm(phone) && norm(a.fit.style) === norm(style));
 export const lineSize = phone => /plus|pro max/i.test(phone) ? 'Plus' : 'Standard';
 export const optionStyle = name => name.match(/\b(handheld|ds|classic)\b/i)?.[1];
 export function faceplateAssemblies(style, size, assets, assemblies) {
@@ -17,15 +20,23 @@ export function orderRequirements(order, assets, assemblies) {
   if (!order.items?.length) review.push('No order items');
   (order.items || []).forEach((item, n) => {
     const qty = Math.max(1, Number(item.quantity) || 1);
+    // A Basic Case added to another product (the PlayPad's "Add a basic case" option) is printed for that line.
+    if (item.basicCase) {
+      const bc = caseAssets(item.basicCase, assets, BASIC);
+      if (bc.length !== 1) review.push(`${item.basicCase}: basic case missing or ambiguous`);
+      else groups.push({ key: `${n}:basic-case`, label: 'basic case', item: item.id, pieces: [{ asset: bc[0], needed: qty }] });
+    }
     if (!item.phone) {
       // A product that isn't a phone kit (a baggie of replacement parts, a loose faceplate, a pouch) is put
       // together by hand: one line to tick off, never printed. A PlayCase kit without a phone is a data problem.
       if (!/^playcase/i.test(item.name || '')) { groups.push({ key: `${n}:item`, label: item.name, kind: 'item', item: item.id, pieces: [{ asset: { id: `item:${item.id}`, name: item.name }, needed: qty }] }); return; }
       review.push(`${item.name}: phone model or requirements unknown`); return;
     }
-    const cases = caseAssets(item.phone, assets);
-    if (cases.length !== 1) review.push(`${item.phone}: case missing or ambiguous`);
-    else groups.push({ key: `${n}:case`, label: 'case', item: item.id, pieces: [{ asset: cases[0], needed: qty }] });
+    const basic = isBasicCase(item);
+    const cases = caseAssets(item.phone, assets, basic ? BASIC : '');
+    if (cases.length !== 1) review.push(`${item.phone}: ${basic ? 'basic case' : 'case'} missing or ambiguous`);
+    else groups.push({ key: `${n}:case`, label: basic ? 'basic case' : 'case', item: item.id, pieces: [{ asset: cases[0], needed: qty }] });
+    if (basic) return;   // a Basic Case is just the case (its camera bumper prints on the same plate)
     const size = lineSize(item.phone);
     // Missing options on a kit must not silently mean case-only.
     if (!item.parts?.length && !/case only/i.test(item.name)) review.push(`${item.name}: faceplate requirements not specified`);
