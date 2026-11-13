@@ -1,4 +1,5 @@
-const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// "+" is part of a model name (Galaxy S26 vs S26+), so it reads as "plus" instead of being dropped.
+const norm = value => String(value || '').toLowerCase().replace(/\+/g, 'plus').replace(/[^a-z0-9]/g, '');
 // What an order needs printed, grouped the way it's printed: each item's case, then each faceplate
 // (its top and bottom pieces). Parts (buttons, membranes, bridges, inserts) are printed ahead in bulk.
 // The case asset and faceplate assemblies an order line is made of, matched the same way everywhere.
