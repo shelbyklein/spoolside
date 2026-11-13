@@ -105,3 +105,10 @@ test('Basic Case lines and PlayPad add-ons print the Basic case, and PlayCase li
  // without the Basic asset, a Basic Case line must not fall back to the PlayCase case
  assert.equal(orderReadiness(bc,assets,[assembly],files).status,'review');
 });
+test('"+" models are their own phone: Galaxy S26 and S26+ never match each other',()=>{
+ const s26=asset('s26','Case',{phone:'Samsung Galaxy S26',style:'Basic'}), plus=asset('s26p','Case',{phone:'Samsung Galaxy S26+',style:'Basic'});
+ const all=[s26,plus], cover=[{plates:[{coverage:all.map(a=>({assetId:a.id,hash:a.hash}))}]}];
+ assert.deepEqual(orderPrintPlan({items:[{name:'Basic Case',phone:'Samsung Galaxy S26+'}]},all,[],cover).map(g=>g.pieces[0].assetId),['s26p']);
+ assert.deepEqual(orderPrintPlan({items:[{name:'Basic Case',phone:'Samsung Galaxy S26'}]},all,[],cover).map(g=>g.pieces[0].assetId),['s26']);
+ assert.equal(orderReadiness({items:[{name:'PlayPad',basicCase:'Samsung Galaxy S26+'}]},all,[],cover).status,'ready');
+});
