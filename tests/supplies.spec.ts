@@ -5,7 +5,7 @@ function mockSupplies(page: Page) {
   const now = new Date().toISOString();
   const filament = (id: string, name: string, usage: string) => ({ id, name, kind: 'filament', unit: 'g', usage, url: '', custom: false, offers: [] as any[] });
   const catalog: any = {
-    settings: { zip: '30360', sort: 'fastest', filamentMap: { 'TPU-AMS': 'bambu-tpu-ams', PLA: 'proto-conductive' }, packaging: { small: null, large: null, pouch: null }, pouchesPerOrder: 1 },
+    settings: { zip: '30360', sort: 'fastest', filamentMap: { 'TPU-AMS': 'bambu-tpu-ams', PLA: 'proto-conductive' }, packaging: { small: null, large: null, pouch: null }, pouchesPerPiece: 1 },
     supplies: [filament('bambu-tpu-ams', 'Bambu TPU for AMS', 'cases, faceplates'), filament('proto-conductive', 'Proto-pasta Conductive PLA', 'Bridges'), filament('recreus-filaflex-70a', 'Recreus Filaflex 70A', 'Membranes')],
   };
   const calls: any[] = [];
@@ -65,8 +65,8 @@ test('Supplies: filament keeps its restock view and costing map; parts and packa
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByLabel('Box for a case on its own').selectOption({ label: 'Box, 8 × 4 × 1″' });
   await expect.poll(() => calls.filter((c) => c[1] === '/api/supplies/settings').at(-1)?.[2].packaging.small).toBeTruthy();
-  await page.getByLabel('Bubble pouches per order').fill('2'); await page.getByLabel('Bubble pouches per order').blur();
-  await expect.poll(() => calls.filter((c) => c[1] === '/api/supplies/settings').at(-1)?.[2].pouchesPerOrder).toBe(2);
+  await page.getByLabel('Bubble pouches per case or faceplate').fill('2'); await page.getByLabel('Bubble pouches per case or faceplate').blur();
+  await expect.poll(() => calls.filter((c) => c[1] === '/api/supplies/settings').at(-1)?.[2].pouchesPerPiece).toBe(2);
   await page.screenshot({ path: 'handoff/spoolside-supplies-packaging-desktop.png' });
 
   await page.setViewportSize({ width: 428, height: 926 });

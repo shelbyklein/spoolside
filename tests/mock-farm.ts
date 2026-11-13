@@ -244,7 +244,7 @@ export function makeFarm(now = Date.now()) {
       { id: 's-box-large', name: 'Box, 9 × 6 × 2″', kind: 'packaging', unit: 'piece', usage: 'Everything else', custom: true, offers: [offer('so-4', 'Mock Packaging', '25 boxes, white', 18.75, 25, { available: false })] },
       { id: 's-pouch', name: 'Bubble pouch', kind: 'packaging', unit: 'piece', usage: '', custom: true, offers: [] },
     ],
-    settings: { zip: '12345', sort: 'fastest', filamentMap: { 'TPU-AMS': 's-tpu', TPU: 's-tpu', PLA: 's-pla' }, packaging: { small: 's-box-small', large: 's-box-large', pouch: 's-pouch' }, pouchesPerOrder: 2 },
+    settings: { zip: '12345', sort: 'fastest', filamentMap: { 'TPU-AMS': 's-tpu', TPU: 's-tpu', PLA: 's-pla' }, packaging: { small: 's-box-small', large: 's-box-large', pouch: 's-pouch' }, pouchesPerPiece: 2 },
   };
   const arrival = new Date(now + 5 * DAY).toISOString().slice(0, 10);
   const spoolOffer = (id: string, materialId: string, seller: string, label: string, price: number, extra: Record<string, unknown> = {}) => ({ id, materialId, seller, label, color: 'Black', url: `https://example.com/${id}`, grams: 1000, price, available: true, refill: false, source: 'auto', checked: iso(DAY), stale: false, arrival: null, shipping: null, delivered: null, perKg: price, deliveredPerKg: null, image: null, ...extra });

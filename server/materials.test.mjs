@@ -82,11 +82,11 @@ test('supplies: parts and packaging priced per piece; filament keeps $/kg; setti
   const f=m.list().supplies.find(s=>s.id==='proto-conductive').offers[0];assert.equal(f.perKg,90);assert.equal(f.unitPrice,0.09);
   // Settings: defaults, saved map and packaging, validation.
   assert.deepEqual(m.settings().filamentMap,{'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive'});
-  m.saveSettings({filamentMap:{'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive',TPU:'recreus-filaflex-70a'},packaging:{small:box.id},pouchesPerOrder:2});
-  assert.equal(m.settings().filamentMap.TPU,'recreus-filaflex-70a');assert.equal(m.settings().packaging.small,box.id);assert.equal(m.settings().pouchesPerOrder,2);
+  m.saveSettings({filamentMap:{'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive',TPU:'recreus-filaflex-70a'},packaging:{small:box.id},pouchesPerPiece:2});
+  assert.equal(m.settings().filamentMap.TPU,'recreus-filaflex-70a');assert.equal(m.settings().packaging.small,box.id);assert.equal(m.settings().pouchesPerPiece,2);
   assert.equal(m.settings().zip,'30360');
   assert.throws(()=>m.saveSettings({filamentMap:{PLA:'nope'}}),/supply/);
-  assert.throws(()=>m.saveSettings({pouchesPerOrder:-1}),/pouches/);
+  assert.throws(()=>m.saveSettings({pouchesPerPiece:-1}),/pouches/);
   // Renaming, removal rules.
   m.updateSupply(mag.id,{name:'Magnets 3x2'});assert.equal(m.list().supplies.find(s=>s.id===mag.id).name,'Magnets 3x2');
   assert.throws(()=>m.updateSupply('bambu-tpu-ams',{name:'x'}),/keep their names/);
