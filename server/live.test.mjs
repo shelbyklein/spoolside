@@ -229,3 +229,14 @@ test('filament updates retain material identity and net capacity while preservin
  assert.throws(()=>ws.update({...ws.snapshot(),spools:[{...spools[0],capacity:-1}]}),/filament|capacity/);
  }finally{ws.close();}
 });
+test('PlayPad lines: "Color" is the colourway and "Add a basic case" names the phone (placeholder = none)', () => {
+  const m = (pairs) => pairs.map(([key, value]) => ({ key, value }));
+  const withCase = itemDetails({ name: "PlayPad", meta_data: m([["Color", "Blue"], ["Add a basic case", "iPhone 16 Pro (+$6.99)"]]) });
+  assert.equal(withCase.colorway, "Blue");
+  assert.equal(withCase.basicCase, "iPhone 16 Pro");
+  assert.equal(withCase.phone, "");
+  assert.equal(itemDetails({ name: "PlayPad", meta_data: m([["Color", "Red"], ["Add a basic case", "No case, thanks"]]) }).basicCase, "");
+  assert.equal(itemDetails({ name: "PlayPad", meta_data: m([["Color", "Red"]]) }).basicCase, "");
+  const basic = itemDetails({ name: "Basic Case", meta_data: m([["Phone model", "Samsung Galaxy S26+"], ["Colorway", "Grey"]]) });
+  assert.equal(basic.phone, "Samsung Galaxy S26+"); assert.equal(basic.colorway, "Grey");
+});
