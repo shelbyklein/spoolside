@@ -95,6 +95,22 @@ test("order cost: case + faceplate assemblies + packaging chosen by what's in th
   assert.equal(noBox.complete, false); assert.match(noBox.missing.join(), /no packaging supply/);
 });
 
+test("a replacement-parts kit is costed from its Kit assembly and ships in a dime bag", () => {
+  const kit = { id: "kit", name: "Replacement Parts – Classic", type: "Kit", components: [{ assetId: "bridge", quantity: 2 }, { assetId: "magnet", quantity: 2 }] };
+  const bagged = (over = {}) => make({ assemblies: [handheld, kit], supplies: supplies({ packaging: { small: "small", large: "large", pouch: "pouch", bag: "bag" }, ...over }) });
+  prices.bag = 0.02;
+  const alone = bagged().orderCost({ items: [{ name: "Replacement Parts - Classic", quantity: 1, parts: [] }] });
+  assert.deepEqual(alone.lines.map((l) => [l.label, l.quantity]), [["Replacement Parts – Classic", 1], ["small (kit only)", 1], ["bag", 1]]);
+  near(alone.total, 2 * 0.09 + 2 * 0.045 + 0.5 + 0.02); assert.equal(alone.complete, true);
+  const withKit = bagged().orderCost({ items: [{ name: "Kit", phone: "iPhone 16 Pro", quantity: 1, parts: [{ name: "Handheld Faceplate" }] }, { name: "Replacement Parts - Classic", quantity: 2 }] });
+  assert.deepEqual(withKit.lines.slice(-3).map((l) => [l.label, l.quantity]), [["large", 1], ["pouch", 2], ["bag", 2]]);
+  const unknown = bagged().orderCost({ items: [{ name: "Replacement Parts - DS", quantity: 1 }] });
+  assert.match(unknown.missing.join(), /Replacement Parts - DS: no Kit assembly/); assert.equal(unknown.complete, false);
+  const noBag = make({ assemblies: [kit] }).orderCost({ items: [{ name: "Replacement Parts – Classic", quantity: 1 }] });
+  assert.match(noBag.missing.join(), /Dime bag: no packaging supply priced/);
+  delete prices.bag;
+});
+
 test("supplies, bought-part and cost API: authenticated, validated, and /api/materials keeps its shape", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "spoolside-costs-"));
   const db = new DatabaseSync(":memory:");

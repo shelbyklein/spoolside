@@ -14,7 +14,7 @@ const UNIT={filament:'g',part:'piece',packaging:'piece'};
 const supply=m=>({...m,kind:m.kind||'filament',unit:m.unit||UNIT[m.kind||'filament'],custom:!!m.custom});
 // Which supply a sliced plate's filament type is printed with, unless a print says otherwise.
 export const DEFAULT_FILAMENT_MAP={'TPU-AMS':'bambu-tpu-ams',PLA:'proto-conductive'};
-const DEFAULT_SETTINGS={zip:'30360',sort:'fastest',filamentMap:DEFAULT_FILAMENT_MAP,packaging:{small:null,large:null,pouch:null},pouchesPerPiece:1};
+const DEFAULT_SETTINGS={zip:'30360',sort:'fastest',filamentMap:DEFAULT_FILAMENT_MAP,packaging:{small:null,large:null,pouch:null,bag:null},pouchesPerPiece:1};
 const SOURCES=[...MATERIALS,
  {...MATERIALS[1],url:'https://www.3djake.com/recreus/conductive-filaflex-black?sai=11093',seller:'3DJake'},
  {...MATERIALS[2],url:'https://www.3djake.com/protopasta/electrically-conductive-composite-pla?sai=17573',seller:'3DJake'},
@@ -101,7 +101,7 @@ export class Materials {
   const map=input.filamentMap!==undefined?input.filamentMap:cur.filamentMap;
   if(!map||typeof map!=='object'||Object.keys(map).length>30||Object.entries(map).some(([k,v])=>!/^[A-Za-z0-9 +._-]{1,30}$/.test(k)||(v!==null&&!ids.has(v))))throw Error('Choose a supply for each filament type');
   const pack={...cur.packaging,...(input.packaging||{})};
-  if(Object.keys(pack).some(k=>!['small','large','pouch'].includes(k))||Object.values(pack).some(v=>v!==null&&!ids.has(v)))throw Error('Choose packaging supplies');
+  if(Object.keys(pack).some(k=>!['small','large','pouch','bag'].includes(k))||Object.values(pack).some(v=>v!==null&&!ids.has(v)))throw Error('Choose packaging supplies');
   const pouches=Number(next.pouchesPerPiece);if(!Number.isInteger(pouches)||pouches<0||pouches>20)throw Error('Enter bubble pouches per piece (0-20)');
   this.db.prepare('UPDATE material_settings SET body=? WHERE id=1').run(JSON.stringify({zip:next.zip,sort:next.sort,filamentMap:Object.fromEntries(Object.entries(map).filter(([,v])=>v)),packaging:pack,pouchesPerPiece:pouches}));return this.list();}
  // Supplies added by hand (parts, packaging, or another filament). Built-in filaments can't be removed.
