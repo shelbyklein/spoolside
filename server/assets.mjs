@@ -73,6 +73,8 @@ function extras(c) {
   if (/^#[0-9a-f]{6}$/i.test(c.color || "")) out.color = c.color.toLowerCase();
   // Hidden from the preview and card picture (e.g. a phone outline used only for reference); still a piece.
   if (c.hidden === true) out.hidden = true;
+  // A part (normally printed ahead in bulk) that is printed for each order instead, e.g. a PlayPad's housing.
+  if (c.perOrder === true) out.perOrder = true;
   if (Array.isArray(c.positions) && c.positions.length) {
     // Each position is x, y, z in mm, plus optional angles in degrees: a turn around the vertical
     // (Z) axis, then tilts around X and Y for parts that sit at an angle (see src/placement.ts).

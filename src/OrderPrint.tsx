@@ -61,7 +61,9 @@ export function OrderPrintDialog({ order, group, machines, onClose, onSent, noti
   const next = group.next!;
   const { files } = useLibrary();
   const plate = files?.find((f) => f.id === next.fileId)?.plates.find((p) => p.index === next.plate);
-  const colorway = colorwayOf(order), target = COLORWAYS[colorwayName(colorway)] || "";
+  // Only AMS-TPU plates print in the order's colour; a membrane or PLA cap keeps the colours it's sliced with.
+  const ordered = !plate?.filaments.length || plate.filaments.every((f) => /^TPU-AMS$/i.test(f.type));
+  const colorway = ordered ? colorwayOf(order) : "", target = COLORWAYS[colorwayName(colorway)] || "";
   const material = plate?.filaments[0]?.type || "";
   // Idle printers, best color match first.
   const ranked = useMemo(

@@ -15,6 +15,26 @@ export function faceplateAssemblies(style, size, assets, assemblies) {
     return part?.type === 'Faceplate' && norm(part.fit.style) === norm(style) && norm(part.fit.size) === norm(size);
   }));
 }
+// The assembly a product without a phone is made from (e.g. "PlayPad" -> "PlayPad 70.6mm - complete ..."):
+// the one Faceplate assembly whose name starts with the product's name.
+export function productAssembly(item, assemblies) {
+  const name = norm(item.name);
+  if (!name || /^playcase/i.test(item.name || '')) return null;
+  const hits = assemblies.filter(a => a.type === 'Faceplate' && norm(a.name).startsWith(name));
+  return hits.length === 1 ? hits[0] : null;
+}
+// The pieces of an assembly printed for an order: its body pieces, plus any part marked to print per order.
+// Other parts are printed ahead in bulk and bought parts aren't printed.
+function orderPieces(assembly, assets, qty, review) {
+  const pieces = [];
+  if (!assembly.components.length) review.push(`${assembly.name}: no active parts`);
+  for (const c of assembly.components) {
+    const a = assets.find(x => x.id === c.assetId);
+    if (!a) review.push(`${assembly.name}: missing part`);
+    else if (a.type !== 'Purchased' && (a.type !== 'Part' || c.perOrder)) pieces.push({ asset: a, needed: qty * Math.max(1, Number(c.quantity) || 1) });
+  }
+  return pieces;
+}
 export function orderRequirements(order, assets, assemblies) {
   const review = [], groups = [];
   if (order.sourceReview) review.push('Store items changed: review requirements');
@@ -30,6 +50,14 @@ export function orderRequirements(order, assets, assemblies) {
     if (!item.phone) {
       // A product that isn't a phone kit (a baggie of replacement parts, a loose faceplate, a pouch) is put
       // together by hand: one line to tick off, never printed. A PlayCase kit without a phone is a data problem.
+      // A product built from an assembly (the PlayPad) prints on demand, like a PlayCase.
+      const product = productAssembly(item, assemblies);
+      if (product) {
+        const pieces = orderPieces(product, assets, qty, review);
+        if (pieces.length) groups.push({ key: `${n}:product`, label: item.name, item: item.id, pieces });
+        else review.push(`${product.name}: no parts marked to print per order`);
+        return;
+      }
       if (!/^playcase/i.test(item.name || '')) { groups.push({ key: `${n}:item`, label: item.name, kind: 'item', item: item.id, pieces: [{ asset: { id: `item:${item.id}`, name: item.name }, needed: qty }] }); return; }
       review.push(`${item.name}: phone model or requirements unknown`); return;
     }
@@ -46,14 +74,7 @@ export function orderRequirements(order, assets, assemblies) {
       if (!style) { review.push(`${option.name}: requirements unknown`); continue; }
       const matches = faceplateAssemblies(style, size, assets, assemblies);
       if (matches.length !== 1) { review.push(`${style} ${size}: assembly missing or ambiguous`); continue; }
-      const assembly = matches[0], pieces = [];
-      if (!assembly.components.length) review.push(`${assembly.name}: no active parts`);
-      for (const c of assembly.components) {
-        const a = assets.find(x => x.id === c.assetId);
-        if (!a) review.push(`${assembly.name}: missing part`);
-        // Parts are printed ahead in bulk and bought parts aren't printed: neither is an order piece.
-        else if (a.type !== 'Part' && a.type !== 'Purchased') pieces.push({ asset: a, needed: qty * Math.max(1, Number(c.quantity) || 1) });
-      }
+      const assembly = matches[0], pieces = orderPieces(assembly, assets, qty, review);
       const label = `${style.length <= 2 ? style.toUpperCase() : style[0].toUpperCase() + style.slice(1).toLowerCase()} faceplate`;
       if (pieces.length) groups.push({ key: `${n}:${norm(style)}`, label, item: item.id, pieces });
     }

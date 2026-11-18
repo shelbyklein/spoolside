@@ -66,7 +66,8 @@ export class Dispatcher {
         const next = group.next;
         if (!next || taken.has(`${order.id}:${next.assetId}`)) continue;
         const plate = this.library.get(next.fileId)?.plates.find((p) => p.index === next.plate);
-        if (!plate?.filaments.length || !plate.filaments.every((f) => /^TPU/i.test(f.type))) continue;
+        // Only plates printed in the order's colour (AMS TPU); a Filaflex membrane or a PLA cap is printed by hand.
+        if (!plate?.filaments.length || !plate.filaments.every((f) => /^TPU-AMS$/i.test(f.type))) continue;
         const best = matching.map((t) => ({ t, off: deltaE(t.color, target) })).sort((a, b) => a.off - b.off)[0];
         const slots = Math.max(...plate.filaments.map((f) => f.id));
         return {

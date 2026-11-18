@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Dispatcher } from "./dispatch.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 
-function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true, dbFile = ":memory:" } = {}) {
+function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true, dbFile = ":memory:", plateType = "TPU-AMS" } = {}) {
   let t = Date.UTC(2026,9,8,16);
   const started = [], pushes = [], checks = [], references = [];
   const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
@@ -13,7 +13,7 @@ function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended:
     cameraFrame: async () => Buffer.from("jpg"),
     startPrint: async (serial, opts) => { started.push([serial, opts]); view.rawState = "PREPARE"; },
   };
-  const plate = { index: 1, filaments: [{ id: 1, type: "TPU-AMS", color: "#ED0000" }], coverage: [{ assetId: "case" }] };
+  const plate = { index: 1, filaments: [{ id: 1, type: plateType, color: "#ED0000" }], coverage: [{ assetId: "case" }] };
   const library = { get: (id) => (id === "f1" ? { id: "f1", name: "iPhone 12 Case", plates: [plate] } : null), file: () => "/x.3mf" };
   const order = (n, colorway) => ({ id: "o" + n, number: "#" + n, commercial: "processing", assembled: false, items: [{ id: "i", colorway }] });
   const plan = [{ key: "0:case", label: "case", pieces: [{ assetId: "case", needed: 1, done: 0 }], next: { assetId: "case", name: "iPhone 12 Case", fileId: "f1", fileName: "iPhone 12 Case", plate: 1 } }];
@@ -75,6 +75,13 @@ test("non-TPU-for-AMS spools, busy printers and assembled orders are never offer
     assert.equal(s.d.view().offers.length, 0);
   } finally {
     s.done();
+  }
+});
+
+test("plates not sliced for AMS TPU (a Filaflex membrane, a PLA cap) are never printed automatically", async () => {
+  for (const plateType of ["TPU", "PLA"]) {
+    const s = setup({ plateType });
+    try { await s.d.tick(); assert.equal(s.d.view().offers.length, 0, plateType); } finally { s.done(); }
   }
 });
 
