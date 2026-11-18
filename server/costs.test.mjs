@@ -150,3 +150,15 @@ test("supplies, bought-part and cost API: authenticated, validated, and /api/mat
     assert.equal((await call("PUT", `/api/library/${file.id}/filaments`, { 1: mag.id })).status, 400);
   } finally { await new Promise((r) => server.close(r)); close(); library.close(); assetStore.close(); db.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("a PlayPad ships in its gift box inside a bubble pouch; no mailer unless something else is in the order", () => {
+  const pad = { id: "pp", name: "PlayPad 70.6mm", type: "Faceplate", components: [{ assetId: "bridge", quantity: 1 }] };
+  prices.giftbox = 1;
+  const m = make({ assemblies: [handheld, pad], supplies: supplies({ packaging: { small: "small", large: "large", pouch: "pouch", product: "giftbox" } }) });
+  const alone = m.orderCost({ items: [{ name: "PlayPad", quantity: 2 }] });
+  assert.deepEqual(alone.lines.map((l) => [l.label, l.quantity]), [["PlayPad", 2], ["pouch", 2], ["giftbox", 2]]);
+  assert.equal(alone.complete, true);
+  const withCase = m.orderCost({ items: [{ name: "PlayPad", quantity: 1 }, { name: "Case only", phone: "iPhone 16 Pro", quantity: 1 }] });
+  assert.deepEqual(withCase.lines.slice(-3).map((l) => [l.label, l.quantity]), [["large", 1], ["pouch", 2], ["giftbox", 1]]);
+  delete prices.giftbox;
+});

@@ -92,10 +92,11 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
 
   // An order: each line's case (its case assembly when one exists, else the case print) and faceplate
   // assemblies, times quantity, plus packaging chosen from what's in the order: one box, a bubble
-  // pouch for every case and every faceplate, and a dime bag for every kit.
+  // pouch for every case, faceplate and PlayPad, a dime bag for every kit, and a gift box for every PlayPad.
+  // An order of only PlayPads needs no mailer box: each ships in its gift box inside a bubble pouch.
   function orderCost(order) {
     const lines = [], missing = [];
-    let units = 0, pieces = 0, bags = 0; // pieces: cases and faceplates, each packed in its own bubble pouch
+    let units = 0, pieces = 0, bags = 0, products = 0; // pieces: cases and faceplates, each packed in its own bubble pouch
     for (const item of order.items || []) {
       const qty = Math.max(1, Number(item.quantity) || 1);
       units += qty;
@@ -111,7 +112,7 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
       }
       if (!item.phone) {
         const product = productAssembly(item, assemblies);
-        if (product) { const p = assemblyCost(product); lines.push({ label: item.name, quantity: qty, unit: p.total, cost: round(p.total * qty), complete: p.complete, missing: p.missing }); continue; }
+        if (product) { products += qty; pieces += qty; const p = assemblyCost(product); lines.push({ label: item.name, quantity: qty, unit: p.total, cost: round(p.total * qty), complete: p.complete, missing: p.missing }); continue; }
         const kit = kitFor(item);
         if (!kit) { missing.push(`${item.name}: no Kit assembly with this name`); continue; }
         const k = assemblyCost(kit);
@@ -134,7 +135,8 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
     // A single case (or kit) on its own ships in the small box; anything more in the large one.
     const onlyCase = (order.items || []).length === 1 && units === 1 && !(order.items[0].parts || []).length;
     const alone = order.items?.[0]?.phone ? "case only" : "kit only";
-    const pack = [[onlyCase ? "small" : "large", onlyCase ? `Box (${alone})` : "Box", 1], ["pouch", "Bubble pouch", pieces * (settings.pouchesPerPiece ?? 1)], ["bag", "Dime bag", bags]];
+    const mailer = units > products || (order.items || []).some((i) => i.basicCase) ? 1 : 0;
+    const pack = [[onlyCase ? "small" : "large", onlyCase ? `Box (${alone})` : "Box", mailer], ["pouch", "Bubble pouch", pieces * (settings.pouchesPerPiece ?? 1)], ["bag", "Dime bag", bags], ["product", "PlayPad box", products]];
     for (const [slot, label, q] of pack) {
       if (!q) continue;
       const id = settings.packaging?.[slot], price = id ? supplies.best(id) : null;
