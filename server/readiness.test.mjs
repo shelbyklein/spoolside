@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {orderReadiness, orderPrintPlan} from './readiness.mjs';
+import {orderReadiness, orderPrintPlan, orderRequirements} from './readiness.mjs';
 import {printQueue} from './printqueue.mjs';
 import {Library} from './library.mjs';
 import fs from 'node:fs';
@@ -111,4 +111,21 @@ test('"+" models are their own phone: Galaxy S26 and S26+ never match each other
  assert.deepEqual(orderPrintPlan({items:[{name:'Basic Case',phone:'Samsung Galaxy S26+'}]},all,[],cover).map(g=>g.pieces[0].assetId),['s26p']);
  assert.deepEqual(orderPrintPlan({items:[{name:'Basic Case',phone:'Samsung Galaxy S26'}]},all,[],cover).map(g=>g.pieces[0].assetId),['s26']);
  assert.equal(orderReadiness({items:[{name:'PlayPad',basicCase:'Samsung Galaxy S26+'}]},all,[],cover).status,'ready');
+});
+
+test('a PlayPad prints on demand: its body pieces and any part marked to print per order, never its bulk buttons', () => {
+  const pad = [asset('housing', 'Part'), asset('membrane', 'Part'), asset('abxy', 'Part'), asset('pin', 'Purchased')];
+  const playpad = { id: 'pp', type: 'Faceplate', name: 'PlayPad 70.6mm - complete controller', components: [
+    { assetId: 'housing', quantity: 1, perOrder: true }, { assetId: 'membrane', quantity: 1, perOrder: true }, { assetId: 'abxy', quantity: 4 }, { assetId: 'pin', quantity: 2 }] };
+  const cap = { id: 'cap', type: 'Sleeve', name: 'PlayPad cap - With logo', components: [{ assetId: 'housing', quantity: 1 }] };
+  const order = { items: [{ id: '9', name: 'PlayPad', quantity: 2, colorway: 'Red', parts: [] }] };
+  const r = orderRequirements(order, pad, [playpad, cap]);
+  assert.deepEqual(r.review, []);
+  assert.equal(r.groups.length, 1);
+  assert.equal(r.groups[0].label, 'PlayPad'); assert.equal(r.groups[0].kind, undefined);
+  assert.deepEqual(r.groups[0].pieces.map(p => [p.asset.id, p.needed]), [['housing', 2], ['membrane', 2]]);
+  const none = orderRequirements(order, pad, [{ ...playpad, components: playpad.components.map(({ perOrder, ...c }) => c) }]);
+  assert.match(none.review.join(), /no parts marked to print per order/);
+  // A product with no matching assembly is still a line to tick off.
+  assert.equal(orderRequirements({ items: [{ id: '1', name: 'Sticker', quantity: 1 }] }, pad, [playpad]).groups[0].kind, 'item');
 });

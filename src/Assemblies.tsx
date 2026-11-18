@@ -7,7 +7,7 @@ import {AssemblyPreview,type PartPick} from './AssemblyPreview';
 import {requestSnapshot,snapshotKey,type SnapshotPart} from './assemblySnapshot';
 import type {Asset} from './AssetLibrary';
 import {failure,type Notify} from './Toast';
-type Part={assetId:string;quantity:number;color?:string;positions?:number[][];hidden?:boolean};
+type Part={assetId:string;quantity:number;color?:string;positions?:number[][];hidden?:boolean;perOrder?:boolean};
 type Assembly={thumbKey?:string|null;partsConfirmed?:boolean;id:string;name:string;sku:string;type:string;components:Part[];removed?:Part[]};
 const assemblyFromPath=()=>window.location.pathname.match(/^\/library\/assemblies\/([0-9a-f-]{36})$/)?.[1] || null;
 const empty=():Assembly=>({id:'',name:'',sku:'',type:'Case',partsConfirmed:false,components:[] as Assembly['components']});
@@ -84,7 +84,8 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
  const picked=pick&&assembly.components.find(c=>c.assetId===pick.assetId);
  if(pick&&picked)return <PartOptions part={picked} shown={shown.components.find(c=>c.assetId===pick.assetId)||picked} asset={assets.find(a=>a.id===pick.assetId)} pick={pick} busy={busy} onPick={onPick} move={move} onOpen={onOpen}
   onColor={color=>setColor(picked,color)} onQty={q=>setQty(picked,q)} onRemove={()=>{onPick(null);remove(picked);}}
-  onCopies={(positions,message)=>save({...assembly,components:assembly.components.map(x=>x.assetId===picked.assetId?{...x,positions}:x)},message)}/>;
+  onCopies={(positions,message)=>save({...assembly,components:assembly.components.map(x=>x.assetId===picked.assetId?{...x,positions}:x)},message)}
+  onPerOrder={on=>{const {perOrder:_,...rest}=picked;save({...assembly,components:assembly.components.map(x=>x.assetId===picked.assetId?(on?{...rest,perOrder:true}:rest):x)},on?`${name(picked.assetId)} prints with each order.`:`${name(picked.assetId)} comes from bulk prints.`);}}/>;
  return <section className="group-card assembly-parts" aria-busy={busy}>
   <h3>Parts</h3>
   <p className="plate-meta">Click a part, here or in the preview, to position it.</p>
@@ -107,7 +108,7 @@ function PartsEditor({assembly,shown,assets,pick,onPick,move,onOpen,onSaved,onPr
 
 // One part's options, in place of the parts list: its copies (display-only duplicates, as mm
 // offsets from where its STL sits), moving the selected copy, color, pieces and removal.
-function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQty,onRemove,onCopies}:{part:Part;shown:Part;asset?:Asset;pick:PartPick;busy:boolean;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onColor:(c:string)=>void;onQty:(q:number)=>void;onRemove:()=>void;onCopies:(p:number[][],message:string)=>void}){
+function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQty,onRemove,onCopies,onPerOrder}:{onPerOrder:(on:boolean)=>void;part:Part;shown:Part;asset?:Asset;pick:PartPick;busy:boolean;onPick:(p:PartPick|null)=>void;move:(p:PartPick,position:number[])=>void;onOpen:(id:string)=>void;onColor:(c:string)=>void;onQty:(q:number)=>void;onRemove:()=>void;onCopies:(p:number[][],message:string)=>void}){
  const [step,setStep]=useState(0.5);
  const copies=shown.positions?.length?shown.positions:[[0,0,0]];
  const index=Math.min(pick.instance,copies.length-1),current=copies[index];
@@ -149,6 +150,7 @@ function PartOptions({part,shown,asset,pick,busy,onPick,move,onOpen,onColor,onQt
    <button className="secondary" aria-label={`${label} +${step*10}°`} onClick={()=>move({assetId:part.assetId,instance:index},[0,1,2,3,4,5].map(i=>i===k?(current[i]||0)+step*10:(current[i]||0)))}>+</button>
   </div>)}
   <label className="nudge-step">Step<select value={step} onChange={e=>setStep(Number(e.target.value))}>{[0.1,0.25,0.5,1,5].map(n=><option key={n} value={n}>{n} mm · {n*10}°</option>)}</select></label>
+  {asset?.type==='Part'&&<label className="check-row"><input type="checkbox" checked={!!part.perOrder} disabled={busy} onChange={e=>onPerOrder(e.target.checked)}/> Print with each order</label>}
   <label className="part-pieces">Pieces<input aria-label={`Quantity of ${name}`} type="number" min={1} max={100} value={part.quantity} disabled={busy} onChange={e=>onQty(Number(e.target.value))}/></label>
   <div className="part-options-foot">
    {asset&&<button className="text-button" onClick={()=>onOpen(part.assetId)}>Part details</button>}

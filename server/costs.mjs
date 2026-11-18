@@ -1,6 +1,6 @@
 // What a product costs to make: printed parts priced by the filament they use, bought parts by the
 // piece, and an order's packaging. Missing prints, mappings or prices are listed, never counted as $0.
-import { caseAssets, lineSize, optionStyle, faceplateAssemblies, BASIC, isBasicCase } from "./readiness.mjs";
+import { caseAssets, lineSize, optionStyle, faceplateAssemblies, BASIC, isBasicCase, productAssembly } from "./readiness.mjs";
 
 const round = (n) => Math.round(n * 10000) / 10000;
 
@@ -110,6 +110,8 @@ export function costing({ assets, assemblies, files, supplies, volumeOf }) {
         else { caseCost(bc, `${item.basicCase} basic case`); pieces += qty; }
       }
       if (!item.phone) {
+        const product = productAssembly(item, assemblies);
+        if (product) { const p = assemblyCost(product); lines.push({ label: item.name, quantity: qty, unit: p.total, cost: round(p.total * qty), complete: p.complete, missing: p.missing }); continue; }
         const kit = kitFor(item);
         if (!kit) { missing.push(`${item.name}: no Kit assembly with this name`); continue; }
         const k = assemblyCost(kit);
