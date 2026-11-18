@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-import { COLORWAYS, colorwayName, deltaE, matchesColorway } from "./colorway.mjs";
+import { COLORWAYS, colorwayName, colorFamily, deltaE, matchesColorway } from "./colorway.mjs";
 const MATERIAL = "bambu-tpu-ams"; // for now, only Bambu TPU for AMS spools are matched
 const IDLE = ["IDLE", "FINISH", "FAILED"];
 const SNOOZE = 60 * 60000;
@@ -51,31 +51,48 @@ export class Dispatcher {
   // The best piece this printer could print now, or null.
   candidate(view, taken, orderId) {
     const trays = (view.trays || []).filter((t) => t.materialId === MATERIAL && t.color);
-    if (!trays.length) return null;
+    // Every loaded spool, for plates sliced in their own colours: AMS slots, and the external spool (254).
+    const spools = [...(view.trays || []).filter((t) => t.type && t.color), ...(view.external?.type && view.external?.color ? [{ ...view.external, slot: 254 }] : [])];
     const work = this.plans()
       .filter(({ order }) => (!orderId || order.id === orderId) && String(order.commercial).toLowerCase() === "processing" && !order.refundReview && !order.sourceReview && !order.assembled)
       .sort((a, b) => orderNumber(a.order) - orderNumber(b.order));
     for (const { order, plan } of work) {
       const colorway = order.items.find((i) => i.colorway)?.colorway;
       const target = COLORWAYS[colorwayName(colorway)];
-      if (!target) continue;
       // Only spools that read as the order's colorway (a grey spool is never "close enough" to green).
-      const matching = trays.filter((t) => matchesColorway(t.color, colorway));
-      if (!matching.length) continue;
+      const matching = target ? trays.filter((t) => matchesColorway(t.color, colorway)) : [];
       for (const group of plan) {
-        const next = group.next;
-        if (!next || taken.has(`${order.id}:${next.assetId}`)) continue;
-        const plate = this.library.get(next.fileId)?.plates.find((p) => p.index === next.plate);
-        // Only plates printed in the order's colour (AMS TPU); a Filaflex membrane or a PLA cap is printed by hand.
-        if (!plate?.filaments.length || !plate.filaments.every((f) => /^TPU-AMS$/i.test(f.type))) continue;
-        const best = matching.map((t) => ({ t, off: deltaE(t.color, target) })).sort((a, b) => a.off - b.off)[0];
-        const slots = Math.max(...plate.filaments.map((f) => f.id));
-        return {
-          id: `${view.id}:${order.id}:${group.key}:${next.fileId}:${next.plate}`,
-          printer: view.id, printerName: view.name, orderId: order.id, orderNumber: order.number, group: group.key, groupLabel: group.label,
-          assetId: next.assetId, pieceName: next.name, fileId: next.fileId, fileName: next.fileName, plate: next.plate,
-          colorway, slot: best.t.slot, mapping: Array.from({ length: slots }, () => best.t.slot),
-        };
+        // Any unprinted piece in the group, not just the first: a cap needn't wait for the membrane.
+        for (const piece of group.pieces || []) {
+          const at = piece.plates?.[0];
+          if (piece.done >= piece.needed || !at || taken.has(`${order.id}:${piece.assetId}`)) continue;
+          const file = this.library.get(at.fileId), plate = file?.plates.find((p) => p.index === at.plate);
+          if (!plate?.filaments.length) continue;
+          const offer = (extra) => ({
+            id: `${view.id}:${order.id}:${group.key}:${at.fileId}:${at.plate}`,
+            printer: view.id, printerName: view.name, orderId: order.id, orderNumber: order.number, group: group.key, groupLabel: group.label,
+            assetId: piece.assetId, pieceName: piece.name, fileId: at.fileId, fileName: at.fileName, plate: at.plate, ...extra,
+          });
+          const slots = Math.max(...plate.filaments.map((f) => f.id));
+          if (plate.filaments.every((f) => /^TPU-AMS$/i.test(f.type))) {
+            // Printed in the order's colour from the AMS.
+            if (!matching.length) continue;
+            const best = matching.map((t) => ({ t, off: deltaE(t.color, target) })).sort((a, b) => a.off - b.off)[0];
+            return offer({ colorway, slot: best.t.slot, mapping: Array.from({ length: slots }, () => best.t.slot), useAms: true });
+          }
+          // Sliced in its own colours (a PETG cap, a Filaflex membrane). A print set to one printer only goes
+          // there and needs just the material; otherwise each filament needs a loaded spool of the same
+          // material in the same colour family.
+          if (file.printer && file.printer !== view.id) continue;
+          const pick = (f) => spools.find((t) => t.type.toUpperCase() === f.type.toUpperCase() && (file.printer || !f.color || colorFamily(t.color) === colorFamily(f.color)));
+          const picks = plate.filaments.map(pick);
+          if (picks.some((t) => !t)) continue;
+          const external = picks.every((t) => t.slot === 254);
+          if (!external && picks.some((t) => t.slot === 254)) continue;
+          if (external && plate.filaments.length > 1) continue;
+          const mapping = Array.from({ length: slots }, (_, i) => picks[plate.filaments.findIndex((f) => f.id === i + 1)]?.slot ?? picks[0].slot);
+          return offer({ colorway: "", slot: picks[0].slot, mapping: external ? [] : mapping, useAms: !external });
+        }
       }
     }
     return null;
@@ -314,7 +331,7 @@ export class Dispatcher {
     this.orderPrints.sent(offer.printer, { orderId: offer.orderId, orderNumber: offer.orderNumber, assetIds: assetIds.length ? assetIds : [offer.assetId] });
     const reservation = this.orderPrints.pending.get(offer.printer);
     try {
-    await this.printers.startPrint(offer.printer, { localFile: this.library.file(file.id), name: file.name, plate: offer.plate, amsMapping: offer.mapping, useAms: true, bedLevelling: true });
+    await this.printers.startPrint(offer.printer, { localFile: this.library.file(file.id), name: file.name, plate: offer.plate, amsMapping: offer.mapping, useAms: offer.useAms !== false, bedLevelling: true });
     } catch (error) {
       if (this.orderPrints.pending.get(offer.printer) === reservation) this.orderPrints.cancel(offer.printer);
       throw error;

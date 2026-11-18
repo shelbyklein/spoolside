@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import { Dispatcher } from "./dispatch.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 
-function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true, dbFile = ":memory:", plateType = "TPU-AMS" } = {}) {
+function setup({ trays, bed = { empty: true, reason: "Clear." }, last = { ended: 1, outcome: "success" }, vision = true, dbFile = ":memory:", plateType = "TPU-AMS", plateColor = "#ED0000", filePrinter = null, external = null } = {}) {
   let t = Date.UTC(2026,9,8,16);
   const started = [], pushes = [], checks = [], references = [];
-  const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
+  const view = { id: "P1", name: "AMS 3", connected: true, rawState: "FINISH", external, trays: trays || [{ slot: 0, color: "#90FF1A", type: "TPU-AMS", materialId: "bambu-tpu-ams" }, { slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }] };
   const printers = {
     busy: new Set(),
     statuses: () => [{ serial: "P1", view }],
     cameraFrame: async () => Buffer.from("jpg"),
     startPrint: async (serial, opts) => { started.push([serial, opts]); view.rawState = "PREPARE"; },
   };
-  const plate = { index: 1, filaments: [{ id: 1, type: plateType, color: "#ED0000" }], coverage: [{ assetId: "case" }] };
-  const library = { get: (id) => (id === "f1" ? { id: "f1", name: "iPhone 12 Case", plates: [plate] } : null), file: () => "/x.3mf" };
+  const plate = { index: 1, filaments: [{ id: 1, type: plateType, color: plateColor }], coverage: [{ assetId: "case" }] };
+  const library = { get: (id) => (id === "f1" ? { id: "f1", name: "iPhone 12 Case", printer: filePrinter, plates: [plate] } : null), file: () => "/x.3mf" };
   const order = (n, colorway) => ({ id: "o" + n, number: "#" + n, commercial: "processing", assembled: false, items: [{ id: "i", colorway }] });
-  const plan = [{ key: "0:case", label: "case", pieces: [{ assetId: "case", needed: 1, done: 0 }], next: { assetId: "case", name: "iPhone 12 Case", fileId: "f1", fileName: "iPhone 12 Case", plate: 1 } }];
+  const plan = [{ key: "0:case", label: "case", pieces: [{ assetId: "case", name: "iPhone 12 Case", needed: 1, done: 0, plates: [{ fileId: "f1", fileName: "iPhone 12 Case", plate: 1 }] }], next: { assetId: "case", name: "iPhone 12 Case", fileId: "f1", fileName: "iPhone 12 Case", plate: 1 } }];
   const orders = [order(10181, "Red"), order(10177, "Red"), order(10170, "Blue")];
   const orderPrints = new OrderPrints(":memory:", () => t);
   const watcher = { inFlight: () => new Set(), lastFor: () => last };
@@ -78,11 +78,24 @@ test("non-TPU-for-AMS spools, busy printers and assembled orders are never offer
   }
 });
 
-test("plates not sliced for AMS TPU (a Filaflex membrane, a PLA cap) are never printed automatically", async () => {
-  for (const plateType of ["TPU", "PLA"]) {
-    const s = setup({ plateType });
-    try { await s.d.tick(); assert.equal(s.d.view().offers.length, 0, plateType); } finally { s.done(); }
+test("plates sliced in their own colours print only on a loaded spool of the same material and colour family", async () => {
+  const grey = [{ slot: 0, color: "#939393", type: "PETG", materialId: null }];
+  const ok = setup({ plateType: "PETG", plateColor: "#8C8C90", trays: grey });
+  try { await ok.d.tick(); const o = ok.d.view().offers[0]; assert.equal(o?.slot, 0); } finally { ok.done(); }
+  for (const trays of [[{ slot: 0, color: "#E05028", type: "PETG", materialId: null }], [{ slot: 0, color: "#939393", type: "PLA", materialId: null }], [{ slot: 1, color: "#ED0000", type: "TPU-AMS", materialId: "bambu-tpu-ams" }]]) {
+    const s = setup({ plateType: "PETG", plateColor: "#8C8C90", trays });
+    try { await s.d.tick(); assert.equal(s.d.view().offers.length, 0, JSON.stringify(trays)); } finally { s.done(); }
   }
+});
+
+test("a membrane set to one printer prints there from its external spool, whatever colour it was sliced in", async () => {
+  const ext = { type: "TPU", color: "#FFFFFF", name: "TPU" };
+  const there = setup({ plateType: "TPU", plateColor: "#85abb2", trays: [], external: ext, filePrinter: "P1" });
+  try { await there.d.tick(); assert.equal(there.d.view().offers[0]?.slot, 254); } finally { there.done(); }
+  const elsewhere = setup({ plateType: "TPU", plateColor: "#85abb2", trays: [], external: ext, filePrinter: "P2" });
+  try { await elsewhere.d.tick(); assert.equal(elsewhere.d.view().offers.length, 0); } finally { elsewhere.done(); }
+  const unset = setup({ plateType: "TPU", plateColor: "#85abb2", trays: [], external: ext });
+  try { await unset.d.tick(); assert.equal(unset.d.view().offers.length, 0); } finally { unset.done(); }
 });
 
 test("automatic printing needs only an empty bed, not a review of the last print", async () => {
