@@ -17,6 +17,13 @@ const orderNumber = (o) => Number(String(o.number).replace(/\D/g, "")) || 0;
 export class Dispatcher {
   constructor(dbFile, { printers, plans, library, orderPrints, watcher, notifications, bedCheck = null, shrink, now = Date.now }) {
     Object.assign(this, { printers, plans, library, orderPrints, watcher, notifications, bedCheck, shrink, now });
+    // Every order's print plan is costly to work out, and a single check asks for it once per printer and
+    // per order. Work it out at most once a second.
+    let cached = null;
+    this.plans = () => {
+      if (!cached || Date.now() - cached.at >= 1000) cached = { at: Date.now(), value: plans() };
+      return cached.value;
+    };
     this.db = new DatabaseSync(dbFile);
     this.db.exec("CREATE TABLE IF NOT EXISTS dispatch_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
     this.db.exec("CREATE TABLE IF NOT EXISTS bed_references (printer TEXT PRIMARY KEY, jpeg BLOB NOT NULL, note TEXT NOT NULL, confirmed INTEGER NOT NULL)");
