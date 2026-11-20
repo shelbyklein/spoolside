@@ -214,6 +214,8 @@ test("order items pick store photos in the ordered colorway", () => {
     { name: "Handheld Faceplate", image: up + "handheld-green-1-300x300.webp" },
     { name: "DS Faceplate", image: "" },
   ]);
+  const renamed = itemDetails({ name: "PlayCase", meta_data: [{ key: "Select a Phone", value: "iPhone 16 Pro" }, { key: "Colorway", value: "Red" }] }, catalog);
+  assert.equal(renamed.phone, "iPhone 16 Pro");
   const black = itemDetails({ name: "PlayCase", meta_data: meta("Black") }, catalog);
   assert.equal(black.image, up + "handheld-black-300x300.png");
   assert.equal(black.parts[1].image, up + "ds-black-300x300.png");

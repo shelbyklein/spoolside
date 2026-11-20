@@ -58,7 +58,12 @@ export function itemDetails(item, catalog = {}) {
     parts.find((p) => p.image)?.image ||
     (typeof item.image?.src === "string" && item.image.src.startsWith("https://") ? thumb(item.image.src) : "");
   return {
-    phone: fields.get("Phone model") || fields.get("Phone") || "",
+    // The store has called this option "Phone model", "Phone" and "Select a Phone". Take the first option
+    // naming a phone whose value reads as a model (not a bare product id like "4443").
+    phone: ["Phone model", "Select a Phone", "Phone", ...fields.keys()]
+      .filter((k) => /phone/i.test(k))
+      .map((k) => String(fields.get(k) || "").trim())
+      .find((v) => /[a-z]/i.test(v)) || "",
     colorway,
     basicCase: addCase && !/^no case/i.test(addCase) ? addCase : "",
     image,
