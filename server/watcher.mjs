@@ -13,6 +13,7 @@ const interval = (progress) => (progress < 15 ? 2 : 4) * MINUTE;
 
 // Watches every print: photos from the camera, a vision check against past successful prints of the same
 // job and the slicer's preview, a pause after two problem checks in a row, and an outcome question at the end.
+export const CALIBRATION = /^auto[_ ]?cali/i;
 export class PrintWatcher {
   constructor(dbFile, dir, { printers, notifications, vision = null, shrink, orderPrints = null, library = null, now = Date.now }) {
     Object.assign(this, { dir, printers, notifications, vision, shrink, orderPrints, library, now });
@@ -64,7 +65,8 @@ export class PrintWatcher {
           this.creditFinished();
           watch = null;
         }
-        if (!watch && RUNNING.includes(raw) && job && !this.printers.calibrating?.has(serial)) watch = await this.start(serial, view, data);
+        // The printer's own calibration ("auto_cali_for_user_param.gcode"), from Spoolside or the printer, isn't a print.
+        if (!watch && RUNNING.includes(raw) && job && !CALIBRATION.test(job) && !this.printers.calibrating?.has(serial)) watch = await this.start(serial, view, data);
         // You resumed a print the watcher paused: you've judged it, so only warn from here on.
         if (watch?.alert?.paused && !watch.alert.dismissed && raw === "RUNNING") {
           this.set(watch.id, { mode: "warn", alert: { ...watch.alert, dismissed: true } });
