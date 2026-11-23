@@ -43,3 +43,11 @@ test('a hand-assembled item is a checklist line to tick off, with no Print butto
   await expect(page.getByRole('region', { name: 'Order print queue' })).not.toContainText('Replacement Parts');
   await context.close();
 });
+
+// A PlayPad has no phone: its line names the product with its colour, not just "Grey".
+test('a product without a phone is named with its colour', async () => {
+  const { itemLine } = await import('../src/OrderContents');
+  const base = { id: '1', quantity: 1, variant: 'Color: Grey', phone: '', parts: [] } as never;
+  expect(itemLine({ ...(base as object), name: 'PlayPad', colorway: 'Grey' } as never)).toBe('PlayPad · Grey');
+  expect(itemLine({ ...(base as object), name: 'PlayCase', phone: 'iPhone 13', colorway: 'Blue' } as never)).toBe('iPhone 13 · Blue');
+});
