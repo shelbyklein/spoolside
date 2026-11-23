@@ -10,6 +10,7 @@ import { PrintWatcher, claudeVision, shrinkFrame } from "./watcher.mjs";
 import { OrderPrints } from "./orderprints.mjs";
 import { Inventory } from "./inventory.mjs";
 import { Repeater } from "./repeat.mjs";
+import { Calibrator } from "./calibrate.mjs";
 import { Notes } from "./notes.mjs";
 import { ClaudeChat } from "./chat.mjs";
 import { Dispatcher, claudeBedCheck } from "./dispatch.mjs";
@@ -100,6 +101,18 @@ const repeater = new Repeater(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlit
   reference: (serial) => dispatcher.context(serial),
 });
 dispatcher.repeating = (serial) => repeater.active(serial);
+// After every 10 prints Spoolside started, a printer runs its full calibration before the next one.
+const calibrator = new Calibrator(process.env.SPOOLSIDE_DB || "/data/spoolside.sqlite", {
+  printers,
+  watcher,
+  notifications,
+  shrink: shrinkFrame,
+  bedCheck: process.env.ANTHROPIC_API_KEY ? claudeBedCheck(process.env.ANTHROPIC_API_KEY, MODELS) : null,
+  reference: (serial) => dispatcher.context(serial),
+});
+dispatcher.calibrationHeld = (serial) => calibrator.held(serial);
+repeater.held = (serial) => calibrator.held(serial);
+const calibrateTimer = setInterval(() => calibrator.tick().catch(() => {}), 30000);
 const repeatTimer = setInterval(() => repeater.tick().catch(() => {}), 20000);
 const materials = workspace ? new Materials(workspace.db) : null;
 materials?.refresh();
@@ -144,6 +157,8 @@ for (const signal of ["SIGTERM", "SIGINT"])
       clearInterval(dispatchTimer);
       clearInterval(repeatTimer);
       repeater.close();
+      clearInterval(calibrateTimer);
+      calibrator.close();
       notes.close();
       chat.close();
       backup();

@@ -80,6 +80,7 @@ export class Repeater {
       if (w.job !== r.job) return void this.disable(serial, `${view.name} printed something else (${w.job}).`, view.name);
       if (w.ended_as !== "finished" || w.outcome === "failed") return void this.disable(serial, `The last ${r.name} ${w.ended_as === "finished" ? "was marked failed" : "didn't finish"}, so it won't start again.`, view.name);
     }
+    if (this.held?.(serial)) return void (s.status = "Waiting: calibrating after 10 prints");
     if (r.times !== null && r.done >= r.times) return void this.disable(serial, `Printed ${r.name} ${r.done} more ${r.done === 1 ? "time" : "times"}.`, view.name);
     if (!this.bedCheck) return void (s.status = "Camera checks need the vision key");
     // A new finish: say once that clearing the bed starts the next one.

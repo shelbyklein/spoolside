@@ -293,6 +293,13 @@ export class Printers {
     }
   }
   // Uploads a sliced file to the printer's SD card and starts it.
+  // The printer's own calibration (see calibrate.mjs for the option bits). Only from idle.
+  async calibrate(serial, option) {
+    const { view } = this.printer(serial);
+    if (!["IDLE", "FINISH", "FAILED"].includes(view.rawState)) throw Object.assign(Error(`Printer is ${view.state.toLowerCase()}`), { status: 409 });
+    if (this.busy.has(serial)) throw Object.assign(Error("A print is being sent to this printer"), { status: 409 });
+    await this.request(serial, { command: "calibration", option });
+  }
   async startPrint(serial, { localFile, name, plate, amsMapping, useAms, bedLevelling }) {
     const { config, view } = this.printer(serial);
     if (!["IDLE", "FINISH", "FAILED"].includes(view.rawState)) throw Object.assign(Error(`Printer is ${view.state.toLowerCase()}`), { status: 409 });
