@@ -16,7 +16,8 @@ export function ItemThumb({ src, alt, size = 52 }: { src?: string; alt: string; 
 }
 
 export function itemLine(item: OrderItem) {
-  const bits = [item.phone, item.colorway].filter(Boolean);
+  // A PlayCase is named by its phone; any other product (a PlayPad) by its own name.
+  const bits = [item.phone || (/^playcase/i.test(item.name) ? "" : item.name), item.colorway].filter(Boolean);
   if (bits.length) return bits.join(" · ");
   // Items without a phone or colour (replacement parts, add-ons) are named by the product, plus any real variant.
   const variant = item.variant.replace("Sample variant · ", "");
