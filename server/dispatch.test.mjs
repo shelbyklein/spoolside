@@ -446,6 +446,10 @@ test("a print sent from an order that never starts stops holding the printer and
     assert.equal(push.title, "AMS 3 didn't start the print");
     assert.match(push.body, /#10181 was sent but never began/);
     assert.equal(s.d.view().offers.length, 1, "the printer and the order are free again");
+    // Automatic printing doesn't send it again by itself; it says why.
+    await s.d.setAuto(true); await s.d.tick();
+    assert.equal(s.started.length, 0);
+    assert.match(s.d.view().offers[0].autoBlocked, /never began/);
     // A printer that did start keeps its reservation until the watcher claims it.
     s.orderPrints.sent("P1", { orderId: "o10177", orderNumber: "#10177", assetIds: ["case"] });
     s.view.rawState = "PREPARE";

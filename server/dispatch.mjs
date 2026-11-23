@@ -154,6 +154,8 @@ export class Dispatcher {
       const view = this.printers.statuses().find((p) => p.serial === serial)?.view;
       if (!view?.connected || !IDLE.includes(view.rawState) || this.printers.busy.has(serial)) continue;
       this.orderPrints.cancel(serial);
+      // Don't send it again by itself: something at the printer needs a look first.
+      (this.unstarted ??= new Map()).set(serial, this.now());
       this.notifications?.broadcast({ id: `unstarted:${serial}:${tag.at}`, title: `${view.name} didn't start the print`, body: `The print for ${tag.orderNumber} was sent but never began. Check ${view.name}'s screen and loaded filament; the order is back in the queue.`, url: "/" });
     }
   }
@@ -310,6 +312,7 @@ export class Dispatcher {
     if (last && this.now() - last.at < RETRY) return false;
     const block = (reason) => { this.tried.set(offer.id, { at: this.now(), reason }); offer.autoBlocked = reason; return false; };
     if (!this.bedCheck) return block("Camera checks need the vision key");
+    if (this.unstarted?.has(serial)) return block(`The last print sent to ${offer.printerName} never began. Check its screen, then start this one yourself.`);
     let bed;
     if (this.confirmedByYou(serial, this.watcher.lastFor(serial))) bed = { empty: true, reason: "You confirmed the bed is clear." };
     else try {
@@ -330,6 +333,7 @@ export class Dispatcher {
     return true;
   }
   async start(offer) {
+    this.unstarted?.delete(offer.printer);
     const file = this.library.get(offer.fileId);
     if (!file) throw Error("Sliced print missing");
     const covered = new Set((file.plates.find((p) => p.index === offer.plate)?.coverage || []).map((c) => c.assetId));
