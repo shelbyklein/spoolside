@@ -289,3 +289,15 @@ test("a print that pauses itself says why, once, and not when Spoolside paused i
     s.done();
   }
 });
+
+test("the printer's calibration run is never watched or asked about", async () => {
+  const s = setup();
+  try {
+    s.state.job = "auto_cali_for_user_param.gcode";
+    await s.later(1000);
+    s.state.raw = "FINISH";
+    await s.later(1000);
+    assert.equal(s.watcher.lastFor("P1"), null);
+    assert.equal(s.pushes.length, 0);
+  } finally { s.done(); }
+});
