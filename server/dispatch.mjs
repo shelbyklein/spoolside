@@ -117,7 +117,7 @@ export class Dispatcher {
         const last = this.watcher.lastFor(serial);
         const cleared = !last || !!last.ended;
         // A printer repeating its own print isn't offered order pieces.
-        const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial) && !this.repeating?.(serial);
+        const free = view.connected && IDLE.includes(view.rawState) && cleared && !this.printers.busy.has(serial) && !this.orderPrints.pending.has(serial) && !this.repeating?.(serial) && !this.calibrationHeld?.(serial);
         let offer = free ? this.candidate(view, taken) : null;
         // Before offering, look at the bed: an empty result holds until the next print; anything else is
         // checked again every few minutes.

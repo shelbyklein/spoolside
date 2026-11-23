@@ -64,7 +64,7 @@ export class PrintWatcher {
           this.creditFinished();
           watch = null;
         }
-        if (!watch && RUNNING.includes(raw) && job) watch = await this.start(serial, view, data);
+        if (!watch && RUNNING.includes(raw) && job && !this.printers.calibrating?.has(serial)) watch = await this.start(serial, view, data);
         // You resumed a print the watcher paused: you've judged it, so only warn from here on.
         if (watch?.alert?.paused && !watch.alert.dismissed && raw === "RUNNING") {
           this.set(watch.id, { mode: "warn", alert: { ...watch.alert, dismissed: true } });
