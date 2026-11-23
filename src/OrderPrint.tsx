@@ -226,7 +226,7 @@ export function OfferCards({ offers, held = [], onPrint, onDismiss, onTeach, onR
       {offers.map((o) => (
         <NeedRow key={o.id} tone="ok" label={`${o.printerName} is free`} title={`${o.printerName} is free`} media={<NeedIcon tone="ok"><Printer size={18} /></NeedIcon>}
           actions={<><button className="secondary" onClick={() => onDismiss(o)}>Not now</button><button className="primary" onClick={() => onPrint(o)}><Play size={14} /> Print…</button></>}>
-          Print the <b>{o.pieceName}</b> for {o.orderNumber}{o.colorway ? ` · ${o.colorway}` : ""} · {o.slot === 254 ? "external spool" : `slot ${o.slot + 1}`}
+          Print the <b>{o.pieceName}</b> for {o.orderNumber}{o.colorway ? ` · ${o.colorway},` : " ·"} {o.slot === 254 ? "external spool" : `slot ${o.slot + 1}`}
           {o.autoBlocked && <span className="need-note">Didn't start automatically: {o.autoBlocked}</span>}
         </NeedRow>
       ))}
